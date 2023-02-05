@@ -93,6 +93,8 @@ defmodule Ecspanse.Command do
   TODO
   """
   @spec spawn_entities!(list(Entity.entity_spec())) :: list(Entity.t())
+  def spawn_entities!([]), do: []
+
   def spawn_entities!(list) do
     operation = build_operation(:spawn_entities)
     command = apply_operation(operation, %Command{}, list)
@@ -110,6 +112,8 @@ defmodule Ecspanse.Command do
   in a sync system (frame_start or frame_end system) to avoid the need to lock all involved components
   """
   @spec despawn_entities!(list(Entity.t())) :: :ok
+  def despawn_entities!([]), do: :ok
+
   def despawn_entities!(list) do
     operation = build_operation(:despawn_entities)
     command = apply_operation(operation, %Command{}, list)
@@ -123,6 +127,8 @@ defmodule Ecspanse.Command do
   Inserting components of a type that already exists will raise an error.
   """
   @spec add_components!(list({Entity.t(), list(Component.component_spec())})) :: :ok
+  def add_components!([]), do: :ok
+
   def add_components!(list) do
     operation = build_operation(:add_components)
     command = apply_operation(operation, %Command{}, list)
@@ -134,6 +140,8 @@ defmodule Ecspanse.Command do
   TODO
   """
   @spec update_components!(list({current_component :: struct(), state_changes :: map()})) :: :ok
+  def update_components!([]), do: :ok
+
   def update_components!(list) do
     operation = build_operation(:update_components)
     command = apply_operation(operation, %Command{}, list)
@@ -146,9 +154,10 @@ defmodule Ecspanse.Command do
   TODO
   """
   @spec remove_components!(list(component :: struct())) :: :ok
+  def remove_components!([]), do: :ok
+
   def remove_components!(components) do
     operation = build_operation(:remove_components)
-    :ok = validate_payload(operation, components)
     command = apply_operation(operation, %Command{}, components)
     commit(command)
     command.return_result
@@ -158,6 +167,8 @@ defmodule Ecspanse.Command do
   TODO
   """
   @spec add_children!(list({Entity.t(), children :: list(Entity.t())})) :: :ok
+  def add_children!([]), do: :ok
+
   def add_children!(list) do
     operation = build_operation(:add_children)
     command = apply_operation(operation, %Command{}, list)
@@ -169,6 +180,8 @@ defmodule Ecspanse.Command do
   TODO
   """
   @spec add_parents!(list({Entity.t(), parents :: list(Entity.t())})) :: :ok
+  def add_parents!([]), do: :ok
+
   def add_parents!(list) do
     operation = build_operation(:add_parents)
     command = apply_operation(operation, %Command{}, list)
@@ -180,6 +193,8 @@ defmodule Ecspanse.Command do
   TODO
   """
   @spec remove_children!(list({Entity.t(), children :: list(Entity.t())})) :: :ok
+  def remove_children!([]), do: :ok
+
   def remove_children!(list) do
     operation = build_operation(:remove_children)
     command = apply_operation(operation, %Command{}, list)
@@ -191,6 +206,8 @@ defmodule Ecspanse.Command do
   TODO
   """
   @spec remove_parents!(list({Entity.t(), parents :: list(Entity.t())})) :: :ok
+  def remove_parents!([]), do: :ok
+
   def remove_parents!(list) do
     operation = build_operation(:remove_parents)
     command = apply_operation(operation, %Command{}, list)
