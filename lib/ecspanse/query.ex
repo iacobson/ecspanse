@@ -390,6 +390,7 @@ defmodule Ecspanse.Query do
       max_concurrency: length(entity_ids) + 1
     )
     |> Stream.map(fn {:ok, result} -> result end)
+    |> Stream.reject(fn return_tuple -> Enum.any?(:reject in Tuple.to_list(return_tuple)) end)
   end
 
   # if the entity is part of the query, return the entity
@@ -404,8 +405,12 @@ defmodule Ecspanse.Query do
   # add mandatory components to the select tuple
   defp add_select_components(select_tuple, comp_modules, entity_id, components_state_ets_name) do
     Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
-      [{_key, comp_state}] = :ets.lookup(components_state_ets_name, {entity_id, comp_module})
-      Tuple.append(acc, comp_state)
+      case :ets.lookup(components_state_ets_name, {entity_id, comp_module}) do
+        [{_key, comp_state}] -> Tuple.append(acc, comp_state)
+        # checking for race conditions when a required component is removed during the query
+        # the whole entity should be filtered out
+        [] -> Tuple.append(acc, :reject)
+      end
     end)
   end
 
@@ -418,11 +423,8 @@ defmodule Ecspanse.Query do
        ) do
     Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
       case :ets.lookup(components_state_ets_name, {entity_id, comp_module}) do
-        [{_key, comp_state}] ->
-          Tuple.append(acc, comp_state)
-
-        [] ->
-          Tuple.append(acc, nil)
+        [{_key, comp_state}] -> Tuple.append(acc, comp_state)
+        [] -> Tuple.append(acc, nil)
       end
     end)
   end
