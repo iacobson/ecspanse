@@ -18,11 +18,12 @@ defmodule Ecspanse.Query do
               with_components: list(component_module :: module()),
               without_components: list(component_module :: module())
             ),
-          for_entities: list(Ecspanse.Entity.t())
+          for_entities: list(Ecspanse.Entity.t()),
+          not_for_entities: list(Ecspanse.Entity.t())
         }
 
   @enforce_keys [:select]
-  defstruct [:return_entity, :select, :select_optional, :or, :for_entities]
+  defstruct [:return_entity, :select, :select_optional, :or, :for_entities, :not_for_entities]
 
   defmodule Error do
     @moduledoc false
@@ -108,6 +109,7 @@ defmodule Ecspanse.Query do
       )
 
     for_entities = Keyword.get(filters, :for, []) |> Enum.uniq()
+    not_for_entities = Keyword.get(filters, :not_for, []) |> Enum.uniq()
 
     :ok = validate_entities(for_entities)
 
@@ -116,7 +118,8 @@ defmodule Ecspanse.Query do
       select: select_comp,
       select_optional: select_opt_comp,
       or: or_component_filters,
-      for_entities: for_entities
+      for_entities: for_entities,
+      not_for_entities: not_for_entities
     }
   end
 
@@ -134,7 +137,10 @@ defmodule Ecspanse.Query do
       Process.get(:components_state_ets_name) ||
         Ecspanse.Util.decode_token(token).components_state_ets_name
 
-    entities_with_components_stream = filter_by_entities(query.for_entities, table)
+    entities_with_components_stream =
+      table
+      |> filter_for_entities(query.for_entities)
+      |> filter_not_for_entities(query.not_for_entities)
 
     # filters by with/without components. Returns the entity ids
     entity_ids = filter_by_components(query.or, entities_with_components_stream, [])
@@ -319,16 +325,25 @@ defmodule Ecspanse.Query do
     ])
   end
 
-  defp filter_by_entities([], table) do
+  defp filter_for_entities(table, []) do
     Ecspanse.Util.list_entities_components(table)
     |> Stream.map(fn {k, v} -> {k, v} end)
   end
 
-  defp filter_by_entities(entities, table) do
+  defp filter_for_entities(table, entities) do
     entity_ids = Enum.map(entities, & &1.id)
 
     Ecspanse.Util.list_entities_components(table)
     |> Stream.filter(fn {entity_id, _component_modules} -> entity_id in entity_ids end)
+  end
+
+  defp filter_not_for_entities(stream, []), do: stream
+
+  defp filter_not_for_entities(stream, entities) do
+    entity_ids = Enum.map(entities, & &1.id)
+
+    stream
+    |> Stream.reject(fn {entity_id, _component_modules} -> entity_id in entity_ids end)
   end
 
   defp filter_by_components([], _entities_with_components_stream, entity_ids) do
