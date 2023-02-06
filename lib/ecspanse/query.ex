@@ -390,7 +390,9 @@ defmodule Ecspanse.Query do
       max_concurrency: length(entity_ids) + 1
     )
     |> Stream.map(fn {:ok, result} -> result end)
-    |> Stream.reject(fn return_tuple -> Enum.any?(:reject in Tuple.to_list(return_tuple)) end)
+    |> Stream.reject(fn return_tuple ->
+      :reject in Tuple.to_list(return_tuple)
+    end)
   end
 
   # if the entity is part of the query, return the entity
