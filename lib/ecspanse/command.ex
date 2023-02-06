@@ -1320,9 +1320,11 @@ defmodule Ecspanse.Command do
         if component_modules -- existing_components == component_modules do
           :ok
         else
+          duplicates = component_modules -- component_modules -- existing_components
+
           raise Error,
                 {operation,
-                 "Components #{inspect(component_modules -- existing_components)} already exist for the entity #{inspect(entity_id)}"}
+                 "Components #{inspect(duplicates)} already exist for the entity #{inspect(entity_id)}"}
         end
     end
   end
