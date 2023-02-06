@@ -14,7 +14,7 @@ defmodule Ecspanse.Event do
 
   All events need to be defined with `use Ecspanse.Event`.
 
-  A `inserted_at` field with the System time in milliseconds of the creation is added to all events automatically.
+  A `inserted_at` field with the System time of the creation is added to all events automatically.
 
   TODO: document the special type of events creted by entity updates, creation and deletion
 
@@ -28,6 +28,10 @@ defmodule Ecspanse.Event do
   Enum.filter(events, & fn %event_module{}  -> event_module == MyEvent end)
   ```
   """
+
+  @type event_spec ::
+          (event_module :: module())
+          | {event_module :: module(), event_fields :: keyword()}
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
