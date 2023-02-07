@@ -139,7 +139,8 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
-  @spec update_components!(list({current_component :: struct(), state_changes :: map()})) :: :ok
+  @spec update_components!(list({current_component :: struct(), state_changes :: keyword()})) ::
+          :ok
   def update_components!([]), do: :ok
 
   def update_components!(list) do
@@ -529,7 +530,7 @@ defmodule Ecspanse.Command do
     }
   end
 
-  # Receives a list of updates: [ {%Component{}, state_changes :: map()}]
+  # Receives a list of updates: [ {%Component{}, state_changes :: keyword()}]
   defp apply_operation(
          %Operation{name: :update_components} = operation,
          command,
@@ -570,7 +571,7 @@ defmodule Ecspanse.Command do
 
     components =
       for {component, state_changes} <- updates do
-        state_changes = Map.delete(state_changes, :__meta__)
+        state_changes = Keyword.delete(state_changes, :__meta__)
         new_component_state = struct(component, state_changes)
         :ok = validate_component_state(operation, new_component_state)
 
