@@ -383,8 +383,8 @@ defmodule Ecspanse.World do
         write_concurrency: false
       ])
 
-    # This ETS table stores Events as a list of event structs wraped in a tuple {%MyEvent{}}. The tuple is required by ETS.
-    # It allows to store multiple indentical events
+    # This ETS table stores Events as a list of event structs wraped in a tuple {{MyEventModule, key :: any()}, %MyEvent{}}.
+    # Unique every frame by {MyEventModule, key}
     # Every frame, the objects in this table are deleted.
     # Any process can read and write to this table.
     # But the logic responsible to write to this table should check the stored values are actually event structs.
@@ -392,7 +392,7 @@ defmodule Ecspanse.World do
 
     events_ets_name =
       :ets.new(String.to_atom("events:#{data.id}"), [
-        :duplicate_bag,
+        :set,
         :public,
         :named_table,
         read_concurrency: true,
@@ -490,7 +490,7 @@ defmodule Ecspanse.World do
     # Get all events from the ETS table as a list of event structs
     f =
       Ex2ms.fun do
-        {k} -> k
+        {k, v} -> v
       end
 
     # inserted_at is the System time in milliseconds when the event was created

@@ -1581,13 +1581,11 @@ defmodule Ecspanse.Command do
   defp component_created_events(components) do
     components
     |> Enum.map(fn {_key, component} ->
-      event =
-        struct!(Event.ComponentCreated, %{
-          created: component,
-          inserted_at: System.os_time(:millisecond)
-        })
-
-      {event}
+      {{Event.ComponentCreated, UUID.uuid4()},
+       struct!(Event.ComponentCreated, %{
+         created: component,
+         inserted_at: System.os_time()
+       })}
     end)
     |> add_events()
   end
@@ -1600,14 +1598,12 @@ defmodule Ecspanse.Command do
       [{_key, initial}] =
         :ets.lookup(table, {component.__meta__.entity.id, component.__meta__.module})
 
-      event =
-        struct!(Event.ComponentUpdated, %{
-          initial: initial,
-          final: component,
-          inserted_at: System.os_time(:millisecond)
-        })
-
-      {event}
+      {{Event.ComponentUpdated, UUID.uuid4()},
+       struct!(Event.ComponentUpdated, %{
+         initial: initial,
+         final: component,
+         inserted_at: System.os_time()
+       })}
     end)
     |> add_events()
   end
@@ -1615,13 +1611,11 @@ defmodule Ecspanse.Command do
   defp component_deleted_events(components) do
     components
     |> Enum.map(fn {_key, component} ->
-      event =
-        struct!(Event.ComponentDeleted, %{
-          deleted: component,
-          inserted_at: System.os_time(:millisecond)
-        })
-
-      {event}
+      {{Event.ComponentDeleted, UUID.uuid4()},
+       struct!(Event.ComponentDeleted, %{
+         deleted: component,
+         inserted_at: System.os_time()
+       })}
     end)
     |> add_events()
   end

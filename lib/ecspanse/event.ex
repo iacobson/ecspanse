@@ -29,9 +29,19 @@ defmodule Ecspanse.Event do
   ```
   """
 
+  # TODO: explain why a key is needed.
+  # Explain that each frame only one {Module, key} event is accepted. Creating new ones will
+  # overwrite the previous one.
+
+  # Special events like Components CRUD are creaded with a random key, to relect all changes
+  # of the component in the current frame.
+
+  # in most of the cases, the key may be some user ID, and the user will not be allowed to
+  # create more than one of that event per frame.
+
   @type event_spec ::
-          (event_module :: module())
-          | {event_module :: module(), event_fields :: keyword()}
+          {event_module :: module(), key :: any()}
+          | {event_module :: module(), key :: any(), event_fields :: keyword()}
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do

@@ -104,22 +104,23 @@ defmodule Ecspanse do
   """
   @spec event(token :: binary(), Ecspanse.Event.event_spec()) :: :ok
   def event(token, event_spec) do
-    {event_module, event_payload} =
+    {event_module, key, event_payload} =
       case event_spec do
-        {event_module, event_payload} when is_atom(event_module) and is_list(event_payload) ->
+        {event_module, key, event_payload}
+        when is_atom(event_module) and is_list(event_payload) ->
           validate_event(event_module)
-          {event_module, event_payload}
+          {event_module, key, event_payload}
 
-        event_module when is_atom(event_module) ->
+        {event_module, key} when is_atom(event_module) ->
           validate_event(event_module)
-          {event_module, []}
+          {event_module, key, []}
       end
 
     event_payload = event_payload |> Keyword.put(:inserted_at, System.os_time())
-    event = struct!(event_module, event_payload)
+    event = {{event_module, key}, struct!(event_module, event_payload)}
 
     %{events_ets_name: events_ets_name} = Ecspanse.Util.decode_token(token)
-    :ets.insert(events_ets_name, {event})
+    :ets.insert(events_ets_name, event)
   end
 
   defp validate_event(event_module) do
