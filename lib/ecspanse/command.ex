@@ -230,9 +230,9 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
-  @spec update_resource!(resource :: struct(), state_changes :: map()) ::
+  @spec update_resource!({resource :: struct(), state_changes :: keyword()}) ::
           updated_resource :: struct()
-  def update_resource!(resource, state_changes) do
+  def update_resource!({resource, state_changes}) do
     operation = build_operation(:update_resource)
     :ok = validate_payload(operation, {resource, state_changes})
     command = apply_operation(operation, %Command{}, {resource, state_changes})
@@ -290,7 +290,7 @@ defmodule Ecspanse.Command do
       )
 
   defp validate_payload(%Operation{name: :update_resource}, {resource, state_changes})
-       when is_struct(resource) and is_map(state_changes),
+       when is_struct(resource) and is_list(state_changes),
        do: :ok
 
   defp validate_payload(%Operation{name: :update_resource} = operation, value),
@@ -298,7 +298,7 @@ defmodule Ecspanse.Command do
       raise(
         Error,
         {operation,
-         "Expected a resource state struct and `map()` type args, got: `#{inspect(value)}`"}
+         "Expected a resource state `struct()` and `keyword()` type args, got: `#{inspect(value)}`"}
       )
 
   defp validate_payload(%Operation{name: :delete_resource}, resource)
@@ -786,13 +786,13 @@ defmodule Ecspanse.Command do
     :ok = validate_resource_exists(operation, resource_state)
     :ok = validate_resource_writable(operation, resource_state)
 
-    state_changes = Map.delete(state_changes, :__meta__)
+    state_changes = Keyword.delete(state_changes, :__meta__)
 
     state =
       resource_state
       |> Map.from_struct()
-      |> Map.merge(state_changes)
       |> Map.to_list()
+      |> Keyword.merge(state_changes)
 
     resource_state = upsert_resource(operation, {resource_module, state})
 
