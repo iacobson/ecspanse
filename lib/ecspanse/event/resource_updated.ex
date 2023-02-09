@@ -4,10 +4,9 @@ defmodule Ecspanse.Event.ResourceUpdated do
   Special framework event triggered when a new resource is updated.
   Contains the resource state struct before and after the update.
   """
-  use Ecspanse.Event, fields: [:initial, :final]
+  use Ecspanse.Event, fields: [:updated]
 
   @type t :: %__MODULE__{
-          initial: resource :: struct(),
-          final: resource :: struct()
+          updated: resource :: struct(),
         }
 end

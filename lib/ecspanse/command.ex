@@ -1592,17 +1592,11 @@ defmodule Ecspanse.Command do
   end
 
   defp component_updated_events(components) do
-    table = Process.get(:components_state_ets_name)
-
     components
     |> Enum.map(fn {_key, component} ->
-      [{_key, initial}] =
-        :ets.lookup(table, {component.__meta__.entity.id, component.__meta__.module})
-
       {{Event.ComponentUpdated, UUID.uuid4()},
        struct!(Event.ComponentUpdated, %{
-         initial: initial,
-         final: component,
+         updated: component,
          inserted_at: System.os_time()
        })}
     end)
@@ -1632,13 +1626,9 @@ defmodule Ecspanse.Command do
   end
 
   defp resource_updated_event(resource) do
-    table = Process.get(:resources_state_ets_name)
-    [{_key, initial}] = :ets.lookup(table, resource.__meta__.module)
-
     event =
       struct!(Event.ResourceUpdated, %{
-        initial: initial,
-        final: resource,
+        updated: resource,
         inserted_at: System.os_time(:millisecond)
       })
 
