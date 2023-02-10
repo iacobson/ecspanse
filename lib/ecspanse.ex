@@ -102,8 +102,8 @@ defmodule Ecspanse do
   Adds an event to the world.
   TODO
   """
-  @spec event(token :: binary(), Ecspanse.Event.event_spec()) :: :ok
-  def event(token, event_spec) do
+  @spec event(Ecspanse.Event.event_spec(), token :: binary()) :: :ok
+  def event(event_spec, token) do
     {event_module, key, event_payload} =
       case event_spec do
         {event_module, key, event_payload}

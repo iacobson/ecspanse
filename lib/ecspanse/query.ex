@@ -362,9 +362,12 @@ defmodule Ecspanse.Query do
           without_components -- component_modules == without_components
       end)
       |> Stream.map(fn {entity_id, _component_modules} -> entity_id end)
-      |> Enum.to_list()
 
-    filter_by_components(rest, entities_with_components_stream, entity_ids ++ new_entity_ids)
+    filter_by_components(
+      rest,
+      entities_with_components_stream,
+      Stream.concat(entity_ids, new_entity_ids)
+    )
   end
 
   defp map_components(
