@@ -689,6 +689,7 @@ defmodule Ecspanse.World do
   # This happens in the System process
   defp prepare_system_process(state, system) do
     Process.put(:ecs_process_type, :system)
+    Process.put(:token, state.token)
     Process.put(:system_execution, system.execution)
     Process.put(:system_module, system.module)
     Process.put(:locked_components, system.module.__locked_components__())

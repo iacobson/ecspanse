@@ -19,6 +19,7 @@ defmodule Ecspanse.System do
 
   # The System process stores several keys to be used by the Commands and Queries.
   # - ecs_process_type (:system)
+  # - token
   # - system_execution :sync | :async
   # - locked_components
   # - system_module

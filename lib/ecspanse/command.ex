@@ -19,6 +19,7 @@ defmodule Ecspanse.Command do
   alias Ecspanse.Component
   alias Ecspanse.Entity
   alias Ecspanse.Event
+  alias Ecspanse.Query
   alias Ecspanse.Resource
 
   defmodule Operation do
@@ -27,6 +28,7 @@ defmodule Ecspanse.Command do
     @type t :: %__MODULE__{
             name: name(),
             system: module(),
+            token: binary(),
             entities_components:
               list(%{(entity_id :: binary()) => list(component_module :: module())}),
             components_state_ets_name: binary(),
@@ -40,6 +42,7 @@ defmodule Ecspanse.Command do
             :run
             | :spawn_entities
             | :despawn_entities
+            | :despawn_entities_and_children
             | :add_components
             | :remove_components
             | :update_components
@@ -53,6 +56,7 @@ defmodule Ecspanse.Command do
 
     defstruct name: nil,
               system: nil,
+              token: nil,
               entities_components: %{},
               components_state_ets_name: nil,
               resources_state_ets_name: nil,
@@ -119,6 +123,23 @@ defmodule Ecspanse.Command do
     command = apply_operation(operation, %Command{}, list)
     commit(command)
     command.return_result
+  end
+
+  @doc """
+  The same as `despawn_entities!/1` but recursively despawns also all children of the entities.
+  Meaning it will despawn the children and theri children and so on.
+  """
+  @spec despawn_entities_and_children!(list(Entity.t())) :: :ok
+  def despawn_entities_and_children!([]), do: :ok
+
+  def despawn_entities_and_children!(entities_list) do
+    operation = build_operation(:despawn_entities_and_children)
+    recursive_children_list = recursive_children_entities(operation, entities_list, [])
+
+    (entities_list ++ recursive_children_list)
+    |> List.flatten()
+    |> Enum.uniq()
+    |> despawn_entities!()
   end
 
   @doc """
@@ -262,6 +283,7 @@ defmodule Ecspanse.Command do
     %Operation{
       name: operation_name,
       system: Process.get(:system_module),
+      token: Process.get(:token),
       entities_components: entities_components,
       components_state_ets_name: components_state_ets_name,
       resources_state_ets_name: Process.get(:resources_state_ets_name),
@@ -1257,7 +1279,10 @@ defmodule Ecspanse.Command do
         # limit to 1. We don't care about the result, just if it exists
         :ets.select(table, f, 1)
       end)
-      |> Stream.map(fn {id_list, _} -> id_list end)
+      |> Stream.map(fn
+        {id_list, _} -> id_list
+        :"$end_of_table" -> []
+      end)
       |> Enum.concat()
 
     case entity_ids -- result do
@@ -1646,6 +1671,23 @@ defmodule Ecspanse.Command do
               {operation,
                "An entity has more than one entity_type component: #{inspect(list)}. All entities may have only one component with `access_mode: :entity_type`"}
     end
+  end
+
+  defp recursive_children_entities(_operation, [], acc) do
+    acc
+  end
+
+  defp recursive_children_entities(operation, entities, acc) do
+    children =
+      Query.select({Component.Children}, for: entities)
+      |> Query.stream(operation.token)
+      |> Stream.map(fn {%Component.Children{list: children}} -> children end)
+      |> Enum.concat()
+
+    # avoid circular dependencies
+    children = children -- acc
+
+    recursive_children_entities(operation, children, acc ++ children)
   end
 
   ### Special Events
