@@ -470,20 +470,27 @@ defmodule Ecspanse.Command do
     children_and_parents_components =
       Task.async(fn ->
         for entity <- entities do
-          [{{_id, Component.Children}, %Component.Children{list: children_entities}}] =
-            :ets.lookup(table, {entity.id, Component.Children})
+          # it is possible that the children component was already removed
+          case :ets.lookup(table, {entity.id, Component.Children}) do
+            [{{_id, Component.Children}, %Component.Children{list: children_entities}}] ->
+              remove_children_and_parents(operation, entity, children_entities)
 
-          remove_children_and_parents(operation, entity, children_entities)
+            _ ->
+              []
+          end
         end
       end)
 
     parents_and_children_components =
       Task.async(fn ->
         for entity <- entities do
-          [{{_id, Component.Parents}, %Component.Parents{list: parents_entities}}] =
-            :ets.lookup(table, {entity.id, Component.Parents})
+          case :ets.lookup(table, {entity.id, Component.Parents}) do
+            [{{_id, Component.Parents}, %Component.Parents{list: parents_entities}}] ->
+              remove_parents_and_children(operation, entity, parents_entities)
 
-          remove_parents_and_children(operation, entity, parents_entities)
+            _ ->
+              []
+          end
         end
       end)
 
