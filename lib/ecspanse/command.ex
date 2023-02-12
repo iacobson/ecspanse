@@ -415,22 +415,28 @@ defmodule Ecspanse.Command do
 
     Task.await_many([v1, v2, v3])
 
-    components =
+    components = Task.await(custom_components)
+
+    ungrouped_relations =
       List.flatten(
-        Task.await(custom_components) ++
-          Task.await(children_and_parents_components) ++
+        Task.await(children_and_parents_components) ++
           Task.await(parents_and_children_components)
       )
+
+    relations = group_added_relations(operation, ungrouped_relations)
+
+    # Relation components are always updated, not inserted
 
     %{
       command
       | return_result: Enum.map(entity_spec_list, fn %{entity: entity} -> entity end),
-        insert_components: components
+        insert_components: List.flatten(components),
+        update_components: relations
     }
   end
 
   defp apply_operation(
-         %Operation{name: :despawn_entity} = operation,
+         %Operation{name: :despawn_entities} = operation,
          command,
          entities
        ) do
@@ -442,16 +448,20 @@ defmodule Ecspanse.Command do
     children_and_parents_components =
       Task.async(fn ->
         for entity <- entities do
-          children = :ets.lookup(table, {entity.id, Component.Children})
-          remove_children_and_parents(operation, entity, children)
+          [{{_id, Component.Children}, %Component.Children{list: children_entities}}] =
+            :ets.lookup(table, {entity.id, Component.Children})
+
+          remove_children_and_parents(operation, entity, children_entities)
         end
       end)
 
     parents_and_children_components =
       Task.async(fn ->
         for entity <- entities do
-          parents = :ets.lookup(table, {entity.id, Component.Parents})
-          remove_parents_and_children(operation, entity, parents)
+          [{{_id, Component.Parents}, %Component.Parents{list: parents_entities}}] =
+            :ets.lookup(table, {entity.id, Component.Parents})
+
+          remove_parents_and_children(operation, entity, parents_entities)
         end
       end)
 
@@ -469,15 +479,19 @@ defmodule Ecspanse.Command do
         delete_components(operation, deleted_components_state)
       end
 
-    updated_components =
+    # It is possible that more relations for the same entity are updated in the same command.
+    # If there are more, they need to be grouped, leaving only the relations that are not deleted
+    ungrouped_relations =
       List.flatten(
         Task.await(children_and_parents_components) ++ Task.await(parents_and_children_components)
       )
 
+    relations = group_removed_relations(operation, ungrouped_relations)
+
     %{
       command
       | return_result: :ok,
-        update_components: updated_components,
+        update_components: relations,
         delete_components: List.flatten(deleted_components)
     }
   end
@@ -634,10 +648,12 @@ defmodule Ecspanse.Command do
 
     Task.await(v1)
 
+    relations = group_added_relations(operation, List.flatten(children_and_parents_components))
+
     %{
       command
       | return_result: :ok,
-        update_components: List.flatten(children_and_parents_components)
+        update_components: relations
     }
   end
 
@@ -672,10 +688,12 @@ defmodule Ecspanse.Command do
 
     Task.await(v1)
 
+    relations = group_added_relations(operation, List.flatten(parents_and_children_components))
+
     %{
       command
       | return_result: :ok,
-        update_components: List.flatten(parents_and_children_components)
+        update_components: relations
     }
   end
 
@@ -714,11 +732,12 @@ defmodule Ecspanse.Command do
       end
 
     Task.await_many([v1, v2])
+    relations = group_removed_relations(operation, List.flatten(children_and_parents_components))
 
     %{
       command
       | return_result: :ok,
-        update_components: List.flatten(children_and_parents_components)
+        update_components: relations
     }
   end
 
@@ -757,11 +776,12 @@ defmodule Ecspanse.Command do
       end
 
     Task.await_many([v1, v2])
+    relations = group_removed_relations(operation, List.flatten(parents_and_children_components))
 
     %{
       command
       | return_result: :ok,
-        update_components: List.flatten(parents_and_children_components)
+        update_components: relations
     }
   end
 
@@ -938,7 +958,7 @@ defmodule Ecspanse.Command do
     entity_children = upsert_children_for(operation, entity, entity_type, children)
 
     entities_parents =
-      Stream.map(children, fn child_entity ->
+      Enum.map(children, fn child_entity ->
         # We need the entity_type_component_module of the child entity
         entity_type_component_module =
           get_entity_type_component_module_for_entity(operation, child_entity)
@@ -947,7 +967,6 @@ defmodule Ecspanse.Command do
           entity
         ])
       end)
-      |> Enum.to_list()
 
     [entity_children | entities_parents]
   end
@@ -964,7 +983,7 @@ defmodule Ecspanse.Command do
     entity_parents = upsert_parents_for(operation, entity, entity_type, parents)
 
     entities_children =
-      Stream.map(parents, fn parent_entity ->
+      Enum.map(parents, fn parent_entity ->
         # We need the entity_type_component_module of the parent entity
         entity_type_component_module =
           get_entity_type_component_module_for_entity(operation, parent_entity)
@@ -973,7 +992,6 @@ defmodule Ecspanse.Command do
           entity
         ])
       end)
-      |> Enum.to_list()
 
     [entity_parents | entities_children]
   end
@@ -1035,7 +1053,7 @@ defmodule Ecspanse.Command do
       end
 
     entities_parents =
-      Stream.map(children, fn child_entity ->
+      Enum.map(children, fn child_entity ->
         # We need the entity_type_component_module of the child entity
         entity_type_component_module =
           get_entity_type_component_module_for_entity(operation, child_entity)
@@ -1072,7 +1090,7 @@ defmodule Ecspanse.Command do
           upsert_component(
             operation,
             entity,
-            {Component.Parents, %{list: existing_parents -- parents}},
+            {Component.Parents, [list: existing_parents -- parents]},
             entity_type
           )
 
@@ -1081,7 +1099,7 @@ defmodule Ecspanse.Command do
       end
 
     entities_children =
-      Stream.map(parents, fn parent_entity ->
+      Enum.map(parents, fn parent_entity ->
         # We need the entity_type_component_module of the parent entity
         entity_type_component_module =
           get_entity_type_component_module_for_entity(operation, parent_entity)
@@ -1091,7 +1109,7 @@ defmodule Ecspanse.Command do
             upsert_component(
               operation,
               parent_entity,
-              {Component.Children, %{list: existing_children -- [entity]}},
+              {Component.Children, [list: existing_children -- [entity]]},
               entity_type_component_module
             )
 
@@ -1101,6 +1119,59 @@ defmodule Ecspanse.Command do
       end)
 
     [entity_parents | entities_children] |> Enum.reject(&is_nil/1)
+  end
+
+  # Grouping relations
+
+  # It is possible that more relations for the same entity are updated in the same command.
+  # If there are more, they need to be grouped
+  defp group_added_relations(operation, relations) do
+    relations
+    |> Enum.group_by(fn {k, _v} -> k end, fn {_k, v} -> v end)
+    |> Enum.map(fn
+      {k, [v]} ->
+        {k, v}
+
+      {{entity_id, module}, values} ->
+        list = Enum.map(values, fn value -> value.list end) |> List.flatten() |> Enum.uniq()
+        entity = Entity.build(entity_id)
+        entity_type = get_entity_type_component_module_for_entity(operation, entity)
+
+        upsert_component(operation, entity, {module, list: list}, entity_type)
+    end)
+  end
+
+  defp group_removed_relations(operation, relations) do
+    relations
+    |> Enum.group_by(fn {k, _v} -> k end, fn {_k, v} -> v end)
+    |> Enum.map(fn
+      {k, [v]} ->
+        {k, v}
+
+      {{entity_id, module}, values} ->
+        list =
+          Enum.map(values, fn value -> value.list end)
+          |> List.flatten()
+          |> Enum.uniq()
+          |> select_entities_present_in_all_relations(values)
+
+        entity = Entity.build(entity_id)
+        entity_type = get_entity_type_component_module_for_entity(operation, entity)
+
+        upsert_component(operation, entity, {module, list: list}, entity_type)
+    end)
+  end
+
+  defp select_entities_present_in_all_relations(entity_list, relations) do
+    Enum.filter(
+      entity_list,
+      fn entity ->
+        Enum.all?(
+          relations,
+          fn r -> entity in r.list end
+        )
+      end
+    )
   end
 
   # Component CRUD Validations

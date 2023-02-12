@@ -7,6 +7,6 @@ defmodule Ecspanse.Event.ResourceUpdated do
   use Ecspanse.Event, fields: [:updated]
 
   @type t :: %__MODULE__{
-          updated: resource :: struct(),
+          updated: resource :: struct()
         }
 end
