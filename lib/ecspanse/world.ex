@@ -248,11 +248,11 @@ defmodule Ecspanse.World do
 
     @type t :: %__MODULE__{
             token: binary(),
-            event_stream: list(Ecspanse.Event.t()),
+            event_batches: list(list(Ecspanse.Event.t())),
             delta: non_neg_integer()
           }
 
-    defstruct token: nil, event_stream: [], delta: 0
+    defstruct token: nil, event_batches: [], delta: 0
   end
 
   defmodule State do
@@ -384,15 +384,15 @@ defmodule Ecspanse.World do
       ])
 
     # This ETS table stores Events as a list of event structs wraped in a tuple {{MyEventModule, key :: any()}, %MyEvent{}}.
-    # Unique every frame by {MyEventModule, key}
     # Every frame, the objects in this table are deleted.
     # Any process can read and write to this table.
     # But the logic responsible to write to this table should check the stored values are actually event structs.
-    # Before being sent to the Systems, the events are sorted by their inserted_at timestamp.
+    # Before being sent to the Systems, the events are sorted by their inserted_at timestamp, and group in batches.
+    # The batches are determined by the unicity of the event {EventModule, key} per batch.
 
     events_ets_name =
       :ets.new(String.to_atom("events:#{data.id}"), [
-        :set,
+        :duplicate_bag,
         :public,
         :named_table,
         read_concurrency: true,
@@ -469,7 +469,7 @@ defmodule Ecspanse.World do
     state = %{
       state
       | scheduled_systems: state.startup_systems,
-        frame_data: %Frame{event_stream: Stream.concat([]), token: state.token}
+        frame_data: %Frame{event_batches: [], token: state.token}
     }
 
     send(self(), :run_next_system)
@@ -487,16 +487,11 @@ defmodule Ecspanse.World do
     frame_monotonic_time = Elixir.System.monotonic_time(:millisecond)
     delta = frame_monotonic_time - state.last_frame_monotonic_time
 
-    # Get all events from the ETS table as a list of event structs
-    f =
-      Ex2ms.fun do
-        {k, v} -> v
-      end
-
     # inserted_at is the System time in milliseconds when the event was created
-    events =
-      :ets.select(state.events_ets_name, f)
-      |> Enum.sort_by(& &1.inserted_at, &<=/2)
+    event_batches =
+      :ets.tab2list(state.events_ets_name)
+      |> Enum.sort_by(fn {_k, v} -> v.inserted_at end, &</2)
+      |> batch_events([])
 
     # Frame limit
     # in order to finish a frame, two conditions must be met:
@@ -523,7 +518,7 @@ defmodule Ecspanse.World do
         delta: delta,
         frame_data: %Frame{
           delta: delta,
-          event_stream: Stream.concat([events]),
+          event_batches: event_batches,
           token: state.token
         }
     }
@@ -935,5 +930,14 @@ defmodule Ecspanse.World do
     (system_opts ++ system_set_opts)
     |> Enum.group_by(fn {k, _v} -> k end, fn {_k, v} -> v end)
     |> Map.to_list()
+  end
+
+  defp batch_events([], batches), do: batches
+
+  defp batch_events(events, batches) do
+    current_events = Enum.uniq_by(events, fn {k, _v} -> k end)
+    batch = Enum.map(current_events, fn {_, v} -> v end)
+    remaining_events = events -- current_events
+    batch_events(remaining_events, batches ++ [batch])
   end
 end

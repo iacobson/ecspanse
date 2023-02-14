@@ -1702,7 +1702,7 @@ defmodule Ecspanse.Command do
   defp component_created_events(components) do
     components
     |> Enum.map(fn {_key, component} ->
-      {{Event.ComponentCreated, UUID.uuid4()},
+      {{Event.ComponentCreated, component.__meta__.entity.id},
        struct!(Event.ComponentCreated, %{
          created: component,
          inserted_at: System.os_time()
@@ -1714,7 +1714,7 @@ defmodule Ecspanse.Command do
   defp component_updated_events(components) do
     components
     |> Enum.map(fn {_key, component} ->
-      {{Event.ComponentUpdated, UUID.uuid4()},
+      {{Event.ComponentUpdated, component.__meta__.entity.id},
        struct!(Event.ComponentUpdated, %{
          updated: component,
          inserted_at: System.os_time()
@@ -1726,7 +1726,7 @@ defmodule Ecspanse.Command do
   defp component_deleted_events(components) do
     components
     |> Enum.map(fn {_key, component} ->
-      {{Event.ComponentDeleted, UUID.uuid4()},
+      {{Event.ComponentDeleted, component.__meta__.entity.id},
        struct!(Event.ComponentDeleted, %{
          deleted: component,
          inserted_at: System.os_time()
@@ -1737,32 +1737,35 @@ defmodule Ecspanse.Command do
 
   defp resource_created_event(resource) do
     event =
-      struct!(Event.ResourceCreated, %{
-        created: resource,
-        inserted_at: System.os_time(:millisecond)
-      })
+      {{Event.ResourceCreated, resource.__meta__.module},
+       struct!(Event.ResourceCreated, %{
+         created: resource,
+         inserted_at: System.os_time(:millisecond)
+       })}
 
-    add_events([{event}])
+    add_events([event])
   end
 
   defp resource_updated_event(resource) do
     event =
-      struct!(Event.ResourceUpdated, %{
-        updated: resource,
-        inserted_at: System.os_time(:millisecond)
-      })
+      {{Event.ResourceUpdated, resource.__meta__.module},
+       struct!(Event.ResourceUpdated, %{
+         updated: resource,
+         inserted_at: System.os_time(:millisecond)
+       })}
 
-    add_events([{event}])
+    add_events([event])
   end
 
   defp resource_deleted_event(resource) do
     event =
-      struct!(Event.ResourceDeleted, %{
-        deleted: resource,
-        inserted_at: System.os_time(:millisecond)
-      })
+      {{Event.ResourceDeleted, resource.__meta__.module},
+       struct!(Event.ResourceDeleted, %{
+         deleted: resource,
+         inserted_at: System.os_time(:millisecond)
+       })}
 
-    add_events([{event}])
+    add_events([event])
   end
 
   defp add_events(events) when is_list(events) do

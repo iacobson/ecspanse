@@ -30,14 +30,10 @@ defmodule Ecspanse.Event do
   """
 
   # TODO: explain why a key is needed.
-  # Explain that each frame only one {Module, key} event is accepted. Creating new ones will
-  # overwrite the previous one.
+  # Explain multiple similar evens can exist per frame. But they must be processed in different batches.
+  # the World groups the events by batches with unique {Module, key}
 
-  # Special events like Components CRUD are creaded with a random key, to relect all changes
-  # of the component in the current frame.
-
-  # in most of the cases, the key may be some user ID, and the user will not be allowed to
-  # create more than one of that event per frame.
+  # in most of the cases, the key may be some user ID
 
   @type event_spec ::
           {event_module :: module(), key :: any()}
