@@ -19,11 +19,22 @@ defmodule Ecspanse.Query do
               without_components: list(component_module :: module())
             ),
           for_entities: list(Ecspanse.Entity.t()),
-          not_for_entities: list(Ecspanse.Entity.t())
+          not_for_entities: list(Ecspanse.Entity.t()),
+          for_children_of: list(Ecspanse.Entity.t()),
+          for_parents_of: list(Ecspanse.Entity.t())
         }
 
   @enforce_keys [:select]
-  defstruct [:return_entity, :select, :select_optional, :or, :for_entities, :not_for_entities]
+  defstruct [
+    :return_entity,
+    :select,
+    :select_optional,
+    :or,
+    :for_entities,
+    :not_for_entities,
+    :for_children_of,
+    :for_parents_of
+  ]
 
   defmodule Error do
     @moduledoc false
@@ -110,6 +121,8 @@ defmodule Ecspanse.Query do
 
     for_entities = Keyword.get(filters, :for, []) |> Enum.uniq()
     not_for_entities = Keyword.get(filters, :not_for, []) |> Enum.uniq()
+    for_children_of = Keyword.get(filters, :for_children_of, []) |> Enum.uniq()
+    for_parents_of = Keyword.get(filters, :for_parents_of, []) |> Enum.uniq()
 
     :ok = validate_entities(for_entities)
 
@@ -119,7 +132,9 @@ defmodule Ecspanse.Query do
       select_optional: select_opt_comp,
       or: or_component_filters,
       for_entities: for_entities,
-      not_for_entities: not_for_entities
+      not_for_entities: not_for_entities,
+      for_children_of: for_children_of,
+      for_parents_of: for_parents_of
     }
   end
 
@@ -137,9 +152,15 @@ defmodule Ecspanse.Query do
       Process.get(:components_state_ets_name) ||
         Ecspanse.Util.decode_token(token).components_state_ets_name
 
+    for_entities =
+      query.for_entities
+      |> add_children_entities(query.for_children_of, token)
+      |> add_parents_entities(query.for_parents_of, token)
+      |> Enum.uniq()
+
     entities_with_components_stream =
       table
-      |> filter_for_entities(query.for_entities)
+      |> filter_for_entities(for_entities)
       |> filter_not_for_entities(query.not_for_entities)
 
     # filters by with/without components. Returns the entity ids
@@ -207,6 +228,42 @@ defmodule Ecspanse.Query do
       [{_key, %Component.Parents{list: parents_entities}}] -> parents_entities
       [] -> []
     end
+  end
+
+  @doc """
+  TODO
+  Fetches components in a group, for all entities.
+  """
+  @spec list_group_components(group :: atom(), Ecspanse.Token.t()) ::
+          list(components_state :: struct())
+  def list_group_components(group, token) do
+    components_state_ets_name =
+      Process.get(:components_state_ets_name) ||
+        Ecspanse.Util.decode_token(token).components_state_ets_name
+
+    components_state_ets_name
+    |> Ecspanse.Util.list_entities_components_groups()
+    |> Stream.filter(fn {_entity_id, groups, _state} -> group in groups end)
+    |> Enum.map(fn {_entity_id, _groups, state} -> state end)
+  end
+
+  @doc """
+  TODO
+  Fetches components in a group, for an entity.
+  """
+  @spec list_group_components(Ecspanse.Entity.t(), group :: atom(), Ecspanse.Token.t()) ::
+          list(components_state :: struct())
+  def list_group_components(entity, group, token) do
+    components_state_ets_name =
+      Process.get(:components_state_ets_name) ||
+        Ecspanse.Util.decode_token(token).components_state_ets_name
+
+    components_state_ets_name
+    |> Ecspanse.Util.list_entities_components_groups()
+    |> Stream.filter(fn {entity_id, groups, _state} ->
+      entity_id == entity.id && group in groups
+    end)
+    |> Enum.map(fn {_entity_id, _groups, state} -> state end)
   end
 
   @doc """
@@ -326,6 +383,30 @@ defmodule Ecspanse.Query do
       ]
       | acc
     ])
+  end
+
+  defp add_children_entities(entities, [], _token), do: entities
+
+  defp add_children_entities(entities, for_children_entities, token) do
+    children_entities =
+      select({Component.Children}, for: for_children_entities)
+      |> stream(token)
+      |> Stream.map(fn {children} -> children.list end)
+      |> Stream.concat()
+
+    entities ++ children_entities
+  end
+
+  defp add_parents_entities(entities, [], _token), do: entities
+
+  defp add_parents_entities(entities, for_parent_entities, token) do
+    parent_entities =
+      select({Component.Parents}, for: for_parent_entities)
+      |> stream(token)
+      |> Stream.map(fn {parents} -> parents.list end)
+      |> Stream.concat()
+
+    entities ++ parent_entities
   end
 
   defp filter_for_entities(table, []) do

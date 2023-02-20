@@ -46,6 +46,20 @@ defmodule Ecspanse.Util do
   end
 
   @doc false
+  # Returns a list of tuples with entity_id, component_groups and component_state
+  # Example: [{"entity_id", [:group1,:group2], %MyComponent{foo: :bar}}]
+  defmemo list_entities_components_groups(components_state_ets_name), max_waiter: 100, waiter_sleep_ms: 5 do
+    f =
+      Ex2ms.fun do
+        {{entity_id, _component_module, component_groups}, component_state} when component_groups != [] ->
+          {entity_id,  component_groups, component_state}
+      end
+
+    :ets.select(components_state_ets_name, f)
+    |> Enum.group_by(fn {k, _v} -> k end, fn {_k, v} -> v end)
+  end
+
+  @doc false
   def run_system_in_state(token, run_in_state) do
     {:ok, %Ecspanse.Resource.State{value: state}} =
       Ecspanse.Query.fetch_resource(Ecspanse.Resource.State, token)
