@@ -471,8 +471,8 @@ defmodule Ecspanse.Command do
       Task.async(fn ->
         for entity <- entities do
           # it is possible that the children component was already removed
-          case :ets.lookup(table, {entity.id, Component.Children}) do
-            [{{_id, Component.Children}, %Component.Children{list: children_entities}}] ->
+          case :ets.lookup(table, {entity.id, Component.Children, []}) do
+            [{{_id, Component.Children, []}, %Component.Children{list: children_entities}}] ->
               remove_children_and_parents(operation, entity, children_entities)
 
             _ ->
@@ -484,8 +484,8 @@ defmodule Ecspanse.Command do
     parents_and_children_components =
       Task.async(fn ->
         for entity <- entities do
-          case :ets.lookup(table, {entity.id, Component.Parents}) do
-            [{{_id, Component.Parents}, %Component.Parents{list: parents_entities}}] ->
+          case :ets.lookup(table, {entity.id, Component.Parents, []}) do
+            [{{_id, Component.Parents, []}, %Component.Parents{list: parents_entities}}] ->
               remove_parents_and_children(operation, entity, parents_entities)
 
             _ ->
@@ -498,7 +498,7 @@ defmodule Ecspanse.Command do
       for %Entity{id: id} <- entities do
         f =
           Ex2ms.fun do
-            {{entity_id, _component_module}, component_state}
+            {{entity_id, _component_module, _component_groups}, component_state}
             when entity_id == ^id ->
               component_state
           end
@@ -618,7 +618,8 @@ defmodule Ecspanse.Command do
         new_component_state = struct(component, state_changes)
         :ok = validate_component_state(operation, new_component_state)
 
-        {{component.__meta__.entity.id, component.__meta__.module}, new_component_state}
+        {{component.__meta__.entity.id, component.__meta__.module, component.__meta__.groups},
+         new_component_state}
       end
 
     Task.await_many([v1, v2, v3])
@@ -946,21 +947,23 @@ defmodule Ecspanse.Command do
       struct!(Component.Meta, %{
         entity: entity,
         module: component_module,
-        access_mode: component_module.__component_access_mode__()
+        access_mode: component_module.__component_access_mode__(),
+        groups: component_module.__component_groups__()
       })
 
     component_state = struct!(component_module, Keyword.put(state, :__meta__, component_meta))
     :ok = validate_component_state(operation, component_state)
     # this is stored in the ETS table
-    {{entity.id, component_module}, component_state}
+    {{entity.id, component_module, component_module.__component_groups__()}, component_state}
   end
 
   # there is no guarantee that the components belong to the same entity
-  # returns a list of {{entity_id, component_module}, component_state}
+  # returns a list of {{entity_id, component_module, groups}, component_state}
   defp delete_components(operation, components_state) do
     Enum.map(components_state, fn component_state ->
       entity = component_state.__meta__.entity
       component_module = component_state.__meta__.module
+      component_groups = component_state.__meta__.groups
       entity_type = get_entity_type_component_module_for_entity(operation, entity)
 
       :ok =
@@ -971,7 +974,7 @@ defmodule Ecspanse.Command do
           entity_type
         )
 
-      {{entity.id, component_module}, component_state}
+      {{entity.id, component_module, component_groups}, component_state}
     end)
   end
 
@@ -1026,12 +1029,12 @@ defmodule Ecspanse.Command do
   end
 
   # Returns a Children component with its key
-  # {{entity_id, Component.Children}, [entity_3, entity_2, entity_1]}
+  # {{entity_id, Component.Children, []}, [entity_3, entity_2, entity_1]}
   # it is calling upsert_component which will validate the component is locked for creation
   defp upsert_children_for(operation, entity, entity_type, children) do
     table = operation.components_state_ets_name
 
-    case :ets.lookup(table, {entity.id, Component.Children}) do
+    case :ets.lookup(table, {entity.id, Component.Children, []}) do
       [{_key, %Component.Children{list: existing_children}}] ->
         children = Enum.concat(existing_children, children) |> Enum.uniq()
         upsert_component(operation, entity, {Component.Children, [list: children]}, entity_type)
@@ -1042,18 +1045,17 @@ defmodule Ecspanse.Command do
   end
 
   # Returns a Parents component with its key
-  # {{entity_id, Component.Parents}, [entity_3, entity_2, entity_1]}
+  # {{entity_id, Component.Parents, []}, [entity_3, entity_2, entity_1]}
   # it is calling upsert_component which will validate the component is locked for creation
   defp upsert_parents_for(operation, entity, entity_type, parents) do
     table = operation.components_state_ets_name
 
-    case :ets.lookup(table, {entity.id, Component.Parents}) do
+    case :ets.lookup(table, {entity.id, Component.Parents, []}) do
       [{_key, %Component.Parents{list: existing_parents}}] ->
         parents = Enum.concat(existing_parents, parents) |> Enum.uniq()
         upsert_component(operation, entity, {Component.Parents, [list: parents]}, entity_type)
 
       [] ->
-        {{entity.id, Component.Parents}, parents}
         upsert_component(operation, entity, {Component.Parents, [list: parents]}, entity_type)
     end
   end
@@ -1066,7 +1068,7 @@ defmodule Ecspanse.Command do
     table = operation.components_state_ets_name
 
     entity_children =
-      case :ets.lookup(table, {entity.id, Component.Children}) do
+      case :ets.lookup(table, {entity.id, Component.Children, []}) do
         [{_key, %Component.Children{list: existing_children}}] ->
           entity_type = get_entity_type_component_module_for_entity(operation, entity)
 
@@ -1087,7 +1089,7 @@ defmodule Ecspanse.Command do
         entity_type_component_module =
           get_entity_type_component_module_for_entity(operation, child_entity)
 
-        case :ets.lookup(table, {child_entity.id, Component.Parents}) do
+        case :ets.lookup(table, {child_entity.id, Component.Parents, []}) do
           [{_key, %Component.Parents{list: existing_parents}}] ->
             upsert_component(
               operation,
@@ -1112,7 +1114,7 @@ defmodule Ecspanse.Command do
     table = operation.components_state_ets_name
 
     entity_parents =
-      case :ets.lookup(table, {entity.id, Component.Parents}) do
+      case :ets.lookup(table, {entity.id, Component.Parents, []}) do
         [{_key, %Component.Parents{list: existing_parents}}] ->
           entity_type = get_entity_type_component_module_for_entity(operation, entity)
 
@@ -1133,7 +1135,7 @@ defmodule Ecspanse.Command do
         entity_type_component_module =
           get_entity_type_component_module_for_entity(operation, parent_entity)
 
-        case :ets.lookup(table, {parent_entity.id, Component.Children}) do
+        case :ets.lookup(table, {parent_entity.id, Component.Children, []}) do
           [{_key, %Component.Children{list: existing_children}}] ->
             upsert_component(
               operation,
@@ -1161,7 +1163,7 @@ defmodule Ecspanse.Command do
       {k, [v]} ->
         {k, v}
 
-      {{entity_id, module}, values} ->
+      {{entity_id, module, _groups}, values} ->
         list = Enum.map(values, fn value -> value.list end) |> List.flatten() |> Enum.uniq()
         entity = Entity.build(entity_id)
         entity_type = get_entity_type_component_module_for_entity(operation, entity)
@@ -1177,7 +1179,7 @@ defmodule Ecspanse.Command do
       {k, [v]} ->
         {k, v}
 
-      {{entity_id, module}, values} ->
+      {{entity_id, module, _groups}, values} ->
         list =
           Enum.map(values, fn value -> value.list end)
           |> List.flatten()
@@ -1241,7 +1243,7 @@ defmodule Ecspanse.Command do
     Enum.each(entity_ids, fn entity_id ->
       f =
         Ex2ms.fun do
-          {{^entity_id, _component_module}, _component_state} -> ^entity_id
+          {{^entity_id, _component_module, _component_groups}, _component_state} -> ^entity_id
         end
 
       result = :ets.select(table, f, 1)
@@ -1278,7 +1280,7 @@ defmodule Ecspanse.Command do
       |> Stream.map(fn target_entity_id ->
         f =
           Ex2ms.fun do
-            {{entity_id, _component_module}, _component_state}
+            {{entity_id, _component_module, _groups}, _component_state}
             when entity_id == ^target_entity_id ->
               entity_id
           end
@@ -1436,7 +1438,10 @@ defmodule Ecspanse.Command do
   defp validate_component_exists(operation, component) do
     table = operation.components_state_ets_name
 
-    case :ets.lookup(table, {component.__meta__.entity.id, component.__meta__.module}) do
+    case :ets.lookup(
+           table,
+           {component.__meta__.entity.id, component.__meta__.module, component.__meta__.groups}
+         ) do
       [{_key, _val}] -> :ok
       _ -> raise Error, {operation, "#{inspect(component)} does not exist"}
     end
@@ -1584,7 +1589,7 @@ defmodule Ecspanse.Command do
         :ets.insert(table, components)
 
         relation_updates =
-          Enum.filter(components, fn {{_entity_id, module}, _component} ->
+          Enum.filter(components, fn {{_entity_id, module, _groups}, _component} ->
             module in [Ecspanse.Component.Children, Ecspanse.Component.Parent]
           end)
 

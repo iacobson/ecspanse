@@ -187,7 +187,7 @@ defmodule Ecspanse.Query do
       Process.get(:components_state_ets_name) ||
         Ecspanse.Util.decode_token(token).components_state_ets_name
 
-    case :ets.lookup(components_state_ets_name, {entity_id, Component.Children}) do
+    case :ets.lookup(components_state_ets_name, {entity_id, Component.Children, []}) do
       [{_key, %Component.Children{list: children_entities}}] -> children_entities
       [] -> []
     end
@@ -203,7 +203,7 @@ defmodule Ecspanse.Query do
       Process.get(:components_state_ets_name) ||
         Ecspanse.Util.decode_token(token).components_state_ets_name
 
-    case :ets.lookup(components_state_ets_name, {entity_id, Component.Parents}) do
+    case :ets.lookup(components_state_ets_name, {entity_id, Component.Parents, []}) do
       [{_key, %Component.Parents{list: parents_entities}}] -> parents_entities
       [] -> []
     end
@@ -220,7 +220,10 @@ defmodule Ecspanse.Query do
       Process.get(:components_state_ets_name) ||
         Ecspanse.Util.decode_token(token).components_state_ets_name
 
-    case :ets.lookup(components_state_ets_name, {entity_id, component_module}) do
+    case :ets.lookup(
+           components_state_ets_name,
+           {entity_id, component_module, component_module.__component_groups__()}
+         ) do
       [{_key, component}] -> {:ok, component}
       [] -> {:error, :not_found}
     end
@@ -410,7 +413,10 @@ defmodule Ecspanse.Query do
   # add mandatory components to the select tuple
   defp add_select_components(select_tuple, comp_modules, entity_id, components_state_ets_name) do
     Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
-      case :ets.lookup(components_state_ets_name, {entity_id, comp_module}) do
+      case :ets.lookup(
+             components_state_ets_name,
+             {entity_id, comp_module, comp_module.__component_groups__()}
+           ) do
         [{_key, comp_state}] -> Tuple.append(acc, comp_state)
         # checking for race conditions when a required component is removed during the query
         # the whole entity should be filtered out
@@ -427,7 +433,10 @@ defmodule Ecspanse.Query do
          components_state_ets_name
        ) do
     Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
-      case :ets.lookup(components_state_ets_name, {entity_id, comp_module}) do
+      case :ets.lookup(
+             components_state_ets_name,
+             {entity_id, comp_module, comp_module.__component_groups__()}
+           ) do
         [{_key, comp_state}] -> Tuple.append(acc, comp_state)
         [] -> Tuple.append(acc, nil)
       end

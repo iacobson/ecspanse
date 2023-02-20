@@ -37,7 +37,8 @@ defmodule Ecspanse.Util do
   defmemo list_entities_components(components_state_ets_name), max_waiter: 100, waiter_sleep_ms: 5 do
     f =
       Ex2ms.fun do
-        {{entity_id, component_module}, _component_state} -> {entity_id, component_module}
+        {{entity_id, component_module, _component_groups}, _component_state} ->
+          {entity_id, component_module}
       end
 
     :ets.select(components_state_ets_name, f)

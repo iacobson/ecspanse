@@ -6,6 +6,7 @@ defmodule Ecspanse.Component do
     - state: must be a list with all the Component state struct keys and their initial values (if any)
     Eg: [:foo, :bar, baz: 1]
     - access_mode:  :write | :readonly | :entity_type - defaults to :write
+    - groups: list of groups (atoms) that this component belongs to. Defaults to []
 
     `entity_type` access mode is an optimization. Its use is not mandatory.
     But it may greatly improve parallel system execution.
@@ -55,11 +56,12 @@ defmodule Ecspanse.Component do
     @opaque t :: %__MODULE__{
               entity: Ecspanse.Entity.t(),
               module: module(),
-              access_mode: :write | :readonly | :entity_type
+              access_mode: :write | :readonly | :entity_type,
+              groups: list(atom())
             }
 
     @enforce_keys [:entity, :module, :access_mode]
-    defstruct entity: nil, module: nil, access_mode: nil
+    defstruct entity: nil, module: nil, access_mode: nil, groups: []
   end
 
   defmacro __using__(opts) do
@@ -68,6 +70,12 @@ defmodule Ecspanse.Component do
       @allowed_access_mode [:write, :readonly, :entity_type]
 
       component_access_mode = Keyword.get(opts, :access_mode, :write)
+      groups = Keyword.get(opts, :groups, [])
+
+      unless is_list(groups) do
+        raise ArgumentError,
+              "Invalid groups for Component: #{inspect(__MODULE__)}. The `:groups` option must be a list of atoms."
+      end
 
       if component_access_mode not in @allowed_access_mode do
         raise ArgumentError,
@@ -81,8 +89,10 @@ defmodule Ecspanse.Component do
 
       Module.register_attribute(__MODULE__, :ecs_type, accumulate: false)
       Module.register_attribute(__MODULE__, :component_access_mode, accumulate: false)
+      Module.register_attribute(__MODULE__, :groups, accumulate: false)
       Module.put_attribute(__MODULE__, :ecs_type, :component)
       Module.put_attribute(__MODULE__, :component_access_mode, component_access_mode)
+      Module.put_attribute(__MODULE__, :groups, groups)
 
       state = Keyword.get(opts, :state, [])
 
@@ -109,6 +119,11 @@ defmodule Ecspanse.Component do
       def __component_access_mode__ do
         @component_access_mode
       end
+
+      @doc false
+      def __component_groups__ do
+        @groups
+      end
     end
   end
 
@@ -117,5 +132,6 @@ defmodule Ecspanse.Component do
   #############################
 
   @opaque component_key_value ::
-            {{Ecspanse.Entity.id(), component_module :: module()}, component_state :: struct()}
+            {{Ecspanse.Entity.id(), component_module :: module(), groups :: list(atom())},
+             component_state :: struct()}
 end
