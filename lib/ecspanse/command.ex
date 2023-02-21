@@ -96,6 +96,15 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
+  @spec spawn_entity!(Entity.entity_spec()) :: Entity.t()
+  def spawn_entity!(spec) do
+    [entity] = spawn_entities!([spec])
+    entity
+  end
+
+  @doc """
+  TODO
+  """
   @spec spawn_entities!(list(Entity.entity_spec())) :: list(Entity.t())
   def spawn_entities!([]), do: []
 
@@ -104,6 +113,14 @@ defmodule Ecspanse.Command do
     command = apply_operation(operation, %Command{}, list)
     commit(command)
     command.return_result
+  end
+
+  @doc """
+  TODO
+  """
+  @spec despawn_entity!(Entity.t()) :: :ok
+  def despawn_entity!(entity) do
+    despawn_entities!([entity])
   end
 
   @doc """
@@ -126,6 +143,14 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
+  TODO
+  """
+  @spec despawn_entity_and_children!(Entity.t()) :: :ok
+  def despawn_entity_and_children!(entity) do
+    despawn_entities_and_children!([entity])
+  end
+
+  @doc """
   The same as `despawn_entities!/1` but recursively despawns also all children of the entities.
   Meaning it will despawn the children and theri children and so on.
   """
@@ -140,6 +165,14 @@ defmodule Ecspanse.Command do
     |> List.flatten()
     |> Enum.uniq()
     |> despawn_entities!()
+  end
+
+  @doc """
+  # TODO
+  """
+  @spec add_component!(Entity.t(), Component.component_spec()) :: :ok
+  def add_component!(entity, component_spec) do
+    add_components!([{entity, [component_spec]}])
   end
 
   @doc """
@@ -160,6 +193,14 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
+  @spec update_component!(current_component :: struct(), state_changes :: keyword()) :: :ok
+  def update_component!(component, changes_keyword) do
+    update_components!([{component, changes_keyword}])
+  end
+
+  @doc """
+  TODO
+  """
   @spec update_components!(list({current_component :: struct(), state_changes :: keyword()})) ::
           :ok
   def update_components!([]), do: :ok
@@ -170,6 +211,14 @@ defmodule Ecspanse.Command do
     commit(command)
 
     command.return_result
+  end
+
+  @doc """
+  TODO
+  """
+  @spec remove_component!(component :: struct()) :: :ok
+  def remove_component!(component) do
+    remove_components!([component])
   end
 
   @doc """
@@ -188,6 +237,14 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
+  @spec add_child!(Entity.t(), child :: Entity.t()) :: :ok
+  def add_child!(entity, child) do
+    add_children!([{entity, [child]}])
+  end
+
+  @doc """
+  TODO
+  """
   @spec add_children!(list({Entity.t(), children :: list(Entity.t())})) :: :ok
   def add_children!([]), do: :ok
 
@@ -196,6 +253,14 @@ defmodule Ecspanse.Command do
     command = apply_operation(operation, %Command{}, list)
     commit(command)
     command.return_result
+  end
+
+  @doc """
+  TODO
+  """
+  @spec add_parent!(Entity.t(), parent :: Entity.t()) :: :ok
+  def add_parent!(entity, parent) do
+    add_parents!([{entity, [parent]}])
   end
 
   @doc """
@@ -214,6 +279,14 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
+  @spec remove_child!(Entity.t(), child :: Entity.t()) :: :ok
+  def remove_child!(entity, child) do
+    remove_children!([{entity, [child]}])
+  end
+
+  @doc """
+  TODO
+  """
   @spec remove_children!(list({Entity.t(), children :: list(Entity.t())})) :: :ok
   def remove_children!([]), do: :ok
 
@@ -222,6 +295,14 @@ defmodule Ecspanse.Command do
     command = apply_operation(operation, %Command{}, list)
     commit(command)
     command.return_result
+  end
+
+  @doc """
+  TODO
+  """
+  @spec remove_parent!(Entity.t(), parent :: Entity.t()) :: :ok
+  def remove_parent!(entity, parent) do
+    remove_parents!([{entity, [parent]}])
   end
 
   @doc """
