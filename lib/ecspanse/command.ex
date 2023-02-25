@@ -1674,6 +1674,10 @@ defmodule Ecspanse.Command do
             module in [Ecspanse.Component.Children, Ecspanse.Component.Parent]
           end)
 
+        # Invalidate on every update for component groups, as it caches the state
+
+        Memoize.invalidate(Ecspanse.Util, :list_entities_components_groups)
+
         if Enum.any?(relation_updates) do
           # invalidate the cache when updating Children or Parents
           Memoize.invalidate()

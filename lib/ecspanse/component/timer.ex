@@ -3,12 +3,23 @@ defmodule Ecspanse.Component.Timer do
   TODO
   Utility Component to create custom timer (countdown) components.
 
-  This component should not be used as such, but as a builder of components.
+  This component should not be used as such, but as a builder of custom timer components.
+
+
   The time is the Timer is automatically decremented by the framework each frame.
   There is no need to update the component's time manually. Except when:
   - it requires custom reseting by the game logic
   - the timer mode is set to :once, and requires to be reset manually after reaching 0
 
+  There is a special Ecspanse.System.Timer system provided by the framework that
+  automatically decrements the time of the Timer component and dispatches the event when the time reaches 0.
+  This System needs to be manually added in the world setup, otherwise the timer will not work.
+  Attention! the System meeds to be added as sync, as frame start system of frame end system.
+  This is a deliberate decision, to allow the developer to decide if the timers shuld run only in
+  cetain states or certain conditions. For example, the developer might want to pause the timers
+  when the game is paused, or when the game is in a certain state.
+
+  Granular pause control can be achieved by setting the paused field to true.
 
   Example:
     defmodule MyTimerComponent do
