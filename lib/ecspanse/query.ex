@@ -339,6 +339,72 @@ defmodule Ecspanse.Query do
     component_module_list -- Map.get(entities_components, entity.id, []) == []
   end
 
+  @spec has_children_with_type?(Ecspanse.Entity.t(), module(), Ecspanse.Token.t()) :: boolean()
+  def has_children_with_type?(entity, type_component_module, token) do
+    unless type_component_module.__component_access_mode__() == :entity_type do
+      raise Error, "Expected #{inspect(type_component_module)} to have entity_type access mode"
+    end
+
+    has_children_with_component?(entity, type_component_module, token)
+  end
+
+  @spec has_children_with_component?(Ecspanse.Entity.t(), module(), Ecspanse.Token.t()) ::
+          boolean()
+  def has_children_with_component?(entity, component_module, token) do
+    has_children_with_components?(entity, [component_module], token)
+  end
+
+  @doc """
+  TODO
+  """
+  @spec has_children_with_components?(Ecspanse.Entity.t(), list(module()), Ecspanse.Token.t()) ::
+          boolean()
+  defmemo has_children_with_components?(entity, component_module_list, token)
+          when is_list(component_module_list) do
+    components =
+      select(List.to_tuple(component_module_list), for_children_of: [entity])
+      |> stream(token)
+      |> Enum.to_list()
+
+    Enum.any?(components)
+  end
+
+  @doc """
+  TODO
+  """
+  @spec has_parents_with_type?(Ecspanse.Entity.t(), module(), Ecspanse.Token.t()) :: boolean()
+  def has_parents_with_type?(entity, type_component_module, token) do
+    unless type_component_module.__component_access_mode__() == :entity_type do
+      raise Error, "Expected #{inspect(type_component_module)} to have entity_type access mode"
+    end
+
+    has_parents_with_component?(entity, type_component_module, token)
+  end
+
+  @doc """
+  TODO
+  """
+  @spec has_parents_with_component?(Ecspanse.Entity.t(), module(), Ecspanse.Token.t()) ::
+          boolean()
+  def has_parents_with_component?(entity, component_module, token) do
+    has_parents_with_components?(entity, [component_module], token)
+  end
+
+  @doc """
+  TODO
+  """
+  @spec has_parents_with_components?(Ecspanse.Entity.t(), list(module()), Ecspanse.Token.t()) ::
+          boolean()
+  defmemo has_parents_with_components?(entity, component_module_list, token)
+          when is_list(component_module_list) do
+    components =
+      select(List.to_tuple(component_module_list), for_parents_of: [entity])
+      |> stream(token)
+      |> Enum.to_list()
+
+    Enum.any?(components)
+  end
+
   @doc """
   TODO
   Fetches a resource state
