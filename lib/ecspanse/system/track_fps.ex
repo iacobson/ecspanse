@@ -13,11 +13,11 @@ defmodule Ecspanse.System.TrackFPS do
 
     updated_resource =
       if new_time >= 1000 do
-        {fps_resource, value: fps_resource.current + 1, current: 0, millisecond: new_time - 1000}
+        [value: fps_resource.current + 1, current: 0, millisecond: new_time - 1000]
       else
-        {fps_resource, current: fps_resource.current + 1, millisecond: new_time}
+        [current: fps_resource.current + 1, millisecond: new_time]
       end
 
-    Ecspanse.Command.update_resource!(updated_resource)
+    Ecspanse.Command.update_resource!(fps_resource, updated_resource)
   end
 end

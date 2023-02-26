@@ -332,9 +332,9 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
-  @spec update_resource!({resource :: struct(), state_changes :: keyword()}) ::
+  @spec update_resource!(resource :: struct(), state_changes :: keyword()) ::
           updated_resource :: struct()
-  def update_resource!({resource, state_changes}) do
+  def update_resource!(resource, state_changes) do
     operation = build_operation(:update_resource)
     :ok = validate_payload(operation, {resource, state_changes})
     command = apply_operation(operation, %Command{}, {resource, state_changes})

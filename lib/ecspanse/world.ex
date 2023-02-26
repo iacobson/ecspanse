@@ -441,7 +441,7 @@ defmodule Ecspanse.World do
 
     state = operations |> Enum.reverse() |> apply_operations(state)
 
-    send(self(), :run)
+    send(self(), {:run, data.events})
 
     {:ok, state}
   end
@@ -465,11 +465,17 @@ defmodule Ecspanse.World do
   end
 
   @impl true
-  def handle_info(:run, state) do
+  def handle_info({:run, system_start_events}, state) do
+    # startup_events passed as options in the Ecspanse.new/2 function
+    event_batches =
+      system_start_events
+      |> Enum.sort_by(fn {_k, v} -> v.inserted_at end, &</2)
+      |> batch_events([])
+
     state = %{
       state
       | scheduled_systems: state.startup_systems,
-        frame_data: %Frame{event_batches: [], token: state.token}
+        frame_data: %Frame{event_batches: event_batches, token: state.token}
     }
 
     send(self(), :run_next_system)

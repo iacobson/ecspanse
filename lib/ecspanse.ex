@@ -19,7 +19,7 @@ defmodule Ecspanse do
 
   Opts
   - name: custom world name. Must be unique. Useful when providing also the supervisor name. Can be a {:via, _, _} tuple.
-  - supervisor: a custom supervisor module. Defauts to `Supervisor`
+  - startup_events: a list of event_spec that will run only on world startup. Good to setup resources with dynamic data.
   - dyn_sup: name or pid of an existing DynamicSupervisor. If provided, the world will be started as a child of the DynamicSupervisor.
               If not provided, a new DynamicSupervisor will be started.
   - dyn_sup_impl: defaults to 'DynamicSupervisor'. But can be a custome implementation of the DynamicSupervisor functions. Eg: `Horde.DynamicSupervisor`
@@ -43,14 +43,15 @@ defmodule Ecspanse do
 
     id = UUID.uuid4()
     world_name = custom_world_name || String.to_atom("world:#{id}")
-    components_server_name = String.to_atom("components:#{id}")
+
+    events = Keyword.get(opts, :startup_events, []) |> Enum.map(&prepare_event/1)
 
     data = %{
       id: id,
       world_name: world_name,
       world_module: world_module,
-      components_server_name: components_server_name,
-      supervisor: supervisor
+      supervisor: supervisor,
+      events: events
     }
 
     with {:ok, _world_pid} <- supervisor_impl.start_child(supervisor, {Ecspanse.World, data}),
@@ -98,12 +99,26 @@ defmodule Ecspanse do
     end
   end
 
+  @spec fetch_world_data(token :: binary()) ::
+          {:ok, %{world_name: Ecspanse.World.name(), world_pid: pid()}}
+  def fetch_world_data(token) do
+    %{world_name: world_name, world_pid: world_pid} = Ecspanse.Util.decode_token(token)
+    {:ok, %{world_name: world_name, world_pid: world_pid}}
+  end
+
   @doc """
   Adds an event to the world.
   TODO
   """
   @spec event(Ecspanse.Event.event_spec(), token :: binary()) :: :ok
   def event(event_spec, token) do
+    event = prepare_event(event_spec)
+
+    %{events_ets_name: events_ets_name} = Ecspanse.Util.decode_token(token)
+    :ets.insert(events_ets_name, event)
+  end
+
+  defp prepare_event(event_spec) do
     {event_module, key, event_payload} =
       case event_spec do
         {event_module, key, event_payload}
@@ -117,10 +132,7 @@ defmodule Ecspanse do
       end
 
     event_payload = event_payload |> Keyword.put(:inserted_at, System.os_time())
-    event = {{event_module, key}, struct!(event_module, event_payload)}
-
-    %{events_ets_name: events_ets_name} = Ecspanse.Util.decode_token(token)
-    :ets.insert(events_ets_name, event)
+    {{event_module, key}, struct!(event_module, event_payload)}
   end
 
   defp validate_event(event_module) do
