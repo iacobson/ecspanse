@@ -25,6 +25,7 @@ defmodule Ecspanse.MixProject do
       {:plug_crypto, "~> 1.2"},
       {:ex2ms, "~> 1.6"},
       {:memoize, "~> 1.4"},
+      {:rustler, "~> 0.27.0"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false}
     ]
   end

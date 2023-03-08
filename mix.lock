@@ -7,4 +7,6 @@
   "jason": {:hex, :jason, "1.4.0", "e855647bc964a44e2f67df589ccf49105ae039d4179db7f6271dfd3843dc27e6", [:mix], [{:decimal, "~> 1.0 or ~> 2.0", [hex: :decimal, repo: "hexpm", optional: true]}], "hexpm", "79a3791085b2a0f743ca04cec0f7be26443738779d09302e01318f97bdb82121"},
   "memoize": {:hex, :memoize, "1.4.1", "af853b4bbbf369dd050a9306b6d47d620b76f06935147a67a18751397a952d09", [:mix], [], "hexpm", "83bc06b9ff3815457cdb642ad6f3f02445d0e2948e835d3a92c1979853ef56ee"},
   "plug_crypto": {:hex, :plug_crypto, "1.2.3", "8f77d13aeb32bfd9e654cb68f0af517b371fb34c56c9f2b58fe3df1235c1251a", [:mix], [], "hexpm", "b5672099c6ad5c202c45f5a403f21a3411247f164e4a8fab056e5cd8a290f4a2"},
+  "rustler": {:hex, :rustler, "0.27.0", "53ffe86586fd1a2ea60ad07f1506962914eb669dba26c23010cf672662ec8d64", [:mix], [{:jason, "~> 1.0", [hex: :jason, repo: "hexpm", optional: false]}, {:toml, "~> 0.6", [hex: :toml, repo: "hexpm", optional: false]}], "hexpm", "d7f5ccaec6e7a96f700330898ff2e9d48818e40789fd2951ba41ecf457986e92"},
+  "toml": {:hex, :toml, "0.7.0", "fbcd773caa937d0c7a02c301a1feea25612720ac3fa1ccb8bfd9d30d822911de", [:mix], [], "hexpm", "0690246a2478c1defd100b0c9b89b4ea280a22be9a7b313a8a058a2408a2fa70"},
 }
