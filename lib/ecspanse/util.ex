@@ -42,7 +42,7 @@ defmodule Ecspanse.Util do
       end
 
     :ets.select(components_state_ets_name, f)
-    |> Enum.group_by(fn {k, _v} -> k end, fn {_k, v} -> v end)
+    |> Ecspanse.Native.list_entities_components()
   end
 
   @doc false
