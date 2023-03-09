@@ -26,17 +26,17 @@ fn query_filter_for_entities(
     entities_components: HashMap<String, Vec<Atom>>,
     filter_entities: Vec<Entity>,
 ) -> Term {
-    let mut result = HashMap::new();
-
-    for entity in filter_entities {
-        if let Some(components) = entities_components.get(&entity.id) {
-            result.insert(entity.id, components);
-        }
-    }
-
-    if result.is_empty() {
+    if filter_entities.is_empty() {
         entities_components.encode(env)
     } else {
+        let mut result = HashMap::new();
+
+        for entity in filter_entities {
+            if let Some(components) = entities_components.get(&entity.id) {
+                result.insert(entity.id, components);
+            }
+        }
+
         result.encode(env)
     }
 }
