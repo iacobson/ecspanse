@@ -26,8 +26,7 @@ defmodule Ecspanse.MixProject do
       {:ex2ms, "~> 1.6"},
       {:memoize, "~> 1.4"},
       {:rustler, "~> 0.27.0"},
-      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
-      {:benchee, "~> 1.0"}
+      {:credo, "~> 1.6", only: [:dev, :test], runtime: false}
     ]
   end
 end
