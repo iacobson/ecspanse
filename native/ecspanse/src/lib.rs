@@ -1,6 +1,7 @@
 #![warn(clippy::all, clippy::pedantic)] // use rustler::{Atom, Encoder, Env, Term};
 
 use itertools::Itertools;
+use rayon::prelude::*;
 use rustler::{Atom, Encoder, Env, NifStruct, Term};
 use std::collections::HashMap;
 
@@ -8,6 +9,13 @@ use std::collections::HashMap;
 #[module = "Ecspanse.Entity"]
 pub struct Entity {
     id: String,
+}
+
+#[derive(NifStruct)]
+#[module = "Ecspanse.Query.WithComponents"]
+pub struct QueryWithComponents {
+    with: Vec<Atom>,
+    without: Vec<Atom>,
 }
 
 // Returns a map with entity IDs as keys and a list of components as values
@@ -57,11 +65,47 @@ fn query_filter_not_for_entities(
     result.encode(env)
 }
 
+// Check if the entities have selected and do not have rejected components
+// Returns a list of unique entity IDs
+#[rustler::nif]
+fn query_filter_by_components(
+    env: Env,
+    entities_components: HashMap<String, Vec<Atom>>,
+    components: Vec<QueryWithComponents>,
+) -> Term {
+    components
+        .par_iter()
+        .flat_map(|comp| {
+            entities_components
+                .par_iter()
+                .filter(|(_, component_modules)| {
+                    let has_with_components = comp
+                        .with
+                        .iter()
+                        .all(|elem| component_modules.contains(elem));
+                    let does_not_have_without_components = !comp
+                        .without
+                        .iter()
+                        .any(|elem| component_modules.contains(elem));
+
+                    has_with_components && does_not_have_without_components
+                })
+                .map(|(entity_id, _)| entity_id.clone())
+                .collect::<Vec<String>>()
+        })
+        .collect::<Vec<String>>()
+        .into_iter()
+        .unique()
+        .collect::<Vec<String>>()
+        .encode(env)
+}
+
 rustler::init!(
     "Elixir.Ecspanse.Native",
     [
         list_entities_components,
         query_filter_for_entities,
-        query_filter_not_for_entities
+        query_filter_not_for_entities,
+        query_filter_by_components
     ]
 );

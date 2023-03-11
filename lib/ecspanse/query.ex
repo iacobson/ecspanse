@@ -9,15 +9,21 @@ defmodule Ecspanse.Query do
   alias Ecspanse.Entity
   alias Ecspanse.Component
 
+  defmodule WithComponents do
+    @moduledoc false
+    @enforce_keys [:with, :without]
+    defstruct with: [], without: []
+  end
+
   @type t :: %Query{
           return_entity: boolean(),
           select: list(component_module :: module()),
           select_optional: list(component_module :: module()),
           or:
-            list(
-              with_components: list(component_module :: module()),
-              without_components: list(component_module :: module())
-            ),
+            list(%WithComponents{
+              with: list(component_module :: module()),
+              without: list(component_module :: module())
+            }),
           for_entities: list(Ecspanse.Entity.t()),
           not_for_entities: list(Ecspanse.Entity.t()),
           for_children_of: list(Ecspanse.Entity.t()),
@@ -161,7 +167,7 @@ defmodule Ecspanse.Query do
       |> Ecspanse.Native.query_filter_not_for_entities(query.not_for_entities)
 
     # filters by with/without components. Returns the entity ids
-    entity_ids = filter_by_components(query.or, entities_with_components, [])
+    entity_ids = Ecspanse.Native.query_filter_by_components(entities_with_components, query.or)
 
     # retrieve the queried components for each entity
     map_components(
@@ -440,10 +446,10 @@ defmodule Ecspanse.Query do
     :ok = validate_components(without_components)
 
     compose_component_filters(select_components, rest, [
-      [
-        with_components: Enum.uniq(select_components ++ with_components),
-        without_components: Enum.uniq(without_components)
-      ]
+      %Query.WithComponents{
+        with: Enum.uniq(select_components ++ with_components),
+        without: Enum.uniq(without_components)
+      }
       | acc
     ])
   end
