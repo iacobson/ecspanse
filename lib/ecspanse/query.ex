@@ -5,6 +5,8 @@ defmodule Ecspanse.Query do
 
   use Memoize
 
+  require Ex2ms
+
   alias __MODULE__
   alias Ecspanse.Entity
   alias Ecspanse.Component
@@ -478,30 +480,6 @@ defmodule Ecspanse.Query do
     entities ++ parent_entities
   end
 
-  defp filter_by_components([], _entities_with_components, entity_ids) do
-    Enum.uniq(entity_ids)
-  end
-
-  defp filter_by_components(
-         [[with_components: with_components, without_components: without_components] | rest],
-         entities_with_components,
-         entity_ids
-       ) do
-    new_entity_ids =
-      entities_with_components
-      |> Stream.filter(fn {_entity_id, component_modules} ->
-        with_components -- component_modules == [] and
-          without_components -- component_modules == without_components
-      end)
-      |> Stream.map(fn {entity_id, _component_modules} -> entity_id end)
-
-    filter_by_components(
-      rest,
-      entities_with_components,
-      Stream.concat(entity_ids, new_entity_ids)
-    )
-  end
-
   defp map_components(
          return_entity,
          select_components,
@@ -509,22 +487,56 @@ defmodule Ecspanse.Query do
          entity_ids,
          components_state_ets_name
        ) do
-    entity_ids
-    |> Task.async_stream(
-      fn entity_id ->
-        {}
-        |> map_entity(return_entity, entity_id)
-        |> add_select_components(select_components, entity_id, components_state_ets_name)
-        |> add_select_optional_components(
-          select_optional_components,
-          entity_id,
-          components_state_ets_name
-        )
-      end,
-      ordered: false,
-      max_concurrency: length(entity_ids) + 1
+    component_modules = select_components ++ select_optional_components
+
+    # returns a map with {entity_id, component_module} as key, and the component state as value
+    # only for the mandatory and optional components in the query
+    filtered_components_map =
+      Task.async_stream(
+        component_modules,
+        fn target_component_module ->
+          f =
+            Ex2ms.fun do
+              {{entity_id, component_module, _component_groups}, component_state}
+              when component_module == ^target_component_module ->
+                {{entity_id, component_module}, component_state}
+            end
+
+          :ets.select(components_state_ets_name, f)
+        end,
+        ordered: false,
+        max_concurrency: length(component_modules) + 1
+      )
+      |> Stream.map(fn {:ok, result} -> result end)
+      |> Stream.concat()
+      |> Enum.into(%{}, fn {key, value} -> {key, value} end)
+
+    build_return_tuples(
+      return_entity,
+      select_components,
+      select_optional_components,
+      entity_ids,
+      filtered_components_map
     )
-    |> Stream.map(fn {:ok, result} -> result end)
+  end
+
+  defp build_return_tuples(
+         return_entity,
+         select_components,
+         select_optional_components,
+         entity_ids,
+         filtered_components_map
+       ) do
+    Stream.map(entity_ids, fn entity_id ->
+      {}
+      |> map_entity(return_entity, entity_id)
+      |> add_select_components(select_components, entity_id, filtered_components_map)
+      |> add_select_optional_components(
+        select_optional_components,
+        entity_id,
+        filtered_components_map
+      )
+    end)
     |> Stream.reject(fn return_tuple ->
       :reject in Tuple.to_list(return_tuple)
     end)
@@ -540,16 +552,11 @@ defmodule Ecspanse.Query do
   end
 
   # add mandatory components to the select tuple
-  defp add_select_components(select_tuple, comp_modules, entity_id, components_state_ets_name) do
+  defp add_select_components(select_tuple, comp_modules, entity_id, filtered_components_map) do
     Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
-      case :ets.lookup(
-             components_state_ets_name,
-             {entity_id, comp_module, comp_module.__component_groups__()}
-           ) do
-        [{_key, comp_state}] -> Tuple.append(acc, comp_state)
-        # checking for race conditions when a required component is removed during the query
-        # the whole entity should be filtered out
-        [] -> Tuple.append(acc, :reject)
+      case Map.fetch(filtered_components_map, {entity_id, comp_module}) do
+        {:ok, comp_state} -> Tuple.append(acc, comp_state)
+        _ -> Tuple.append(acc, :reject)
       end
     end)
   end
@@ -559,15 +566,12 @@ defmodule Ecspanse.Query do
          select_tuple,
          comp_modules,
          entity_id,
-         components_state_ets_name
+         filtered_components_map
        ) do
     Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
-      case :ets.lookup(
-             components_state_ets_name,
-             {entity_id, comp_module, comp_module.__component_groups__()}
-           ) do
-        [{_key, comp_state}] -> Tuple.append(acc, comp_state)
-        [] -> Tuple.append(acc, nil)
+      case Map.fetch(filtered_components_map, {entity_id, comp_module}) do
+        {:ok, comp_state} -> Tuple.append(acc, comp_state)
+        _ -> Tuple.append(acc, nil)
       end
     end)
   end
