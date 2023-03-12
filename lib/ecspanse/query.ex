@@ -511,69 +511,14 @@ defmodule Ecspanse.Query do
       |> Stream.concat()
       |> Enum.into(%{}, fn {key, value} -> {key, value} end)
 
-    build_return_tuples(
+    Ecspanse.Native.build_return_vectors(
       return_entity,
       select_components,
       select_optional_components,
       entity_ids,
       filtered_components_map
     )
-  end
-
-  defp build_return_tuples(
-         return_entity,
-         select_components,
-         select_optional_components,
-         entity_ids,
-         filtered_components_map
-       ) do
-    Stream.map(entity_ids, fn entity_id ->
-      {}
-      |> map_entity(return_entity, entity_id)
-      |> add_select_components(select_components, entity_id, filtered_components_map)
-      |> add_select_optional_components(
-        select_optional_components,
-        entity_id,
-        filtered_components_map
-      )
-    end)
-    |> Stream.reject(fn return_tuple ->
-      :reject in Tuple.to_list(return_tuple)
-    end)
-  end
-
-  # if the entity is part of the query, return the entity
-  defp map_entity(select_tuple, return_entity, entity_id) do
-    if return_entity do
-      Tuple.append(select_tuple, Entity.build(entity_id))
-    else
-      select_tuple
-    end
-  end
-
-  # add mandatory components to the select tuple
-  defp add_select_components(select_tuple, comp_modules, entity_id, filtered_components_map) do
-    Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
-      case Map.fetch(filtered_components_map, {entity_id, comp_module}) do
-        {:ok, comp_state} -> Tuple.append(acc, comp_state)
-        _ -> Tuple.append(acc, :reject)
-      end
-    end)
-  end
-
-  # add optional components
-  defp add_select_optional_components(
-         select_tuple,
-         comp_modules,
-         entity_id,
-         filtered_components_map
-       ) do
-    Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
-      case Map.fetch(filtered_components_map, {entity_id, comp_module}) do
-        {:ok, comp_state} -> Tuple.append(acc, comp_state)
-        _ -> Tuple.append(acc, nil)
-      end
-    end)
+    |> Stream.map(fn result -> List.to_tuple(result) end)
   end
 
   # Validations

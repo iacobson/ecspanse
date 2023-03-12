@@ -100,12 +100,64 @@ fn query_filter_by_components(
         .encode(env)
 }
 
+// TODO: could not use parallel iteration because it's not safe to share env between threads
+// Building query return vectors for mandatory and optional components.
+// The vectors are converted to tuples on the Elixir side
+#[rustler::nif]
+fn build_return_vectors<'a>(
+    env: Env<'a>,
+    return_entity: bool,
+    select_components: Vec<Atom>,
+    select_optional_components: Vec<Atom>,
+    entity_ids: Vec<String>,
+    filtered_components_map: HashMap<Term<'a>, Term<'a>>,
+) -> Term<'a> {
+    let mut result = Vec::new();
+    for entity_id in &entity_ids {
+        let mut record = Vec::new();
+        let mut clear = true;
+
+        if return_entity {
+            let entity = Entity {
+                id: entity_id.clone(),
+            };
+            record.push(entity.encode(env));
+        }
+
+        for comp in &select_components {
+            let key = (entity_id, comp).encode(env);
+            if let Some(value) = filtered_components_map.get(&key) {
+                record.push(*value);
+            } else {
+                clear = false;
+                break;
+            }
+        }
+
+        for comp in &select_optional_components {
+            let key = (entity_id, comp).encode(env);
+            if let Some(value) = filtered_components_map.get(&key) {
+                record.push(*value);
+            } else {
+                record.push(rustler::types::atom::nil().encode(env));
+            }
+        }
+
+        if clear {
+            result.push(record);
+        }
+    }
+
+    result.encode(env)
+}
+
 rustler::init!(
     "Elixir.Ecspanse.Native",
     [
         list_entities_components,
         query_filter_for_entities,
         query_filter_not_for_entities,
-        query_filter_by_components
+        query_filter_by_components,
+        build_return_vectors
     ]
 );
