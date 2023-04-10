@@ -15,6 +15,9 @@ defmodule Ecspanse.System do
   For systems that are executed synchronously, the `lock_components` option is not necessary.
   If provided, it is ignored and a warning is logged.
 
+
+  Resources can be created, updated and deleted only by systems that are executed synchronously.
+
   """
 
   # The System process stores several keys to be used by the Commands and Queries.
@@ -48,6 +51,31 @@ defmodule Ecspanse.System do
             execution: nil,
             run_after: [],
             run_conditions: []
+
+  @doc """
+  Gives any process Ecspanse.System abilities (eg. executing commands).
+  This is a powerful tool for testing and debugging, as the promoted process
+  can change the components and resources state without having to be scheduled like a regular system.
+  """
+  @spec debug(token :: binary()) :: :ok
+  def debug(token) do
+    if Mix.env() in [:dev, :test] do
+      token_payload = Ecspanse.Util.decode_token(token)
+
+      Process.put(:ecs_process_type, :system)
+      Process.put(:token, token)
+      Process.put(:system_execution, :sync)
+      Process.put(:system_module, Ecspanse.System.Debug)
+      Process.put(:locked_components, Ecspanse.System.Debug.__locked_components__())
+      Process.put(:components_state_ets_name, token_payload.components_state_ets_name)
+      Process.put(:resources_state_ets_name, token_payload.resources_state_ets_name)
+      Process.put(:events_ets_name, token_payload.events_ets_name)
+
+      :ok
+    else
+      {:error, "debug is only available in dev and test"}
+    end
+  end
 
   @doc """
   TODO - Add description and usage

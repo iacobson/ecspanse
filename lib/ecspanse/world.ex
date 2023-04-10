@@ -221,7 +221,7 @@ defmodule Ecspanse.World do
   end
 
   @doc """
-  Utility function used for developement.
+  Utility function used for testing and developement.
   Returns the internal World state.
   Useful for debugging systems scheduling and batching.
   """

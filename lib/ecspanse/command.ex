@@ -1830,7 +1830,7 @@ defmodule Ecspanse.Command do
       {{Event.ResourceCreated, resource.__meta__.module},
        struct!(Event.ResourceCreated, %{
          created: resource,
-         inserted_at: System.os_time(:millisecond)
+         inserted_at: System.os_time()
        })}
 
     add_events([event])
@@ -1841,7 +1841,7 @@ defmodule Ecspanse.Command do
       {{Event.ResourceUpdated, resource.__meta__.module},
        struct!(Event.ResourceUpdated, %{
          updated: resource,
-         inserted_at: System.os_time(:millisecond)
+         inserted_at: System.os_time()
        })}
 
     add_events([event])
@@ -1852,7 +1852,7 @@ defmodule Ecspanse.Command do
       {{Event.ResourceDeleted, resource.__meta__.module},
        struct!(Event.ResourceDeleted, %{
          deleted: resource,
-         inserted_at: System.os_time(:millisecond)
+         inserted_at: System.os_time()
        })}
 
     add_events([event])

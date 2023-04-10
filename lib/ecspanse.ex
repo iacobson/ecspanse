@@ -1,28 +1,45 @@
 defmodule Ecspanse do
   @moduledoc """
-  Documentation for `Ecspanse`.
+  Ecspanse is an experimental Entity Component System (ECS) library for Elixir, designed to manage game state and provide tools for measuring time and frame duration.
+  It is not a game engine, but a flexible foundation for building game logic.
 
-  Add config
-  :my_otp_app_name, :ecspanse_secret, "my_strong_secret - optional, only if you need a signed token
+  The core structure of the Ecspanse library is:
 
+  - `Ecspanse.World`: A container for game state and logic. Multiple worlds can be created, but they do not communicate directly with each other.
+  Each world schedules system execution and listens for events. Each spawned world generates a unique token wihich is used to interact with the world.
+  - `Ecspanse.Entity`: A simple struct with an ID, serving as a holder for components.
+  - `Ecspanse.Component`: A struct that holds state information.
+  - `Ecspanse.System`: The core logic of the library. Systems are configured for each world and run every frame, either synchronously or asynchronously.
+  - `Ecspanse.Resource`: Global state storage, similar to components but not tied to a specific entity. Resources can only be created, updated, and deleted by synchronously executed systems.
+  - `Ecspanse.Query`: A tool for retrieving entities, components, or resources.
+  - `Ecspanse.Command`: A mechanism for changing component and resource state, which can only be triggered from a system.
+
+
+  ### Configuration
+  Optionally, the `:ecspanse_secret` configuration can be added for a signed token:
+
+      config :my_otp_app_name, :ecspanse_secret, "my_strong_secret"
   """
 
-  @type data :: %{
-          id: binary(),
-          world_name: atom() | {:global, term()} | {:via, module(), term()},
-          registry_name: atom()
-        }
-
   @doc """
-  Creates a new world.
+  Creates a new world with the specified options.
 
+  ## Options
 
-  Opts
-  - name: custom world name. Must be unique. Useful when providing also the supervisor name. Can be a {:via, _, _} tuple.
-  - startup_events: a list of event_spec that will run only on world startup. Good to setup resources with dynamic data.
-  - dyn_sup: name or pid of an existing DynamicSupervisor. If provided, the world will be started as a child of the DynamicSupervisor.
-              If not provided, a new DynamicSupervisor will be started.
-  - dyn_sup_impl: defaults to 'DynamicSupervisor'. But can be a custome implementation of the DynamicSupervisor functions. Eg: `Horde.DynamicSupervisor`
+  - `:name` - A custom, unique world name. Useful when providing a supervisor name. Can be a `{:via, _, _}` tuple.
+  - `:startup_events` - A list of event specifications that will run only on world startup. Useful for setting up resources with dynamic data.
+  They are only available in the startup systems.
+  - `:dyn_sup` - The name or PID of an existing DynamicSupervisor. If provided, the world will be started as a child of the DynamicSupervisor.
+  If not provided, a new DynamicSupervisor will be started.
+  - `:dyn_sup_impl` - Defaults to `DynamicSupervisor`. Can be a custom implementation of the DynamicSupervisor functions, e.g., `Horde.DynamicSupervisor`.
+
+  ## Examples
+
+      iex> Ecspanse.new(MyWorldModule)
+      {:ok, world_token}
+
+      iex> Ecspanse.new(MyWorldModule, name: :my_custom_world)
+      {:ok, world_token}
   """
   @spec new(world_module :: module(), opts :: keyword()) ::
           {:ok, world_token :: binary()} | {:error, any()}
