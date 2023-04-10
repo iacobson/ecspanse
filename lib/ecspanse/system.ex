@@ -12,6 +12,10 @@ defmodule Ecspanse.System do
   and `EntityTypeComponent` is the component module that defines the entity with access mode `:entity_type`
 
 
+  The 'for_event` option is used to define a system that will be executed only when a specific event is triggered.
+  The event runs once for every event of that specific type. The evens run in paralled, but batched by event keys, to avoid race conditions.
+
+
   For systems that are executed synchronously, the `lock_components` option is not necessary.
   If provided, it is ignored and a warning is logged.
 
@@ -91,7 +95,7 @@ defmodule Ecspanse.System do
 
   **Tip** use with care. While the locked components ensure that no other system is modifying the same components at the same time,
   the `execute_async/3` does not offer any guarantees inside the system.
-  For example, trying to update the same components in multiple asyunc functions may result in race conditions and unexpected state.
+  For example, trying to update the same components in multiple async functions may result in race conditions and unexpected state.
   On the other hand, it can improve a lot the speed of the system execution.
   For example, a large list of components that belong to different entities and are not interdependent, can be updated in parallel.
 
@@ -117,18 +121,47 @@ defmodule Ecspanse.System do
     |> Stream.run()
   end
 
-  @doc """
-  TODO
-  The function may return any value. The value is ignored.
-  Recives a Frame struct as argument.
-  """
-  @callback run(Ecspanse.World.Frame.t()) :: any()
+  defmodule WithoutEventSubscription do
+    @moduledoc """
+    Systems that do not depend on any event.
+    """
+
+    @doc """
+    TODO
+    The function may return any value. The value is ignored.
+    Recives the current Frame struct as argument.
+    """
+    @callback run(Ecspanse.World.Frame.t()) :: any()
+  end
+
+  defmodule WithEventSubscription do
+    @moduledoc """
+    Systems that need to be executed for a specific event.
+    """
+
+    @doc """
+    TODO
+    The function may return any value. The value is ignored.
+    Recives the triggering Event and the current Frame struct as arguments.
+    """
+    @callback run(event :: struct(), Ecspanse.World.Frame.t()) :: any()
+  end
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
       import Ecspanse.System, only: [execute_async: 3, execute_async: 2]
-      @behaviour Ecspanse.System
       locked_components = Keyword.get(opts, :lock_components, [])
+      event_module = Keyword.get(opts, :event_subscription, nil)
+
+      if is_nil(event_module) do
+        @behaviour Ecspanse.System.WithoutEventSubscription
+      else
+        unless is_atom(event_module) && event_module.__ecs_type__() == :event do
+          raise ArgumentError, "The module #{inspect(event_module)} must be an event."
+        end
+
+        @behaviour Ecspanse.System.WithEventSubscription
+      end
 
       Enum.each(locked_components, fn
         {component, entity_type: entity_type_component}
@@ -170,6 +203,24 @@ defmodule Ecspanse.System do
 
       ### Internal functions ###
       # not exposed in the docs
+
+      @doc false
+      if event_module do
+        def schedule_run(frame) do
+          Enum.each(frame.event_batches, fn events ->
+            events
+            |> Enum.filter(fn event -> event.__struct__ == unquote(event_module) end)
+            |> Ecspanse.System.execute_async(
+              fn event -> run(event, frame) end,
+              concurrent: length(events)
+            )
+          end)
+        end
+      else
+        def schedule_run(frame) do
+          run(frame)
+        end
+      end
 
       @doc false
       def __ecs_type__ do

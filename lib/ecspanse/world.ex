@@ -680,7 +680,7 @@ defmodule Ecspanse.World do
     %Task{ref: ref} =
       Task.async(fn ->
         prepare_system_process(state, system)
-        system.module.run(state.frame_data)
+        system.module.schedule_run(state.frame_data)
         :finished_system_execution
       end)
 
