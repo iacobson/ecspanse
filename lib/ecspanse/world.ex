@@ -767,15 +767,12 @@ defmodule Ecspanse.World do
   end
 
   defp validate_unique_system(system_module, state) do
-    try do
-      if system_module.__ecs_type__() == :system do
-        :ok
-      else
-        raise "validation error"
-      end
-    rescue
-      _ -> reraise ArgumentError, "The module #{inspect(system_module)} must be a System"
-    end
+    Ecspanse.Util.validate_ecs_type(
+      system_module,
+      :system,
+      ArgumentError,
+      "The module #{inspect(system_module)} must be a System"
+    )
 
     if MapSet.member?(state.system_modules, system_module) do
       raise "System #{inspect(system_module)} already exists. World systems must be unique."

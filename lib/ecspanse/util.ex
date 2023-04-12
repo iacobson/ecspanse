@@ -73,4 +73,33 @@ defmodule Ecspanse.Util do
   def run_system_not_in_state(token, run_not_in_state) do
     not run_system_in_state(token, run_not_in_state)
   end
+
+  @doc false
+  def validate_events(event_modules) do
+    Enum.each(event_modules, fn event_module ->
+      validate_ecs_type(
+        event_module,
+        :event,
+        ArgumentError,
+        "The module #{inspect(event_module)} must be an event."
+      )
+    end)
+
+    :ok
+  end
+
+  @doc false
+  def validate_ecs_type(module, type, exception, attributes) do
+    # try, because an invalid module would not implement this function
+    try do
+      if is_atom(module) && Code.ensure_compiled!(module) && module.__ecs_type__() == type do
+        :ok
+      else
+        raise "validation error"
+      end
+    rescue
+      _exception ->
+        reraise exception, attributes, __STACKTRACE__
+    end
+  end
 end

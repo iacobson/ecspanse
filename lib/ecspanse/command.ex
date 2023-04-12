@@ -1391,17 +1391,12 @@ defmodule Ecspanse.Command do
   end
 
   defp validate_is_component(operation, component_module) do
-    try do
-      if component_module.__ecs_type__() == :component do
-        :ok
-      else
-        raise "validation error"
-      end
-    rescue
-      _ ->
-        reraise Error,
-                {operation, "#{inspect(component_module)} is not a Component"}
-    end
+    Ecspanse.Util.validate_ecs_type(
+      component_module,
+      :component,
+      Error,
+      {operation, "#{inspect(component_module)} is not a Component"}
+    )
   end
 
   defp validate_no_relation(operation, component_specs) do
@@ -1545,17 +1540,12 @@ defmodule Ecspanse.Command do
   end
 
   defp validate_is_resource(operation, resource_module) do
-    try do
-      if resource_module.__ecs_type__() == :resource do
-        :ok
-      else
-        raise "validation error"
-      end
-    rescue
-      _ ->
-        reraise Error,
-                {operation, "#{inspect(resource_module)} is not a Resource"}
-    end
+    Ecspanse.Util.validate_ecs_type(
+      resource_module,
+      :resource,
+      Error,
+      {operation, "#{inspect(resource_module)} is not a Resource"}
+    )
   end
 
   defp validate_resource_state(operation, resource_state_struct) do

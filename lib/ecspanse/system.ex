@@ -12,8 +12,9 @@ defmodule Ecspanse.System do
   and `EntityTypeComponent` is the component module that defines the entity with access mode `:entity_type`
 
 
-  The 'for_event` option is used to define a system that will be executed only when a specific event is triggered.
-  The event runs once for every event of that specific type. The evens run in paralled, but batched by event keys, to avoid race conditions.
+  The 'events_subscription` option is used to define a system that will be executed only when specific events are triggered.
+  The system runs for every event of the specified types. The evens run in paralled, but batched by event keys, to avoid race conditions.
+  The event itself is passed to the system as the first argument in the `run/2` function
 
 
   For systems that are executed synchronously, the `lock_components` option is not necessary.
@@ -121,7 +122,7 @@ defmodule Ecspanse.System do
     |> Stream.run()
   end
 
-  defmodule WithoutEventSubscription do
+  defmodule WithoutEventsSubscription do
     @moduledoc """
     Systems that do not depend on any event.
     """
@@ -134,7 +135,7 @@ defmodule Ecspanse.System do
     @callback run(Ecspanse.World.Frame.t()) :: any()
   end
 
-  defmodule WithEventSubscription do
+  defmodule WithEventsSubscription do
     @moduledoc """
     Systems that need to be executed for a specific event.
     """
@@ -151,46 +152,49 @@ defmodule Ecspanse.System do
     quote bind_quoted: [opts: opts], location: :keep do
       import Ecspanse.System, only: [execute_async: 3, execute_async: 2]
       locked_components = Keyword.get(opts, :lock_components, [])
-      event_module = Keyword.get(opts, :event_subscription, nil)
+      event_modules = Keyword.get(opts, :events_subscription, [])
 
-      if is_nil(event_module) do
-        @behaviour Ecspanse.System.WithoutEventSubscription
-      else
-        unless is_atom(event_module) && event_module.__ecs_type__() == :event do
-          raise ArgumentError, "The module #{inspect(event_module)} must be an event."
-        end
+      case event_modules do
+        [] ->
+          @behaviour Ecspanse.System.WithoutEventsSubscription
 
-        @behaviour Ecspanse.System.WithEventSubscription
+        event_modules when is_list(event_modules) ->
+          Ecspanse.Util.validate_events(event_modules)
+          @behaviour Ecspanse.System.WithEventsSubscription
+
+        event_modules ->
+          raise ArgumentError,
+                "#{inspect(__MODULE__)} :events_subscription option must be a list of event modules. Got: #{inspect(event_modules)}"
       end
 
       Enum.each(locked_components, fn
-        {component, entity_type: entity_type_component}
-        when is_atom(component) and is_atom(entity_type_component) ->
-          Code.ensure_compiled!(component)
-          Code.ensure_compiled!(entity_type_component)
+        {component, entity_type: entity_type_component} ->
+          Ecspanse.Util.validate_ecs_type(
+            component,
+            :component,
+            ArgumentError,
+            "All modules provided to the #{inspect(__MODULE__)} System :lock_components option must be Components. #{inspect(component)} is not a Component"
+          )
 
-          unless component.__ecs_type__() == :component do
-            raise ArgumentError,
-                  "All modules provided to the #{inspect(__MODULE__)} System :lock_components option must be Components. #{inspect(component)} is not a Component"
-          end
-
-          unless entity_type_component.__ecs_type__() == :component do
-            raise ArgumentError,
-                  "All modules provided to the #{inspect(__MODULE__)} System :lock_components option must be Components. #{inspect(entity_type_component)} is not a Component"
-          end
+          Ecspanse.Util.validate_ecs_type(
+            component,
+            :component,
+            ArgumentError,
+            "All modules provided to the #{inspect(__MODULE__)} System :lock_components option must be Components. #{inspect(entity_type_component)} is not a Component"
+          )
 
           unless entity_type_component.__component_access_mode__() == :entity_type do
             raise ArgumentError,
                   "System #{inspect(__MODULE__)}. When providing a tuple to the :lock_components option, the second element must be a component with access mode :entity_type. #{inspect(entity_type_component)} does not have access mode :entity_type"
           end
 
-        component when is_atom(component) ->
-          Code.ensure_compiled!(component)
-
-          unless component.__ecs_type__() == :component do
-            raise ArgumentError,
-                  "All modules provided to the #{inspect(__MODULE__)} System :lock_components option must be Components. #{inspect(component)} is not a Component"
-          end
+        component ->
+          Ecspanse.Util.validate_ecs_type(
+            component,
+            :component,
+            ArgumentError,
+            "All modules provided to the #{inspect(__MODULE__)} System :lock_components option must be Components. #{inspect(component)} is not a Component"
+          )
       end)
 
       # IMPORTANT
@@ -205,21 +209,20 @@ defmodule Ecspanse.System do
       # not exposed in the docs
 
       @doc false
-      if event_module do
-        def schedule_run(frame) do
-          Enum.each(frame.event_batches, fn events ->
-            events
-            |> Enum.filter(fn event -> event.__struct__ == unquote(event_module) end)
-            |> Ecspanse.System.execute_async(
-              fn event -> run(event, frame) end,
-              concurrent: length(events)
-            )
-          end)
-        end
-      else
-        def schedule_run(frame) do
-          run(frame)
-        end
+      case event_modules do
+        [] ->
+          def schedule_run(frame) do
+            run(frame)
+          end
+
+        event_modules ->
+          def schedule_run(frame) do
+            Enum.each(frame.event_batches, fn events ->
+              events
+              |> Enum.filter(fn event -> event.__struct__ in unquote(event_modules) end)
+              |> Ecspanse.System.execute_async(&run(&1, frame), concurrent: length(events))
+            end)
+          end
       end
 
       @doc false

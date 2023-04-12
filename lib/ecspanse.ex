@@ -27,7 +27,7 @@ defmodule Ecspanse do
   ## Options
 
   - `:name` - A custom, unique world name. Useful when providing a supervisor name. Can be a `{:via, _, _}` tuple.
-  - `:startup_events` - A list of event specifications that will run only on world startup. Useful for setting up resources with dynamic data.
+  - `:startup_events` - A list of event specs that will run only on world startup. Useful for setting up resources with dynamic data.
   They are only available in the startup systems.
   - `:dyn_sup` - The name or PID of an existing DynamicSupervisor. If provided, the world will be started as a child of the DynamicSupervisor.
   If not provided, a new DynamicSupervisor will be started.
@@ -153,8 +153,11 @@ defmodule Ecspanse do
   end
 
   defp validate_event(event_module) do
-    unless event_module.__ecs_type__() == :event do
-      raise ArgumentError, "The module #{inspect(event_module)} must be an event."
-    end
+    Ecspanse.Util.validate_ecs_type(
+      event_module,
+      :event,
+      ArgumentError,
+      "The module #{inspect(event_module)} must be a Event"
+    )
   end
 end

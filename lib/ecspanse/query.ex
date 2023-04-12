@@ -620,20 +620,15 @@ defmodule Ecspanse.Query do
         end
       )
 
-    non_components =
-      try do
-        Enum.reject(component_modules, &(&1.__ecs_type__() == :component))
-      rescue
-        _ -> component_modules
-      end
+    Enum.each(component_modules, fn component_module ->
+      Ecspanse.Util.validate_ecs_type(
+        component_module,
+        :component,
+        Error,
+        "Expected Component, got: `#{Kernel.inspect(component_module)}`"
+      )
+    end)
 
-    case non_components do
-      [] ->
-        :ok
-
-      _ ->
-        raise Error,
-              "Expected all to be Components, got: `#{Kernel.inspect(non_components)}`"
-    end
+    :ok
   end
 end
