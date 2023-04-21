@@ -29,15 +29,10 @@ defmodule Ecspanse.Event do
   ```
   """
 
-  # TODO: explain why a key is needed.
-  # Explain multiple similar evens can exist per frame. But they must be processed in different batches.
-  # the World groups the events by batches with unique {Module, key}
-
-  # in most of the cases, the key may be some user ID
-
   @type event_spec ::
-          {event_module :: module(), key :: any()}
-          | {event_module :: module(), key :: any(), event_fields :: keyword()}
+          event_module ::
+          module()
+          | {event_module :: module(), event_fields :: keyword()}
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
@@ -51,7 +46,7 @@ defmodule Ecspanse.Event do
               "Invalid fields for Event: #{inspect(__MODULE__)}. The `:fields` option must be a list with all the Event struct keys and their default values (if any). Eg: [:foo, :bar, baz: 1]"
       end
 
-      fields = fields |> Keyword.put(:inserted_at, nil)
+      fields = fields |> Keyword.put(:inserted_at, nil) |> Keyword.put(:__for_entities__, [])
 
       @enforce_keys [:inserted_at]
       defstruct fields

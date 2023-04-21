@@ -208,19 +208,24 @@ defmodule Ecspanse.System do
       ### Internal functions ###
       # not exposed in the docs
 
-      @doc false
       case event_modules do
         [] ->
+          @doc false
+          # at this point, the events for entities that do not exist
+          # have already been filtered out in the World batching
           def schedule_run(frame) do
             run(frame)
           end
 
         event_modules ->
+          @doc false
+          # at this point, the events for entities that do not exist
+          # have already been filtered out in the World batching
           def schedule_run(frame) do
             Enum.each(frame.event_batches, fn events ->
               events
-              |> Enum.filter(fn event -> event.__struct__ in unquote(event_modules) end)
-              |> Ecspanse.System.execute_async(&run(&1, frame), concurrent: length(events))
+              |> Enum.filter(&(&1.__struct__ in unquote(event_modules)))
+              |> Ecspanse.System.execute_async(&run(&1, frame), concurrent: length(events) + 1)
             end)
           end
       end

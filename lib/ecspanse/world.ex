@@ -436,7 +436,7 @@ defmodule Ecspanse.World do
       }
       |> add_run_conditions([])
 
-    %World{operations: operations} = apply(state.world_module, :setup, [%World{}])
+    %World{operations: operations} = state.world_module.setup(%World{})
     operations = operations ++ [{:add_system, create_default_resources_system}]
 
     state = operations |> Enum.reverse() |> apply_operations(state)
@@ -467,10 +467,7 @@ defmodule Ecspanse.World do
   @impl true
   def handle_info({:run, system_start_events}, state) do
     # startup_events passed as options in the Ecspanse.new/2 function
-    event_batches =
-      system_start_events
-      |> Enum.sort_by(fn {_k, v} -> v.inserted_at end, &</2)
-      |> batch_events([])
+    event_batches = batch_events(system_start_events, state.token)
 
     state = %{
       state
@@ -493,11 +490,10 @@ defmodule Ecspanse.World do
     frame_monotonic_time = Elixir.System.monotonic_time(:millisecond)
     delta = frame_monotonic_time - state.last_frame_monotonic_time
 
-    # inserted_at is the System time in milliseconds when the event was created
     event_batches =
-      :ets.tab2list(state.events_ets_name)
-      |> Enum.sort_by(fn {_k, v} -> v.inserted_at end, &</2)
-      |> batch_events([])
+      state.events_ets_name
+      |> :ets.tab2list()
+      |> batch_events(state.token)
 
     # Frame limit
     # in order to finish a frame, two conditions must be met:
@@ -935,12 +931,33 @@ defmodule Ecspanse.World do
     |> Map.to_list()
   end
 
-  defp batch_events([], batches), do: batches
+  defp batch_events(events, token) do
+    # inserted_at is the System time in milliseconds when the event was created
+    events
+    |> Enum.sort_by(fn {_k, v} -> v.inserted_at end, &</2)
+    |> do_event_batches([], token)
+  end
 
-  defp batch_events(events, batches) do
+  defp do_event_batches([], batches, _token), do: batches
+
+  defp do_event_batches(events, batches, token) do
     current_events = Enum.uniq_by(events, fn {k, _v} -> k end)
-    batch = Enum.map(current_events, fn {_, v} -> v end)
+
+    batch =
+      Enum.map(current_events, fn {_, v} -> v end)
+      |> Enum.filter(&event_entities_exist?(&1, token))
+
     remaining_events = events -- current_events
-    batch_events(remaining_events, batches ++ [batch])
+    do_event_batches(remaining_events, batches ++ [batch], token)
+  end
+
+  # Filter out events for entities that don't exist
+  defp event_entities_exist?(event, token) do
+    Enum.all?(event.__for_entities__, fn entity ->
+      case Ecspanse.Entity.fetch(entity.id, token) do
+        {:ok, _entity} -> true
+        _ -> false
+      end
+    end)
   end
 end

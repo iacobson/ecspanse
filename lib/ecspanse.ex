@@ -61,7 +61,7 @@ defmodule Ecspanse do
     id = UUID.uuid4()
     world_name = custom_world_name || String.to_atom("world:#{id}")
 
-    events = Keyword.get(opts, :startup_events, []) |> Enum.map(&prepare_event/1)
+    events = Keyword.get(opts, :startup_events, []) |> Enum.map(&prepare_event(&1, "default", []))
 
     data = %{
       id: id,
@@ -124,31 +124,58 @@ defmodule Ecspanse do
   end
 
   @doc """
-  Adds an event to the world.
   TODO
+  Adds and event to the world.
+  - First argument is an event spec. TODO: explain the key
+
+  ## Opts
+  - :for_entities - is a list of entities that are impacted by this event.
+    If any of those entities does not exist, the event will be ignored.
+    This helps avoiding checking in each System if the entity exists, before processing the event.
+    For example: if an entity was destroyed in the same frame that an event was triggered to
+    change components for it, the handling system should make sure the entity exists before
+    processing the event. But, sending the `[enity_id]` as the second argument, the event will
+    be ignored if the entity does not exist.
+  - batch_key -  multiple similar evens can exist per frame. But they must be processed in different batches.
+    For example a player taking damage from multiple sources in the same frame.
+    The World groups the events by batches with unique {EventModule, batch_key}
+    In most of the cases, the key may be some entity ID. The one that triggers the event,
+  or the one that is impacted by the event.
+    Defaults to "default", meaning that similar events will be processed in different batches.
   """
-  @spec event(Ecspanse.Event.event_spec(), token :: binary()) :: :ok
-  def event(event_spec, token) do
-    event = prepare_event(event_spec)
+  @spec event(
+          Ecspanse.Event.event_spec(),
+          token :: binary(),
+          opts :: keyword()
+        ) :: :ok
+  def event(event_spec, token, opts \\ []) do
+    batch_key = Keyword.get(opts, :batch_key, "default")
+    for_entities = Keyword.get(opts, :for_entities, [])
+
+    event = prepare_event(event_spec, batch_key, for_entities)
 
     %{events_ets_name: events_ets_name} = Ecspanse.Util.decode_token(token)
     :ets.insert(events_ets_name, event)
   end
 
-  defp prepare_event(event_spec) do
+  defp prepare_event(event_spec, batch_key, for_entities) do
     {event_module, key, event_payload} =
       case event_spec do
-        {event_module, key, event_payload}
+        {event_module, event_payload}
         when is_atom(event_module) and is_list(event_payload) ->
           validate_event(event_module)
-          {event_module, key, event_payload}
+          {event_module, batch_key, event_payload}
 
-        {event_module, key} when is_atom(event_module) ->
+        event_module when is_atom(event_module) ->
           validate_event(event_module)
-          {event_module, key, []}
+          {event_module, batch_key, []}
       end
 
-    event_payload = event_payload |> Keyword.put(:inserted_at, System.os_time())
+    event_payload =
+      event_payload
+      |> Keyword.put(:inserted_at, System.os_time())
+      |> Keyword.put(:__for_entities__, for_entities)
+
     {{event_module, key}, struct!(event_module, event_payload)}
   end
 

@@ -32,8 +32,9 @@ defmodule Ecspanse.System.Timer do
       new_time = timer.time - frame.delta
 
       if new_time <= 0 do
-        event_spec = build_event_spec(timer, frame.token)
-        Ecspanse.event(event_spec, frame.token)
+        entity = Query.get_component_entity(timer, frame.token)
+        event_spec = build_event_spec(timer, entity)
+        Ecspanse.event(event_spec, frame.token, batch_key: entity.id, for_entities: [entity])
         {timer, time: timer.duration + new_time}
       else
         {timer, time: new_time}
@@ -48,8 +49,9 @@ defmodule Ecspanse.System.Timer do
       new_time = max(timer.time - frame.delta, 0)
 
       if new_time == 0 do
-        event_spec = build_event_spec(timer, frame.token)
-        Ecspanse.event(event_spec, frame.token)
+        entity = Query.get_component_entity(timer, frame.token)
+        event_spec = build_event_spec(timer, entity)
+        Ecspanse.event(event_spec, frame.token, batch_key: entity.id, for_entities: [entity])
       end
 
       {timer, time: new_time}
@@ -64,8 +66,9 @@ defmodule Ecspanse.System.Timer do
         new_time = max(timer.time - frame.delta, 0)
 
         if new_time == 0 do
-          event_spec = build_event_spec(timer, frame.token)
-          Ecspanse.event(event_spec, frame.token)
+          entity = Query.get_component_entity(timer, frame.token)
+          event_spec = build_event_spec(timer, entity)
+          Ecspanse.event(event_spec, frame.token, batch_key: entity.id, for_entities: [entity])
           %{acc | remove: [timer | acc.remove]}
         else
           %{acc | update: [{timer, time: new_time} | acc.update]}
@@ -76,8 +79,7 @@ defmodule Ecspanse.System.Timer do
     Ecspanse.Command.remove_component!(remove)
   end
 
-  defp build_event_spec(timer, token) do
-    entity = Query.get_component_entity(timer, token)
-    {timer.event, entity.id, entity: entity}
+  defp build_event_spec(timer, entity) do
+    {timer.event, entity: entity}
   end
 end
