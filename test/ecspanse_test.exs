@@ -61,4 +61,33 @@ defmodule EcspanseTest do
       refute_receive {:running, _}
     end
   end
+
+  describe "terminate/1" do
+    test "terminates the world" do
+      assert {:ok, token} = Ecspanse.new(TestWorld)
+      assert {:ok, _} = Ecspanse.fetch_world_process(token)
+      assert Ecspanse.terminate(token) == :ok
+
+      # wait for the world GenServer `terminate/2` callback to finish
+      :timer.sleep(100)
+      assert {:error, :not_found} = Ecspanse.fetch_world_process(token)
+    end
+  end
+
+  describe "fetch_token/1" do
+    test "fetches the world token from the world name" do
+      assert {:ok, token} = Ecspanse.new(TestWorld, name: TestName)
+      assert {:ok, found_token} = Ecspanse.fetch_token(TestName)
+      assert token == found_token
+    end
+  end
+
+  describe "fetch_world_process/1" do
+    test "fetches the world process from the world token" do
+      assert {:ok, token} = Ecspanse.new(TestWorld, name: TestName)
+      assert {:ok, %{name: name, pid: pid}} = Ecspanse.fetch_world_process(token)
+      assert name == TestName
+      assert Process.alive?(pid)
+    end
+  end
 end

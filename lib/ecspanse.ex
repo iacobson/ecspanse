@@ -24,6 +24,9 @@ defmodule Ecspanse do
   @doc """
   Creates a new world with the specified options.
 
+  The function returns a unique token that is required for interacting with the world.
+  This token must be provided for all operations that involve the world, such as queuing events or running queries.
+
   ## Options
 
   - `:name` - A custom, unique world name. Useful when providing a supervisor name. Can be a `{:via, _, _}` tuple.
@@ -94,7 +97,13 @@ defmodule Ecspanse do
   end
 
   @doc """
-  TODO
+  Terminates the world process together with all related components or resources.
+
+  ## Examples
+      iex> Ecspanse.new(MyWorldModule)
+      {:ok, world_token}
+      iex> Ecspanse.terminate(world_token)
+      :ok
   """
   @spec terminate(token :: binary()) :: :ok
   def terminate(token) do
@@ -103,7 +112,16 @@ defmodule Ecspanse do
   end
 
   @doc """
-  TODO
+  Retrieves the token for the specified world.
+  In case the world is not yet initialized, it returns an error.
+
+  ## Examples
+
+      iex> Ecspanse.new(MyWorldModule, name: :my_world)
+      {:ok, world_token}
+      iex> Ecspanse.fetch_token(:my_world)
+      {:ok, world_token}
+
   """
   @spec fetch_token(Ecspanse.World.name()) :: {:ok, binary()} | {:error, :not_ready}
   def fetch_token(world_name) do
@@ -116,11 +134,28 @@ defmodule Ecspanse do
     end
   end
 
-  @spec fetch_world_data(token :: binary()) ::
-          {:ok, %{world_name: Ecspanse.World.name(), world_pid: pid()}}
-  def fetch_world_data(token) do
+  @doc """
+  Retrieves the world process information, including the name and process ID, for the given token.
+  If the world process is not found, it returns an error.
+
+  ## Examples
+
+      iex> Ecspanse.new(MyWorldModule)
+      {:ok, world_token}
+      iex> Ecspanse.fetch_world_process(world_token)
+      {:ok, %{name: world_name, pid: world_pid}}
+
+  """
+  @spec fetch_world_process(token :: binary()) ::
+          {:ok, %{name: Ecspanse.World.name(), pid: pid()}} | {:error, :not_found}
+  def fetch_world_process(token) do
     %{world_name: world_name, world_pid: world_pid} = Ecspanse.Util.decode_token(token)
-    {:ok, %{world_name: world_name, world_pid: world_pid}}
+
+    if Process.alive?(world_pid) do
+      {:ok, %{name: world_name, pid: world_pid}}
+    else
+      {:error, :not_found}
+    end
   end
 
   @doc """
