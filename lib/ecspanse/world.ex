@@ -538,7 +538,7 @@ defmodule Ecspanse.World do
     send(self(), :run_next_system)
 
     # for worlds started with the `test: true` option
-    if state do
+    if state.test do
       send(state.test_pid, {:next_frame, state})
     end
 
