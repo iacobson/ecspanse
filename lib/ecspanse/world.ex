@@ -231,7 +231,7 @@ defmodule Ecspanse.World do
       %{world_name: world_name} = Ecspanse.Util.decode_token(token)
       GenServer.call(world_name, :debug)
     else
-      {:error, "debug is only available in dev and test"}
+      {:error, "debug is only available for dev and test"}
     end
   end
 
@@ -288,7 +288,9 @@ defmodule Ecspanse.World do
               last_frame_monotonic_time: integer(),
               fps_limit: non_neg_integer(),
               delta: non_neg_integer(),
-              frame_data: Frame.t()
+              frame_data: Frame.t(),
+              test: boolean(),
+              test_pid: pid()
             }
 
     @enforce_keys [
@@ -329,7 +331,9 @@ defmodule Ecspanse.World do
               last_frame_monotonic_time: nil,
               fps_limit: :unlimited,
               delta: 0,
-              frame_data: %Frame{}
+              frame_data: %Frame{},
+              test: false,
+              test_pid: nil
   end
 
   ### SERVER ###
@@ -424,7 +428,9 @@ defmodule Ecspanse.World do
       events_ets_name: events_ets_name,
       last_frame_monotonic_time: Elixir.System.monotonic_time(:millisecond),
       delta: 0,
-      fps_limit: data.world_module.__fps_limit__()
+      fps_limit: data.world_module.__fps_limit__(),
+      test: data.test,
+      test_pid: data.test_pid
     }
 
     # Special system that creates the default resources
@@ -530,6 +536,12 @@ defmodule Ecspanse.World do
 
     Process.send_after(self(), :finish_frame_timer, round(limit))
     send(self(), :run_next_system)
+
+    # for worlds started with the `test: true` option
+    if state do
+      send(state.test_pid, {:next_frame, state})
+    end
+
     {:noreply, state}
   end
 
@@ -928,7 +940,7 @@ defmodule Ecspanse.World do
 
     (system_opts ++ system_set_opts)
     |> Enum.group_by(fn {k, _v} -> k end, fn {_k, v} -> v end)
-    |> Map.to_list()
+    |> Enum.map(fn {k, v} -> {k, v |> List.flatten() |> Enum.uniq()} end)
   end
 
   defp batch_events(events, token) do

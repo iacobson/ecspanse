@@ -35,6 +35,8 @@ defmodule Ecspanse do
   - `:dyn_sup` - The name or PID of an existing DynamicSupervisor. If provided, the world will be started as a child of the DynamicSupervisor.
   If not provided, a new DynamicSupervisor will be started.
   - `:dyn_sup_impl` - Defaults to `DynamicSupervisor`. Can be a custom implementation of the DynamicSupervisor functions, e.g., `Horde.DynamicSupervisor`.
+  - `:test` - boolean, defaults to false. If `true`, the world will be started in test mode. A `{:next_frame, %World.State{}}` tupple message will be sent to the process running this function at the beginning of each frame.
+  This is useful for tests or debugging
 
   ## Examples
 
@@ -61,6 +63,9 @@ defmodule Ecspanse do
 
     custom_world_name = Keyword.get(opts, :name)
 
+    test = Keyword.get(opts, :test, false)
+    test_pid = if test, do: self(), else: nil
+
     id = UUID.uuid4()
     world_name = custom_world_name || String.to_atom("world:#{id}")
 
@@ -71,7 +76,9 @@ defmodule Ecspanse do
       world_name: world_name,
       world_module: world_module,
       supervisor: supervisor,
-      events: events
+      events: events,
+      test: test,
+      test_pid: test_pid
     }
 
     with {:ok, _world_pid} <- supervisor_impl.start_child(supervisor, {Ecspanse.World, data}),
@@ -159,24 +166,31 @@ defmodule Ecspanse do
   end
 
   @doc """
-  TODO
-  Adds and event to the world.
-  - First argument is an event spec. TODO: explain the key
+  Queues a world event to be processed in the next frame.
 
-  ## Opts
-  - :for_entities - is a list of entities that are impacted by this event.
-    If any of those entities does not exist, the event will be ignored.
-    This helps avoiding checking in each System if the entity exists, before processing the event.
-    For example: if an entity was destroyed in the same frame that an event was triggered to
-    change components for it, the handling system should make sure the entity exists before
-    processing the event. But, sending the `[enity_id]` as the second argument, the event will
-    be ignored if the entity does not exist.
-  - batch_key -  multiple similar evens can exist per frame. But they must be processed in different batches.
-    For example a player taking damage from multiple sources in the same frame.
-    The World groups the events by batches with unique {EventModule, batch_key}
-    In most of the cases, the key may be some entity ID. The one that triggers the event,
-  or the one that is impacted by the event.
-    Defaults to "default", meaning that similar events will be processed in different batches.
+  The first argument is an event spec.
+
+  ## Options
+
+  - `:for_entities` - A list of entities affected by this event.
+  If any of these entities do not exist, the event will be ignored.
+  This avoids the need to check for entity existence in each System before processing the event.
+  For example, if an entity is destroyed in the same frame as another event that modifies its components,
+  the handling system should ensure the entity exists before processing the event.
+  By providing the `for_entities: [%Ecspanse.Entity{}]` in the options,
+  the event will be ignored if the entity does not exist.
+  - `:batch_key` - A key for grouping multiple similar events in different batches within the same frame.
+  The world groups the events into batches with unique `{EventModule, batch_key}` combinations.
+  In most cases, the key may be an entity ID that either triggers or is impacted by the event.
+  Defaults to "default", meaning that similar events will be processed in separate batches.
+
+  ## Examples
+
+      iex> Ecspanse.new(MyWorldModule)
+      {:ok, world_token}
+      iex> Ecspanse.event(MyEventModule, world_token, for_entities: [my_entity], batch_key: my_entity.id)
+      :ok
+
   """
   @spec event(
           Ecspanse.Event.event_spec(),

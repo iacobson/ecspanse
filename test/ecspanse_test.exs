@@ -6,6 +6,11 @@ defmodule EcspanseTest do
     use Ecspanse.Event, fields: [:data, :pid]
   end
 
+  defmodule TestCustomEvent do
+    @moduledoc false
+    use Ecspanse.Event
+  end
+
   defmodule TestStartupSystem do
     @moduledoc false
     use Ecspanse.System,
@@ -32,7 +37,7 @@ defmodule EcspanseTest do
 
   defmodule TestWorld do
     @moduledoc false
-    use Ecspanse.World
+    use Ecspanse.World, fps_limit: 60
 
     @impl true
     def setup(world) do
@@ -88,6 +93,51 @@ defmodule EcspanseTest do
       assert {:ok, %{name: name, pid: pid}} = Ecspanse.fetch_world_process(token)
       assert name == TestName
       assert Process.alive?(pid)
+    end
+  end
+
+  describe "event/3" do
+    test "queues an event for the next frame" do
+      assert {:ok, token} = Ecspanse.new(TestWorld, name: TestName, test: true)
+      assert_receive {:next_frame, _state}
+      assert_receive {:next_frame, state}
+      assert state.frame_data.event_batches == []
+      Ecspanse.event(TestCustomEvent, token)
+      assert_receive {:next_frame, state}
+      assert [[%EcspanseTest.TestCustomEvent{}]] = state.frame_data.event_batches
+    end
+
+    test "groups in individual batches an event without a batch key queued multiple times in the same frame" do
+      assert {:ok, token} = Ecspanse.new(TestWorld, name: TestName, test: true)
+      assert_receive {:next_frame, _state}
+      assert_receive {:next_frame, state}
+      assert state.frame_data.event_batches == []
+      Ecspanse.event(TestCustomEvent, token)
+      Ecspanse.event(TestCustomEvent, token)
+      assert_receive {:next_frame, state}
+
+      assert [[%EcspanseTest.TestCustomEvent{}], [%EcspanseTest.TestCustomEvent{}]] =
+               state.frame_data.event_batches
+    end
+
+    test "providing unique batch keys, groups the events in the same batch for parallel processing" do
+      assert {:ok, token} = Ecspanse.new(TestWorld, name: TestName, test: true)
+      entity_1 = Ecspanse.Entity.build(UUID.uuid4())
+      entity_2 = Ecspanse.Entity.build(UUID.uuid4())
+
+      assert_receive {:next_frame, _state}
+      assert_receive {:next_frame, state}
+      assert state.frame_data.event_batches == []
+
+      Ecspanse.event(TestCustomEvent, token, batch_key: entity_1.id)
+      Ecspanse.event(TestCustomEvent, token, batch_key: entity_2.id)
+      Ecspanse.event(TestCustomEvent, token, batch_key: entity_1.id)
+      assert_receive {:next_frame, state}
+
+      assert [
+               [%EcspanseTest.TestCustomEvent{}, %EcspanseTest.TestCustomEvent{}],
+               [%EcspanseTest.TestCustomEvent{}]
+             ] = state.frame_data.event_batches
     end
   end
 end
