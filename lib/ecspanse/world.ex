@@ -1,27 +1,50 @@
 defmodule Ecspanse.World do
   @moduledoc """
-  TODO
+  The `Ecspanse.World` module is the main entry point for the Ecspanse framework.
 
-  config:
-  - opt_app - optional - the otp application
-  - fps_limit - optional - the number of frames per second. Defaults to  :unlimited
+  The world module is defined with the `use Ecspanse.World` macro.
+
+  ## Configuration
+
+  The following configuration options are available:
+
+  - `:opt_app` - optional - the OTP application to use.
+  - `:fps_limit` - optional - the maximum number of frames per second. Defaults to `:unlimited`.
+
+  ## Special Resources
+
+  The framework creates some special resources, such as `State`, by default.
 
 
-  # TODO:
-  Tutorial on signing and verifying the token.
-  - set opt_app: :my_otp_app option in the world module
-  - set :my_otp_app, :ecspanse_secret in the config
+  ## Signing and verifying the token
+  - set the `:opt_app` option in the defined World module
+  - set the `:ecspanse_secret` in the application configuration
 
   Otherwise the token is signed with a default secret.
 
 
-  Special resources
-  such as State, are created by default by the framework.
+  ## Examples
 
+  ```elixir
+  use Ecspanse.World, opt_app: :my_otp_app
 
-  Describe how conditionally running systems works.
-  `run_in_state: [:state1]` `run_not_in_state: [:state2]` `run_if: [{Module, :function}]
-  for `run_if` functions, the tokens is passed as argument
+  config :my_otp_app, :ecspanse_secret, "my_secret_key"
+
+  add_system(MySystem, [])
+
+  defmodule TestWorld1 do
+    use Ecspanse.World, otp_app: :test_otp_app, fps_limit: 60
+
+    def setup(world) do
+      world
+      |> Ecspanse.World.add_system(TestSystem5)
+      |> Ecspanse.World.add_frame_end_system(TestSystem3)
+      |> Ecspanse.World.add_frame_start_system(TestSystem2)
+      |> Ecspanse.World.add_startup_system(TestSystem1)
+      |> Ecspanse.World.add_shutdown_system(TestSystem4)
+    end
+  end
+  ```
 
   """
   require Ex2ms
@@ -45,7 +68,36 @@ defmodule Ecspanse.World do
 
   defstruct operations: [], system_set_options: %{}
 
-  @doc "TODO The setup callback receives a World.t() and returns the World.t()"
+  @doc """
+  The `setup/1` callback is called when the world is created and is the place to schedule the running systems in the world.
+
+  ## Parameters
+
+  - `world` - the current state of the world.
+
+  ## Returns
+
+  The updated state of the world.
+
+  ## Example
+
+  ```elixir
+  defmodule MyWorld do
+    use World
+
+    @impl World
+    def setup(world) do
+      world
+      |> World.add_system(MySystem)
+      |> World.add_frame_end_system(MyFrameEndSystem)
+      |> World.add_frame_start_system(MyFrameStartSystem)
+      |> World.add_startup_system(MyStartupSystem)
+      |> World.add_shutdown_system(MyShutdownSystem)
+    end
+  end
+  ```
+  """
+
   @callback setup(t()) :: t()
 
   defmacro __using__(opts) do
@@ -90,14 +142,53 @@ defmodule Ecspanse.World do
   end
 
   @doc """
-  #TODO
-  A way to group systems together.
-  The opts are the same as for the systems, and they are applied on top of the system's options inside the set.
-  The system sets can also be nested.
 
+  Adds a system set to the world.
 
-  The system sets function takes the world as argument and returns the world.
-  Inside the function, new systems can be added using the add_system_* functions
+  A system set is a way to group systems together. The `opts` parameter is a keyword list of options that are applied on top of the system's options inside the set. System sets can also be nested.
+  See the `add_system/3` function for more information about the options.
+
+  The `add_system_set/3` function takes the world as an argument and returns the updated world. Inside the function, new systems can be added using the `add_system_*` functions.
+
+  ## Parameters
+
+  - `world` - the current state of the world.
+  - `{module, function}` - the module and function that define the system set.
+  - `opts` - optional - a keyword list of options to apply to the system set.
+
+  ## Returns
+
+  The updated state of the world.
+
+  ## Example
+
+  ```elixir
+  defmodule MyWorld do
+    use World
+
+    @impl World
+    def setup(world) do
+      world
+      |> World.add_system_set({MySystemSet, :setup}, [run_in_state: :my_state])
+    end
+  end
+
+  defmodule MySystemSet do
+    def setup(world) do
+      world
+      |> World.add_system(MySystem, [option: "value"])
+      |> World.add_system_set({MyNestedSystemSet, :setup})
+    end
+  end
+
+  defmodule MyNestedSystemSet do
+    def setup(world) do
+      world
+      |> World.add_system(MyNestedSystem)
+    end
+  end
+  ```
+
   """
   @spec add_system_set(t(), {module, function}, opts :: keyword()) :: t()
   def add_system_set(world, {module, function}, opts \\ []) do
@@ -114,7 +205,20 @@ defmodule Ecspanse.World do
     %World{world | system_set_options: Map.delete(world.system_set_options, {module, function})}
   end
 
-  @doc "TODO. Startup systems do not take options"
+  @doc """
+  Adds a startup system to the world.
+
+  A startup system is run only once when the world is created. Startup systems do not take options.
+
+  ## Parameters
+
+  - `world` - the current state of the world.
+  - `system_module` - the module that defines the startup system.
+
+  ## Returns
+
+  The updated state of the world.
+  """
   @spec add_startup_system(t(), system_module :: module()) :: t()
   def add_startup_system(%World{operations: operations} = world, system_module) do
     system = %System{
@@ -128,8 +232,23 @@ defmodule Ecspanse.World do
   end
 
   @doc """
-  Executed sync in the order they were inserted at the beginning of each frame
+
+  Adds a frame start system to the world.
+
+  A frame start system is executed synchronously at the beginning of each frame.
+  Sync systems are executed in the order they were added to the world.
+
+  ## Parameters
+
+  - `world` - the current state of the world.
+  - `system_module` - the module that defines the frame start system.
+  - `opts` - optional - a keyword list of options to apply to the system. See the `add_system/3` function for more information about the options.
+
+  ## Returns
+
+  The updated state of the world.
   """
+
   @spec add_frame_start_system(t(), system_module :: module(), opts :: keyword()) :: t()
   def add_frame_start_system(%World{operations: operations} = world, system_module, opts \\ []) do
     opts = merge_system_options(opts, world.system_set_options)
@@ -148,15 +267,41 @@ defmodule Ecspanse.World do
   end
 
   @doc """
-  Auto-batched and executed async for each frame
+  Adds an async system to the world, to be executed asynchronously each frame during the game loop.
 
-  Using the `run_after: SystemModule1` or `run_after: [SystemModule1, SystemModule2]`  option
-  - the after System must be already set - this prevents circular dependencies
-  - there is a deliberate choice to allow only `run_after` option. While a `before` option would simplify some relations, it can also introduce circular dependencies.
-    Example:
-    - Run System A
-    - Run System B before System A
-    - Run System C after System A, before System B
+  The `add_system/3` function takes the world as an argument and returns the updated world. Inside the function, a new system is created using the `System` struct and added to the world's operations list.
+
+  ## Parameters
+
+  - `world` - the current state of the world.
+  - `system_module` - the module that defines the system.
+  - `opts` - optional - a keyword list of options to apply to the system.
+
+  ## Options
+
+  - `:run_in_state` - a list of states in which the system should be run.
+  - `:run_not_in_state` - a list of states in which the system should not be run.
+  - `:run_if` - a tuple containing the module and function that define a condition for running the system. Eg. `[{Module, :function}]`
+  - `:run_after` - a system or list of systems that must be run before this system.
+
+  ## Returns
+
+  The updated state of the world.
+
+  ## Order of execution
+  You can specify the order in which systems are run using the `run_after` option. This option takes a system or list of systems that must be run before this system.
+
+  When using the `run_after: SystemModule1` or `run_after: [SystemModule1, SystemModule2]` option, the following rules apply:
+
+  - The system(s) specified in `run_after` must already be added to the world. This prevents circular dependencies.
+  - There is a deliberate choice to allow only the `run_after` option. While a `before` option would simplify some relations, it can also introduce circular dependencies.
+
+  For example, consider the following systems:
+
+  - System A
+  - System B, which must be run before System A
+  - System C, which must be run after System A and before System B
+
   """
   @spec add_system(t(), system_module :: module(), opts :: keyword()) ::
           t()
@@ -185,7 +330,22 @@ defmodule Ecspanse.World do
   end
 
   @doc """
-  Executed sync in the order they were inserted, at the end of each frame
+
+  Adds a frame end system to the world.
+
+  A frame end system is executed synchronously at the end of each frame.
+  Sync systems are executed in the order they were added to the world.
+
+  ## Parameters
+
+  - `world` - the current state of the world.
+  - `system_module` - the module that defines the frame start system.
+  - `opts` - optional - a keyword list of options to apply to the system. See the `add_system/3` function for more information about the options.
+
+  ## Returns
+
+  The updated state of the world.
+
   """
   @spec add_frame_end_system(t(), system_module :: module(), opts :: keyword()) :: t()
   def add_frame_end_system(%World{operations: operations} = world, system_module, opts \\ []) do
@@ -207,6 +367,19 @@ defmodule Ecspanse.World do
   @doc """
   Run only once on World shutdown
   Does not take options
+
+  Adds a shutdown system to the world.
+
+  A shudtown system is run only once when the world is terminated. Shutdown systems do not take options.
+
+  ## Parameters
+
+  - `world` - the current state of the world.
+  - `system_module` - the module that defines the startup system.
+
+  ## Returns
+
+  The updated state of the world.
   """
   @spec add_shutdown_system(t(), system_module :: module()) :: t()
   def add_shutdown_system(%World{operations: operations} = world, system_module) do
@@ -221,9 +394,18 @@ defmodule Ecspanse.World do
   end
 
   @doc """
-  Utility function used for testing and developement.
-  Returns the internal World state.
-  Useful for debugging systems scheduling and batching.
+  Utility function used for testing and development purposes.
+
+  The `debug/1` function returns the internal state of the world, which can be useful for debugging systems scheduling and batching. This function is only available in the `:dev` and `:test` environments.
+
+  ## Parameters
+
+  - `token` - a binary token that identifies the world.
+
+  ## Returns
+
+  The internal state of the world.
+
   """
   @spec debug(token :: binary()) :: World.State.t()
   def debug(token) do
@@ -241,9 +423,21 @@ defmodule Ecspanse.World do
 
   defmodule Frame do
     @moduledoc """
-    A struct exposed to the systems
+    A struct that represents the current frame in the world.
 
-    - delta is the time elapsed since the last frame in milliseconds
+    It contains information about the elapsed time since the last frame, as well as any event batches that were generated during the frame.
+    The Frame struct is passed to all systems during the frame.
+
+    ## Structs
+
+    - `Frame` - a struct that represents a single frame in the world.
+
+    ## Fields
+
+    - `token` - a binary token that identifies the world.
+    - `event_batches` - a list of event batches to be executed during the frame.
+    - `delta` - the time elapsed since the last frame in milliseconds.
+
     """
 
     @type t :: %__MODULE__{
