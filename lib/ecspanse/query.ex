@@ -119,6 +119,8 @@ defmodule Ecspanse.Query do
         []
       )
 
+    :ok = validate_filters(filters)
+
     for_entities = Keyword.get(filters, :for, []) |> Enum.uniq()
     not_for_entities = Keyword.get(filters, :not_for, []) |> Enum.uniq()
     for_children_of = Keyword.get(filters, :for_children_of, []) |> Enum.uniq()
@@ -152,16 +154,7 @@ defmodule Ecspanse.Query do
       Process.get(:components_state_ets_name) ||
         Ecspanse.Util.decode_token(token).components_state_ets_name
 
-    for_entities =
-      query.for_entities
-      |> add_children_entities(query.for_children_of, token)
-      |> add_parents_entities(query.for_parents_of, token)
-      |> Enum.uniq()
-
-    entities_with_components_stream =
-      table
-      |> filter_for_entities(for_entities)
-      |> filter_not_for_entities(query.not_for_entities)
+    entities_with_components_stream = entities_with_components_stream(table, query, token)
 
     # filters by with/without components. Returns the entity ids
     entity_ids = filter_by_components(query.or, entities_with_components_stream, [])
@@ -451,28 +444,51 @@ defmodule Ecspanse.Query do
     ])
   end
 
-  defp add_children_entities(entities, [], _token), do: entities
+  defp entities_with_components_stream(table, query, token) do
+    cond do
+      not Enum.empty?(query.for_entities) ->
+        filter_for_entities(table, query.for_entities)
 
-  defp add_children_entities(entities, for_children_entities, token) do
-    children_entities =
-      select({Component.Children}, for: for_children_entities)
-      |> stream(token)
-      |> Stream.map(fn {children} -> children.list end)
-      |> Stream.concat()
+      not Enum.empty?(query.not_for_entities) ->
+        filter_not_for_entities(table, query.not_for_entities)
 
-    entities ++ children_entities
+      not Enum.empty?(query.for_children_of) ->
+        entities_with_components_stream_for_children(table, query, token)
+
+      not Enum.empty?(query.for_parents_of) ->
+        entities_with_components_stream_for_parents(table, query, token)
+
+      true ->
+        filter_for_entities(table, [])
+    end
   end
 
-  defp add_parents_entities(entities, [], _token), do: entities
+  defp entities_with_components_stream_for_children(table, query, token) do
+    case list_children_entities(query.for_children_of, token) do
+      [] -> []
+      entities -> filter_for_entities(table, entities)
+    end
+  end
 
-  defp add_parents_entities(entities, for_parent_entities, token) do
-    parent_entities =
-      select({Component.Parents}, for: for_parent_entities)
-      |> stream(token)
-      |> Stream.map(fn {parents} -> parents.list end)
-      |> Stream.concat()
+  defp entities_with_components_stream_for_parents(table, query, token) do
+    case list_parents_entities(query.for_parents_of, token) do
+      [] -> []
+      entities -> filter_for_entities(table, entities)
+    end
+  end
 
-    entities ++ parent_entities
+  defp list_children_entities(for_children_entities, token) do
+    select({Component.Children}, for: for_children_entities)
+    |> stream(token)
+    |> Stream.map(fn {children} -> children.list end)
+    |> Stream.concat()
+  end
+
+  defp list_parents_entities(for_parent_entities, token) do
+    select({Component.Parents}, for: for_parent_entities)
+    |> stream(token)
+    |> Stream.map(fn {parents} -> parents.list end)
+    |> Stream.concat()
   end
 
   defp filter_for_entities(table, []) do
@@ -487,12 +503,15 @@ defmodule Ecspanse.Query do
     |> Stream.filter(fn {entity_id, _component_modules} -> entity_id in entity_ids end)
   end
 
-  defp filter_not_for_entities(stream, []), do: stream
+  defp filter_not_for_entities(table, []) do
+    Ecspanse.Util.list_entities_components(table)
+    |> Stream.map(fn {k, v} -> {k, v} end)
+  end
 
-  defp filter_not_for_entities(stream, entities) do
+  defp filter_not_for_entities(table, entities) do
     entity_ids = Enum.map(entities, & &1.id)
 
-    stream
+    Ecspanse.Util.list_entities_components(table)
     |> Stream.reject(fn {entity_id, _component_modules} -> entity_id in entity_ids end)
   end
 
@@ -591,6 +610,24 @@ defmodule Ecspanse.Query do
   end
 
   # Validations
+
+  defp validate_filters(filters) do
+    res =
+      [
+        Keyword.get(filters, :for),
+        Keyword.get(filters, :not_for),
+        Keyword.get(filters, :for_children_of),
+        Keyword.get(filters, :for_parents_of)
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    if length(res) > 1 do
+      raise Error,
+            "Combining the following filters is not allowed: :for, :not_for, :for_children_of, :for_parents_of"
+    else
+      :ok
+    end
+  end
 
   defp validate_entities(entities) do
     unless is_list(entities) do
