@@ -36,6 +36,11 @@ defmodule Ecspanse.QueryTest do
     use Ecspanse.Component, groups: [:foo, :baz], access_mode: :entity_type
   end
 
+  defmodule TestResource1 do
+    @moduledoc false
+    use Ecspanse.Resource
+  end
+
   describe "select/2" do
     test "kreturn components for entities with all components" do
       assert {:ok, token} = Ecspanse.new(TestWorld1)
@@ -665,6 +670,17 @@ defmodule Ecspanse.QueryTest do
                [TestComponent1, TestComponent5],
                token
              )
+    end
+  end
+
+  describe "fetch_resource/2" do
+    test "fetches a resource from the world" do
+      assert {:ok, token} = Ecspanse.new(TestWorld1)
+      Ecspanse.System.debug(token)
+
+      resource = Ecspanse.Command.insert_resource!(TestResource1)
+
+      assert {:ok, ^resource} = Ecspanse.Query.fetch_resource(TestResource1, token)
     end
   end
 end
