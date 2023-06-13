@@ -335,6 +335,23 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
+  describe "fetch_entity/2" do
+    test "returns the entity for a component" do
+      assert {:ok, token} = Ecspanse.new(TestWorld1)
+      Ecspanse.System.debug(token)
+
+      entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
+
+      assert {:ok, ^entity} = Ecspanse.Query.fetch_entity(entity.id, token)
+    end
+
+    test "returns error if the entity does not exist" do
+      assert {:ok, token} = Ecspanse.new(TestWorld1)
+
+      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(UUID.uuid4(), token)
+    end
+  end
+
   describe "get_component_entity/2" do
     test "returns the entity for a component" do
       assert {:ok, token} = Ecspanse.new(TestWorld1)

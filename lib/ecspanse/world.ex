@@ -1160,7 +1160,7 @@ defmodule Ecspanse.World do
   # Filter out events for entities that don't exist
   defp event_entities_exist?(event, token) do
     Enum.all?(event.__for_entities__, fn entity ->
-      case Ecspanse.Entity.fetch(entity.id, token) do
+      case Ecspanse.Query.fetch_entity(entity.id, token) do
         {:ok, _entity} -> true
         _ -> false
       end

@@ -5,6 +5,8 @@ defmodule Ecspanse.Query do
 
   use Memoize
 
+  require Ex2ms
+
   alias __MODULE__
   alias Ecspanse.Entity
   alias Ecspanse.Component
@@ -178,6 +180,30 @@ defmodule Ecspanse.Query do
       [result_tuple] -> result_tuple
       [] -> nil
       results -> raise Error, "Expected to return one result, got: `#{inspect(results)}`"
+    end
+  end
+
+  @doc """
+    TODO
+  Returns the Entity struct as long as it has at least one component.
+  """
+  @spec fetch_entity(Ecspanse.Entity.id(), token :: binary()) :: {:ok, t()} | {:error, :not_found}
+  def fetch_entity(entity_id, token) do
+    %{components_state_ets_name: table} = Ecspanse.Util.decode_token(token)
+
+    f =
+      Ex2ms.fun do
+        {{^entity_id, _component_module, _component_groups}, _component_state} -> ^entity_id
+      end
+
+    result = :ets.select(table, f, 1)
+
+    case result do
+      {[^entity_id], _} ->
+        {:ok, Ecspanse.Entity.build(entity_id)}
+
+      _ ->
+        {:error, :not_found}
     end
   end
 
