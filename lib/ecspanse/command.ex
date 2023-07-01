@@ -433,6 +433,9 @@ defmodule Ecspanse.Command do
         children_entities = Keyword.get(opts, :children, [])
         parents_entities = Keyword.get(opts, :parents, [])
 
+        :ok =
+          validate_required_opts(operation, component_specs, children_entities, parents_entities)
+
         %{
           entity: Entity.build(entity_id),
           component_specs: component_specs,
@@ -1298,6 +1301,14 @@ defmodule Ecspanse.Command do
   end
 
   # Component CRUD Validations
+
+  defp validate_required_opts(operation, [], [], []) do
+    raise Error,
+          {operation,
+           "Expected at least one of the following options in the entity_spec when creating an entity: `components`, `children`, `parents`"}
+  end
+
+  defp validate_required_opts(_operation, _, _, _), do: :ok
 
   defp validate_entities(operation, entities) do
     non_enitites = Enum.reject(entities, &match?(%Entity{}, &1))
