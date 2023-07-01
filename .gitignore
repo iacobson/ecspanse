@@ -24,3 +24,7 @@ ecspanse-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# ls
+.elixir_ls
+.elixir-tools
