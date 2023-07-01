@@ -41,7 +41,7 @@ defmodule Ecspanse.QueryTest do
   end
 
   describe "select/2" do
-    test "kreturn components for entities with all components" do
+    test "returns components for entities with all components" do
       assert {:ok, token} = Ecspanse.new(TestWorld1)
       Ecspanse.System.debug(token)
 
@@ -101,6 +101,32 @@ defmodule Ecspanse.QueryTest do
       for {entity, _, _, _} <- components do
         assert entity.id in [entity_1.id, entity_2.id]
       end
+    end
+
+    test "can query entities relations" do
+      assert {:ok, token} = Ecspanse.new(TestWorld1)
+      Ecspanse.System.debug(token)
+
+      entity_1 =
+        Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
+
+      entity_2 =
+        Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
+
+      entity_3 =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity, parents: [entity_1], children: [entity_2]}
+        )
+
+      assert {children_comp, parents_comp} =
+               Ecspanse.Query.select(
+                 {Ecspanse.Component.Children, Ecspanse.Component.Parents},
+                 for: [entity_3]
+               )
+               |> Ecspanse.Query.one(token)
+
+      assert children_comp.entities == [entity_2]
+      assert parents_comp.entities == [entity_1]
     end
 
     test "can query optional components" do
@@ -371,9 +397,9 @@ defmodule Ecspanse.QueryTest do
       assert {:ok, token} = Ecspanse.new(TestWorld1)
       Ecspanse.System.debug(token)
 
-      entity_1 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, []})
+      entity_1 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, [components: [TestComponent1]]})
 
-      entity_2 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, []})
+      entity_2 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, [components: [TestComponent1]]})
 
       entity_3 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, children: [entity_1, entity_2]})
 
@@ -386,7 +412,7 @@ defmodule Ecspanse.QueryTest do
       assert {:ok, token} = Ecspanse.new(TestWorld1)
       Ecspanse.System.debug(token)
 
-      entity_1 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, []})
+      entity_1 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, [components: [TestComponent1]]})
 
       entity_2 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [entity_1]})
 
