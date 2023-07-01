@@ -418,7 +418,7 @@ defmodule Ecspanse.Command do
        ) do
     entity_spec_list =
       Enum.map(entity_spec_list, fn {_, opts} ->
-        entity_id = Keyword.get(opts, :name, UUID.uuid4())
+        entity_id = Keyword.get(opts, :id, UUID.uuid4())
         component_specs = Keyword.get(opts, :components, [])
 
         component_modules =
@@ -553,7 +553,7 @@ defmodule Ecspanse.Command do
         for entity <- entities do
           # it is possible that the children component was already removed
           case :ets.lookup(table, {entity.id, Component.Children, []}) do
-            [{{_id, Component.Children, []}, %Component.Children{list: children_entities}}] ->
+            [{{_id, Component.Children, []}, %Component.Children{entities: children_entities}}] ->
               remove_children_and_parents(operation, entity, children_entities)
 
             _ ->
@@ -566,7 +566,7 @@ defmodule Ecspanse.Command do
       Task.async(fn ->
         for entity <- entities do
           case :ets.lookup(table, {entity.id, Component.Parents, []}) do
-            [{{_id, Component.Parents, []}, %Component.Parents{list: parents_entities}}] ->
+            [{{_id, Component.Parents, []}, %Component.Parents{entities: parents_entities}}] ->
               remove_parents_and_children(operation, entity, parents_entities)
 
             _ ->
@@ -1116,12 +1116,23 @@ defmodule Ecspanse.Command do
     table = operation.components_state_ets_name
 
     case :ets.lookup(table, {entity.id, Component.Children, []}) do
-      [{_key, %Component.Children{list: existing_children}}] ->
+      [{_key, %Component.Children{entities: existing_children}}] ->
         children = Enum.concat(existing_children, children) |> Enum.uniq()
-        upsert_component(operation, entity, {Component.Children, [list: children]}, entity_type)
+
+        upsert_component(
+          operation,
+          entity,
+          {Component.Children, [entities: children]},
+          entity_type
+        )
 
       [] ->
-        upsert_component(operation, entity, {Component.Children, [list: children]}, entity_type)
+        upsert_component(
+          operation,
+          entity,
+          {Component.Children, [entities: children]},
+          entity_type
+        )
     end
   end
 
@@ -1132,12 +1143,12 @@ defmodule Ecspanse.Command do
     table = operation.components_state_ets_name
 
     case :ets.lookup(table, {entity.id, Component.Parents, []}) do
-      [{_key, %Component.Parents{list: existing_parents}}] ->
+      [{_key, %Component.Parents{entities: existing_parents}}] ->
         parents = Enum.concat(existing_parents, parents) |> Enum.uniq()
-        upsert_component(operation, entity, {Component.Parents, [list: parents]}, entity_type)
+        upsert_component(operation, entity, {Component.Parents, [entities: parents]}, entity_type)
 
       [] ->
-        upsert_component(operation, entity, {Component.Parents, [list: parents]}, entity_type)
+        upsert_component(operation, entity, {Component.Parents, [entities: parents]}, entity_type)
     end
   end
 
@@ -1150,13 +1161,13 @@ defmodule Ecspanse.Command do
 
     entity_children =
       case :ets.lookup(table, {entity.id, Component.Children, []}) do
-        [{_key, %Component.Children{list: existing_children}}] ->
+        [{_key, %Component.Children{entities: existing_children}}] ->
           entity_type = get_entity_type_component_module_for_entity(operation, entity)
 
           upsert_component(
             operation,
             entity,
-            {Component.Children, [list: existing_children -- children]},
+            {Component.Children, [entities: existing_children -- children]},
             entity_type
           )
 
@@ -1171,11 +1182,11 @@ defmodule Ecspanse.Command do
           get_entity_type_component_module_for_entity(operation, child_entity)
 
         case :ets.lookup(table, {child_entity.id, Component.Parents, []}) do
-          [{_key, %Component.Parents{list: existing_parents}}] ->
+          [{_key, %Component.Parents{entities: existing_parents}}] ->
             upsert_component(
               operation,
               child_entity,
-              {Component.Parents, [list: existing_parents -- [entity]]},
+              {Component.Parents, [entities: existing_parents -- [entity]]},
               entity_type_component_module
             )
 
@@ -1196,13 +1207,13 @@ defmodule Ecspanse.Command do
 
     entity_parents =
       case :ets.lookup(table, {entity.id, Component.Parents, []}) do
-        [{_key, %Component.Parents{list: existing_parents}}] ->
+        [{_key, %Component.Parents{entities: existing_parents}}] ->
           entity_type = get_entity_type_component_module_for_entity(operation, entity)
 
           upsert_component(
             operation,
             entity,
-            {Component.Parents, [list: existing_parents -- parents]},
+            {Component.Parents, [entities: existing_parents -- parents]},
             entity_type
           )
 
@@ -1217,11 +1228,11 @@ defmodule Ecspanse.Command do
           get_entity_type_component_module_for_entity(operation, parent_entity)
 
         case :ets.lookup(table, {parent_entity.id, Component.Children, []}) do
-          [{_key, %Component.Children{list: existing_children}}] ->
+          [{_key, %Component.Children{entities: existing_children}}] ->
             upsert_component(
               operation,
               parent_entity,
-              {Component.Children, [list: existing_children -- [entity]]},
+              {Component.Children, [entities: existing_children -- [entity]]},
               entity_type_component_module
             )
 
@@ -1245,11 +1256,11 @@ defmodule Ecspanse.Command do
         {k, v}
 
       {{entity_id, module, _groups}, values} ->
-        list = Enum.map(values, fn value -> value.list end) |> List.flatten() |> Enum.uniq()
+        list = Enum.map(values, fn value -> value.entities end) |> List.flatten() |> Enum.uniq()
         entity = Entity.build(entity_id)
         entity_type = get_entity_type_component_module_for_entity(operation, entity)
 
-        upsert_component(operation, entity, {module, list: list}, entity_type)
+        upsert_component(operation, entity, {module, entities: list}, entity_type)
     end)
   end
 
@@ -1262,7 +1273,7 @@ defmodule Ecspanse.Command do
 
       {{entity_id, module, _groups}, values} ->
         list =
-          Enum.map(values, fn value -> value.list end)
+          Enum.map(values, fn value -> value.entities end)
           |> List.flatten()
           |> Enum.uniq()
           |> select_entities_present_in_all_relations(values)
@@ -1270,7 +1281,7 @@ defmodule Ecspanse.Command do
         entity = Entity.build(entity_id)
         entity_type = get_entity_type_component_module_for_entity(operation, entity)
 
-        upsert_component(operation, entity, {module, list: list}, entity_type)
+        upsert_component(operation, entity, {module, entities: list}, entity_type)
     end)
   end
 
@@ -1280,7 +1291,7 @@ defmodule Ecspanse.Command do
       fn entity ->
         Enum.all?(
           relations,
-          fn r -> entity in r.list end
+          fn r -> entity in r.entities end
         )
       end
     )
@@ -1434,7 +1445,7 @@ defmodule Ecspanse.Command do
   # There is no lock validation for sync systems
   defp validate_locked_component(operation, :sync, component_module, _entity_type) do
     unless Enum.empty?(operation.locked_components) do
-      Logger.warn(
+      Logger.warning(
         "#{inspect(operation)}. Component: #{inspect(component_module)}. There is no need to lock components in Systems that execute synchronously. The values are ignored"
       )
     end
@@ -1768,7 +1779,7 @@ defmodule Ecspanse.Command do
     children =
       Query.select({Component.Children}, for: entities)
       |> Query.stream(operation.token)
-      |> Stream.map(fn {%Component.Children{list: children}} -> children end)
+      |> Stream.map(fn {%Component.Children{entities: children}} -> children end)
       |> Enum.concat()
 
     # avoid circular dependencies

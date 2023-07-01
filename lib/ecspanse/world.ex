@@ -254,7 +254,7 @@ defmodule Ecspanse.World do
     opts = merge_system_options(opts, world.system_set_options)
 
     if Keyword.get(opts, :run_after) do
-      Logger.warn(
+      Logger.warning(
         "The :run_after option is ignored by sync running systems. Those will always run in the order they were added to the world."
       )
     end
@@ -352,7 +352,7 @@ defmodule Ecspanse.World do
     opts = merge_system_options(opts, world.system_set_options)
 
     if Keyword.get(opts, :run_after) do
-      Logger.warn(
+      Logger.warning(
         "The :run_after option is ignored by sync running systems. Those will always run in the order they were added to the world."
       )
     end

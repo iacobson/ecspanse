@@ -6,9 +6,9 @@ defmodule Ecspanse.Component.Parents do
   An empty Parents component is automatically added when creating entities, event if no parents are defined at cration time.
   """
   use Ecspanse.Component,
-    state: [list: []]
+    state: [entities: []]
 
   @type t :: %__MODULE__{
-          list: list(Ecspanse.Entity.t())
+          entities: list(Ecspanse.Entity.t())
         }
 end

@@ -1,5 +1,4 @@
 defmodule Ecspanse.QueryTest do
-  alias Ecspanse.WorldTest.TestComponent1
   use ExUnit.Case
 
   defmodule TestWorld1 do

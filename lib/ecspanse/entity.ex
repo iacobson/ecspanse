@@ -16,10 +16,12 @@ defmodule Ecspanse.Entity do
   @typedoc """
   An entity_spec is the definition needed to create an entity.
   ### Options
-  - `name:` A custom unique name for the entity - binary()
+  - `id:` A custom unique id for the entity - binary()
   - `components:` A list of component_spec to be added to the entity
   - `children:` A list of `Entity.t()` to be added as children to the entity. Children entities must already exist.
   - `parents:` A list of `Entity.t()` to be added as parents to the entity. Parent entities must already exist.
+
+  At least one of `components:`, `children:` or `parents:` must be provided, otherwise the entity cannot be persisted.
   """
   @type entity_spec :: {Entity, opts :: keyword()}
 

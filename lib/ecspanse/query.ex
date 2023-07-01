@@ -228,7 +228,7 @@ defmodule Ecspanse.Query do
         Ecspanse.Util.decode_token(token).components_state_ets_name
 
     case :ets.lookup(components_state_ets_name, {entity_id, Component.Children, []}) do
-      [{_key, %Component.Children{list: children_entities}}] -> children_entities
+      [{_key, %Component.Children{entities: children_entities}}] -> children_entities
       [] -> []
     end
   end
@@ -244,7 +244,7 @@ defmodule Ecspanse.Query do
         Ecspanse.Util.decode_token(token).components_state_ets_name
 
     case :ets.lookup(components_state_ets_name, {entity_id, Component.Parents, []}) do
-      [{_key, %Component.Parents{list: parents_entities}}] -> parents_entities
+      [{_key, %Component.Parents{entities: parents_entities}}] -> parents_entities
       [] -> []
     end
   end
@@ -506,14 +506,14 @@ defmodule Ecspanse.Query do
   defp list_children_entities(for_children_entities, token) do
     select({Component.Children}, for: for_children_entities)
     |> stream(token)
-    |> Stream.map(fn {children} -> children.list end)
+    |> Stream.map(fn {children} -> children.entities end)
     |> Stream.concat()
   end
 
   defp list_parents_entities(for_parent_entities, token) do
     select({Component.Parents}, for: for_parent_entities)
     |> stream(token)
-    |> Stream.map(fn {parents} -> parents.list end)
+    |> Stream.map(fn {parents} -> parents.entities end)
     |> Stream.concat()
   end
 

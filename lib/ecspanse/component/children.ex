@@ -6,9 +6,9 @@ defmodule Ecspanse.Component.Children do
   An empty Children component is automatically added when creating entities, even if no childrens are defined at cration time.
   """
   use Ecspanse.Component,
-    state: [list: []]
+    state: [entities: []]
 
   @type t :: %__MODULE__{
-          list: list(Ecspanse.Entity.t())
+          entities: list(Ecspanse.Entity.t())
         }
 end
