@@ -107,7 +107,7 @@ defmodule EcspanseTest do
       assert [[%EcspanseTest.TestCustomEvent{}]] = state.frame_data.event_batches
     end
 
-    test "groups in individual batches an event without a batch key queued multiple times in the same frame" do
+    test "groups in individual batches an event without a batch key, queued multiple times in the same frame" do
       assert {:ok, token} = Ecspanse.new(TestWorld, name: TestName, test: true)
       assert_receive {:next_frame, _state}
       assert_receive {:next_frame, state}

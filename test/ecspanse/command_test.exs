@@ -1,5 +1,4 @@
 defmodule Ecspanse.CommandTest do
-  alias Ecspanse.WorldTest.TestResource1
   use ExUnit.Case
 
   defmodule TestWorld1 do

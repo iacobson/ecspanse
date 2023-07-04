@@ -1,6 +1,6 @@
 defmodule Ecspanse.System.Timer do
   @moduledoc """
-  TDODO
+  TODO
   Counts down the time for the Timer component.
   When the time reaches 0, the event is dispatched.
   If the mode is :repeat, the time is reset to the original duration.
