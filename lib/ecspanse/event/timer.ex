@@ -5,7 +5,7 @@ defmodule Ecspanse.Event.Timer do
 
   The event that will be dispatched when the timer reaches 0.
     - it takes no options
-    - the state is %MyTimerEvent{entity: entity}. The entity is the owner of the Timer compoenent.
+    - the state is %MyTimerEvent{entity_id: entity_id}. The entity is the owner of the Timer compoenent.
     - the event key is set to the id of the owner entity.
 
 
@@ -16,7 +16,7 @@ defmodule Ecspanse.Event.Timer do
   """
   defmacro __using__(_opts) do
     quote do
-      use Ecspanse.Event, fields: [:entity]
+      use Ecspanse.Event, fields: [:entity_id]
     end
   end
 end

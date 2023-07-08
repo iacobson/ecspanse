@@ -80,6 +80,6 @@ defmodule Ecspanse.System.Timer do
   end
 
   defp build_event_spec(timer, entity) do
-    {timer.event, entity: entity}
+    {timer.event, entity_id: entity.id}
   end
 end

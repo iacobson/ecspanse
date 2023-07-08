@@ -39,8 +39,8 @@ defmodule Ecspanse.Component.Timer do
     - event: the event module that will be dispatched when the timer reaches 0.
       - special Timer events should be created using the Ecspanse.Event.Timer module
       - they take no options
-      - the state of those events is %MyTimerEvent{entity: entity}. The entity is the owner of the Timer compoenent.
-      - the event key is set to the id of the owner entity.
+      - the state of those events is %MyTimerEvent{entity_id: entity_id}. The entity is the owner of the Timer compoenent.
+      - the event batch key is set to the id of the owner entity.
     - mode: the mode of the timer. Can be one of the following:
       - :repeat (default) - the timer will repeat itself indefinitely. After reaching 0, the timer will be reset to its original duration.
       - :once - the timer will run only once. After reaching 0, the timer will be paused. Its time value needs to be reset manually.
