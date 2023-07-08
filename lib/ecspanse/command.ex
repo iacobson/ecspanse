@@ -1807,8 +1807,7 @@ defmodule Ecspanse.Command do
       {{Event.ComponentCreated, component.__meta__.entity.id},
        struct!(Event.ComponentCreated, %{
          created: component,
-         inserted_at: System.os_time(),
-         __for_entities__: [component.__meta__.entity]
+         inserted_at: System.os_time()
        })}
     end)
     |> add_events()
@@ -1820,8 +1819,7 @@ defmodule Ecspanse.Command do
       {{Event.ComponentUpdated, component.__meta__.entity.id},
        struct!(Event.ComponentUpdated, %{
          updated: component,
-         inserted_at: System.os_time(),
-         __for_entities__: [component.__meta__.entity]
+         inserted_at: System.os_time()
        })}
     end)
     |> add_events()
@@ -1833,8 +1831,7 @@ defmodule Ecspanse.Command do
       {{Event.ComponentDeleted, component.__meta__.entity.id},
        struct!(Event.ComponentDeleted, %{
          deleted: component,
-         inserted_at: System.os_time(),
-         __for_entities__: [component.__meta__.entity]
+         inserted_at: System.os_time()
        })}
     end)
     |> add_events()

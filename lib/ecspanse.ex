@@ -69,7 +69,7 @@ defmodule Ecspanse do
     id = UUID.uuid4()
     world_name = custom_world_name || String.to_atom("world:#{id}")
 
-    events = Keyword.get(opts, :startup_events, []) |> Enum.map(&prepare_event(&1, "default", []))
+    events = Keyword.get(opts, :startup_events, []) |> Enum.map(&prepare_event(&1, "default"))
 
     data = %{
       id: id,
@@ -172,13 +172,6 @@ defmodule Ecspanse do
 
   ## Options
 
-  - `:for_entities` - A list of entities affected by this event.
-  If any of these entities do not exist, the event will be ignored.
-  This avoids the need to check for entity existence in each System before processing the event.
-  For example, if an entity is destroyed in the same frame as another event that modifies its components,
-  the handling system should ensure the entity exists before processing the event.
-  By providing the `for_entities: [%Ecspanse.Entity{}]` in the options,
-  the event will be ignored if the entity does not exist.
   - `:batch_key` - A key for grouping multiple similar events in different batches within the same frame.
   The world groups the events into batches with unique `{EventModule, batch_key}` combinations.
   In most cases, the key may be an entity ID that either triggers or is impacted by the event.
@@ -188,7 +181,7 @@ defmodule Ecspanse do
 
       iex> Ecspanse.new(MyWorldModule)
       {:ok, world_token}
-      iex> Ecspanse.event(MyEventModule, world_token, for_entities: [my_entity], batch_key: my_entity.id)
+      iex> Ecspanse.event(MyEventModule, world_token, batch_key: my_entity.id)
       :ok
 
   """
@@ -199,15 +192,14 @@ defmodule Ecspanse do
         ) :: :ok
   def event(event_spec, token, opts \\ []) do
     batch_key = Keyword.get(opts, :batch_key, "default")
-    for_entities = Keyword.get(opts, :for_entities, [])
 
-    event = prepare_event(event_spec, batch_key, for_entities)
+    event = prepare_event(event_spec, batch_key)
 
     %{events_ets_name: events_ets_name} = Ecspanse.Util.decode_token(token)
     :ets.insert(events_ets_name, event)
   end
 
-  defp prepare_event(event_spec, batch_key, for_entities) do
+  defp prepare_event(event_spec, batch_key) do
     {event_module, key, event_payload} =
       case event_spec do
         {event_module, event_payload}
@@ -223,7 +215,6 @@ defmodule Ecspanse do
     event_payload =
       event_payload
       |> Keyword.put(:inserted_at, System.os_time())
-      |> Keyword.put(:__for_entities__, for_entities)
 
     {{event_module, key}, struct!(event_module, event_payload)}
   end

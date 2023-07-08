@@ -1151,19 +1151,8 @@ defmodule Ecspanse.World do
 
     batch =
       Enum.map(current_events, fn {_, v} -> v end)
-      |> Enum.filter(&event_entities_exist?(&1, token))
 
     remaining_events = events -- current_events
     do_event_batches(remaining_events, batches ++ [batch], token)
-  end
-
-  # Filter out events for entities that don't exist
-  defp event_entities_exist?(event, token) do
-    Enum.all?(event.__for_entities__, fn entity ->
-      case Ecspanse.Query.fetch_entity(entity.id, token) do
-        {:ok, _entity} -> true
-        _ -> false
-      end
-    end)
   end
 end

@@ -46,7 +46,7 @@ defmodule Ecspanse.Event do
               "Invalid fields for Event: #{inspect(__MODULE__)}. The `:fields` option must be a list with all the Event struct keys and their default values (if any). Eg: [:foo, :bar, baz: 1]"
       end
 
-      fields = fields |> Keyword.put(:inserted_at, nil) |> Keyword.put(:__for_entities__, [])
+      fields = Keyword.put(fields, :inserted_at, nil)
 
       @enforce_keys [:inserted_at]
       defstruct fields

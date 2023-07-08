@@ -65,7 +65,7 @@ defmodule Ecspanse.SystemTest do
 
     assert_receive {:next_frame, _state}
 
-    Ecspanse.event({TestEvent1, value: :bar, entity: entity}, token, for_entities: [entity])
+    Ecspanse.event({TestEvent1, value: :bar, entity: entity}, token)
 
     assert_receive {:next_frame, _state}
 
@@ -90,7 +90,7 @@ defmodule Ecspanse.SystemTest do
 
     assert_receive {:next_frame, _state}
 
-    Ecspanse.event({TestEvent2, value: :baz, entity: entity}, token, for_entities: [entity])
+    Ecspanse.event({TestEvent2, value: :baz, entity: entity}, token)
 
     assert_receive {:next_frame, _state}
 
@@ -100,26 +100,5 @@ defmodule Ecspanse.SystemTest do
 
     assert {:ok, component_1} = Ecspanse.Query.fetch_component(entity, TestComponent1, token)
     assert component_1.value == :foo
-  end
-
-  test "systems will run only when entities are alive when the for_entities option is passed when creating the event" do
-    assert {:ok, token} = Ecspanse.new(TestWorld1, name: TestName1, test: true)
-
-    Ecspanse.System.debug(token)
-
-    entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
-
-    assert_receive {:next_frame, _state}
-
-    Ecspanse.Command.despawn_entity!(entity)
-    :timer.sleep(20)
-
-    Ecspanse.event({TestEvent1, value: :bar, entity: entity}, token, for_entities: [entity])
-
-    assert_receive {:next_frame, _state}
-
-    :timer.sleep(20)
-    assert_receive {:next_frame, _state}
-    refute_received :test_event_1
   end
 end
