@@ -4,9 +4,9 @@ defmodule Ecspanse.Event.ResourceDeleted do
   Special framework event triggered when a new resource is deleted.
   Contains the deleted resource state struct.
   """
-  use Ecspanse.Event, fields: [:deleted]
+  use Ecspanse.Event, fields: [:resource]
 
   @type t :: %__MODULE__{
-          deleted: resource :: struct()
+          resource: struct()
         }
 end

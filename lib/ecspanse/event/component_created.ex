@@ -4,9 +4,9 @@ defmodule Ecspanse.Event.ComponentCreated do
   Special framework event triggered when a new component is created.
   Contains the component state struct.
   """
-  use Ecspanse.Event, fields: [:created]
+  use Ecspanse.Event, fields: [:component]
 
   @type t :: %__MODULE__{
-          created: component :: struct()
+          component: struct()
         }
 end

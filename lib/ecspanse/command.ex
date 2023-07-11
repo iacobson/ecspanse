@@ -1806,7 +1806,7 @@ defmodule Ecspanse.Command do
     |> Enum.map(fn {_key, component} ->
       {{Event.ComponentCreated, component.__meta__.entity.id},
        struct!(Event.ComponentCreated, %{
-         created: component,
+         component: component,
          inserted_at: System.os_time()
        })}
     end)
@@ -1818,7 +1818,7 @@ defmodule Ecspanse.Command do
     |> Enum.map(fn {_key, component} ->
       {{Event.ComponentUpdated, component.__meta__.entity.id},
        struct!(Event.ComponentUpdated, %{
-         updated: component,
+         component: component,
          inserted_at: System.os_time()
        })}
     end)
@@ -1830,7 +1830,7 @@ defmodule Ecspanse.Command do
     |> Enum.map(fn {_key, component} ->
       {{Event.ComponentDeleted, component.__meta__.entity.id},
        struct!(Event.ComponentDeleted, %{
-         deleted: component,
+         component: component,
          inserted_at: System.os_time()
        })}
     end)
@@ -1841,7 +1841,7 @@ defmodule Ecspanse.Command do
     event =
       {{Event.ResourceCreated, resource.__meta__.module},
        struct!(Event.ResourceCreated, %{
-         created: resource,
+         resource: resource,
          inserted_at: System.os_time()
        })}
 
@@ -1852,7 +1852,7 @@ defmodule Ecspanse.Command do
     event =
       {{Event.ResourceUpdated, resource.__meta__.module},
        struct!(Event.ResourceUpdated, %{
-         updated: resource,
+         resource: resource,
          inserted_at: System.os_time()
        })}
 
@@ -1863,7 +1863,7 @@ defmodule Ecspanse.Command do
     event =
       {{Event.ResourceDeleted, resource.__meta__.module},
        struct!(Event.ResourceDeleted, %{
-         deleted: resource,
+         resource: resource,
          inserted_at: System.os_time()
        })}
 

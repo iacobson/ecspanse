@@ -4,9 +4,9 @@ defmodule Ecspanse.Event.ComponentUpdated do
   Special framework event triggered when a new component is updated.
   Contains the component state after the update.
   """
-  use Ecspanse.Event, fields: [:updated]
+  use Ecspanse.Event, fields: [:component]
 
   @type t :: %__MODULE__{
-          updated: component :: struct()
+          component: struct()
         }
 end

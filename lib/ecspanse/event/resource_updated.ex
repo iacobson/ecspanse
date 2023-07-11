@@ -2,11 +2,11 @@ defmodule Ecspanse.Event.ResourceUpdated do
   @moduledoc """
   TODO
   Special framework event triggered when a new resource is updated.
-  Contains the resource state struct before and after the update.
+  Contains the resource state struct after the update.
   """
-  use Ecspanse.Event, fields: [:updated]
+  use Ecspanse.Event, fields: [:resource]
 
   @type t :: %__MODULE__{
-          updated: resource :: struct()
+          resource: struct()
         }
 end

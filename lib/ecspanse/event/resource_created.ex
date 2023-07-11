@@ -4,9 +4,9 @@ defmodule Ecspanse.Event.ResourceCreated do
   Special framework event triggered when a new resource is created.
   Contains the resource state struct.
   """
-  use Ecspanse.Event, fields: [:created]
+  use Ecspanse.Event, fields: [:resource]
 
   @type t :: %__MODULE__{
-          created: resource :: struct()
+          resource: struct()
         }
 end
