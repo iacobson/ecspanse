@@ -103,7 +103,6 @@ defmodule Ecspanse.Component do
 
       state = state |> Keyword.put(:__meta__, nil)
 
-      @derive {Inspect, except: [:__meta__]}
       @enforce_keys [:__meta__]
       defstruct state
 
