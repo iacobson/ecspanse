@@ -15,6 +15,8 @@ defmodule Ecspanse.Component do
     The entity_type Component does not accept any state. It is used as a simple Entity tag.
   """
 
+  alias Ecspanse.Util
+
   @type component_spec ::
           (component_module :: module())
           | {component_module :: module(), initial_state :: keyword()}
@@ -38,12 +40,10 @@ defmodule Ecspanse.Component do
   Utility function used for developement.
   Returns all their components and their state, toghether with their entity association.
   """
-  @spec debug(token :: binary()) :: list(component_key_value())
-  def debug(token) do
+  @spec debug() :: list(component_key_value())
+  def debug do
     if Mix.env() in [:dev, :test] do
-      %{components_state_ets_name: components_state_ets_name} = Ecspanse.Util.decode_token(token)
-
-      :ets.match_object(components_state_ets_name, {:"$0", :"$1"})
+      :ets.match_object(Util.components_state_ets_table(), {:"$0", :"$1"})
     else
       {:error, "debug is only available in dev and test"}
     end

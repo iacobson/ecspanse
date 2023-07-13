@@ -10,6 +10,7 @@ defmodule Ecspanse.Query do
   alias __MODULE__
   alias Ecspanse.Entity
   alias Ecspanse.Component
+  alias Ecspanse.Util
 
   @type t :: %Query{
           return_entity: boolean(),
@@ -145,18 +146,14 @@ defmodule Ecspanse.Query do
   @doc """
   Retrieve a stream of entities that match the query tuple
   """
-  @spec stream(t(), Ecspanse.Token.t()) :: Enumerable.t()
-  def stream(query, token) do
-    components_state_ets_name =
-      Process.get(:components_state_ets_name) ||
-        Ecspanse.Util.decode_token(token).components_state_ets_name
+  @spec stream(t()) :: Enumerable.t()
+  def stream(query) do
+    components_state_ets_table =
+      Util.components_state_ets_table()
 
     # filter by entity ids, if any. Retruns a stream
-    table =
-      Process.get(:components_state_ets_name) ||
-        Ecspanse.Util.decode_token(token).components_state_ets_name
-
-    entities_with_components_stream = entities_with_components_stream(table, query, token)
+    entities_with_components_stream =
+      entities_with_components_stream(query)
 
     # filters by with/without components. Returns the entity ids
     entity_ids = filter_by_components(query.or, entities_with_components_stream, [])
@@ -167,16 +164,16 @@ defmodule Ecspanse.Query do
       query.select,
       query.select_optional,
       entity_ids,
-      components_state_ets_name
+      components_state_ets_table
     )
   end
 
   @doc """
   TODO
   """
-  @spec one(t(), Ecspanse.Token.t()) :: components_state :: tuple() | nil
-  def one(query, token) do
-    case stream(query, token) |> Enum.to_list() do
+  @spec one(t()) :: components_state :: tuple() | nil
+  def one(query) do
+    case stream(query) |> Enum.to_list() do
       [result_tuple] -> result_tuple
       [] -> nil
       results -> raise Error, "Expected to return one result, got: `#{inspect(results)}`"
@@ -187,16 +184,14 @@ defmodule Ecspanse.Query do
     TODO
   Returns the Entity struct as long as it has at least one component.
   """
-  @spec fetch_entity(Ecspanse.Entity.id(), token :: binary()) :: {:ok, t()} | {:error, :not_found}
-  def fetch_entity(entity_id, token) do
-    %{components_state_ets_name: table} = Ecspanse.Util.decode_token(token)
-
+  @spec fetch_entity(Ecspanse.Entity.id()) :: {:ok, t()} | {:error, :not_found}
+  def fetch_entity(entity_id) do
     f =
       Ex2ms.fun do
         {{^entity_id, _component_module, _component_groups}, _component_state} -> ^entity_id
       end
 
-    result = :ets.select(table, f, 1)
+    result = :ets.select(Util.components_state_ets_table(), f, 1)
 
     case result do
       {[^entity_id], _} ->
@@ -210,9 +205,9 @@ defmodule Ecspanse.Query do
   @doc """
   TODO
   """
-  @spec get_component_entity(component_state :: struct, token :: Ecspanse.Token.t()) ::
+  @spec get_component_entity(component_state :: struct()) ::
           Ecspanse.Entity.t()
-  def get_component_entity(component, _token) do
+  def get_component_entity(component) do
     :ok = validate_components([component])
     component.__meta__.entity
   end
@@ -221,13 +216,9 @@ defmodule Ecspanse.Query do
   TODO
   Returns a list of entities that are children of the given entity
   """
-  @spec list_children(Ecspanse.Entity.t(), Ecspanse.Token.t()) :: list(Ecspanse.Entity.t())
-  defmemo list_children(%Entity{id: entity_id}, token), max_waiter: 100, waiter_sleep_ms: 5 do
-    components_state_ets_name =
-      Process.get(:components_state_ets_name) ||
-        Ecspanse.Util.decode_token(token).components_state_ets_name
-
-    case :ets.lookup(components_state_ets_name, {entity_id, Component.Children, []}) do
+  @spec list_children(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
+  defmemo list_children(%Entity{id: entity_id}), max_waiter: 100, waiter_sleep_ms: 5 do
+    case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Children, []}) do
       [{_key, %Component.Children{entities: children_entities}}] -> children_entities
       [] -> []
     end
@@ -237,13 +228,9 @@ defmodule Ecspanse.Query do
   TODO
   Returns a list of entities that are parents of the given entity
   """
-  @spec list_parents(Ecspanse.Entity.t(), Ecspanse.Token.t()) :: list(Ecspanse.Entity.t())
-  defmemo list_parents(%Entity{id: entity_id}, token), max_waiter: 100, waiter_sleep_ms: 5 do
-    components_state_ets_name =
-      Process.get(:components_state_ets_name) ||
-        Ecspanse.Util.decode_token(token).components_state_ets_name
-
-    case :ets.lookup(components_state_ets_name, {entity_id, Component.Parents, []}) do
+  @spec list_parents(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
+  defmemo list_parents(%Entity{id: entity_id}), max_waiter: 100, waiter_sleep_ms: 5 do
+    case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Parents, []}) do
       [{_key, %Component.Parents{entities: parents_entities}}] -> parents_entities
       [] -> []
     end
@@ -253,15 +240,10 @@ defmodule Ecspanse.Query do
   TODO
   Fetches components in a group, for all entities.
   """
-  @spec list_group_components(group :: atom(), Ecspanse.Token.t()) ::
+  @spec list_group_components(group :: atom()) ::
           list(components_state :: struct())
-  def list_group_components(group, token) do
-    components_state_ets_name =
-      Process.get(:components_state_ets_name) ||
-        Ecspanse.Util.decode_token(token).components_state_ets_name
-
-    components_state_ets_name
-    |> Ecspanse.Util.list_entities_components_groups()
+  def list_group_components(group) do
+    Ecspanse.Util.list_entities_components_groups()
     |> Stream.filter(fn {_entity_id, groups, _state} -> group in groups end)
     |> Enum.map(fn {_entity_id, _groups, state} -> state end)
   end
@@ -270,15 +252,10 @@ defmodule Ecspanse.Query do
   TODO
   Fetches components in a group, for an entity.
   """
-  @spec list_group_components(Ecspanse.Entity.t(), group :: atom(), Ecspanse.Token.t()) ::
+  @spec list_group_components(Ecspanse.Entity.t(), group :: atom()) ::
           list(components_state :: struct())
-  def list_group_components(entity, group, token) do
-    components_state_ets_name =
-      Process.get(:components_state_ets_name) ||
-        Ecspanse.Util.decode_token(token).components_state_ets_name
-
-    components_state_ets_name
-    |> Ecspanse.Util.list_entities_components_groups()
+  def list_group_components(entity, group) do
+    Ecspanse.Util.list_entities_components_groups()
     |> Stream.filter(fn {entity_id, groups, _state} ->
       entity_id == entity.id && group in groups
     end)
@@ -289,15 +266,11 @@ defmodule Ecspanse.Query do
   TODO
   Fetches the component state for the given entity.
   """
-  @spec fetch_component(Ecspanse.Entity.t(), module(), Ecspanse.Token.t()) ::
+  @spec fetch_component(Ecspanse.Entity.t(), module()) ::
           {:ok, component_state :: struct()} | {:error, :not_found}
-  def fetch_component(%Entity{id: entity_id}, component_module, token) do
-    components_state_ets_name =
-      Process.get(:components_state_ets_name) ||
-        Ecspanse.Util.decode_token(token).components_state_ets_name
-
+  def fetch_component(%Entity{id: entity_id}, component_module) do
     case :ets.lookup(
-           components_state_ets_name,
+           Util.components_state_ets_table(),
            {entity_id, component_module, component_module.__component_groups__()}
          ) do
       [{_key, component}] -> {:ok, component}
@@ -310,12 +283,12 @@ defmodule Ecspanse.Query do
   Fetches the components state for the given entity.
   The components modules are passed as a tuple. And the result is a tuple with the components state.
   """
-  @spec fetch_components(Ecspanse.Entity.t(), component_modules :: tuple(), Ecspanse.Token.t()) ::
+  @spec fetch_components(Ecspanse.Entity.t(), component_modules :: tuple()) ::
           {:ok, components_state :: tuple()} | {:error, :not_found}
-  def fetch_components(%Entity{} = entity, component_modules_tuple, token) do
+  def fetch_components(%Entity{} = entity, component_modules_tuple) do
     query = select(component_modules_tuple, for: [entity])
 
-    case one(query, token) do
+    case one(query) do
       result when is_tuple(result) -> {:ok, result}
       nil -> {:error, :not_found}
     end
@@ -324,65 +297,61 @@ defmodule Ecspanse.Query do
   @doc """
   TODO
   """
-  @spec is_type?(Ecspanse.Entity.t(), module(), Ecspanse.Token.t()) :: boolean()
-  def is_type?(entity, type_component_module, token) do
+  @spec is_type?(Ecspanse.Entity.t(), module()) :: boolean()
+  def is_type?(entity, type_component_module) do
     unless type_component_module.__component_access_mode__() == :entity_type do
       raise Error, "Expected #{inspect(type_component_module)} to have entity_type access mode"
     end
 
-    has_component?(entity, type_component_module, token)
+    has_component?(entity, type_component_module)
   end
 
   @doc """
   TODO
   """
-  @spec has_component?(Ecspanse.Entity.t(), module(), Ecspanse.Token.t()) :: boolean()
-  def has_component?(entity, component_module, token) when is_atom(component_module) do
-    has_components?(entity, [component_module], token)
+  @spec has_component?(Ecspanse.Entity.t(), module()) :: boolean()
+  def has_component?(entity, component_module) when is_atom(component_module) do
+    has_components?(entity, [component_module])
   end
 
   @doc """
   TODO
   """
-  @spec has_components?(Ecspanse.Entity.t(), list(module()), Ecspanse.Token.t()) :: boolean()
-  defmemo has_components?(entity, component_module_list, token)
+  @spec has_components?(Ecspanse.Entity.t(), list(module())) :: boolean()
+  defmemo has_components?(entity, component_module_list)
           when is_list(component_module_list),
           max_waiter: 100,
           waiter_sleep_ms: 5 do
-    table =
-      Process.get(:components_state_ets_name) ||
-        Ecspanse.Util.decode_token(token).components_state_ets_name
-
-    entities_components = Ecspanse.Util.list_entities_components(table)
+    entities_components = Ecspanse.Util.list_entities_components()
 
     component_module_list -- Map.get(entities_components, entity.id, []) == []
   end
 
-  @spec has_children_with_type?(Ecspanse.Entity.t(), module(), Ecspanse.Token.t()) :: boolean()
-  def has_children_with_type?(entity, type_component_module, token) do
+  @spec has_children_with_type?(Ecspanse.Entity.t(), module()) :: boolean()
+  def has_children_with_type?(entity, type_component_module) do
     unless type_component_module.__component_access_mode__() == :entity_type do
       raise Error, "Expected #{inspect(type_component_module)} to have entity_type access mode"
     end
 
-    has_children_with_component?(entity, type_component_module, token)
+    has_children_with_component?(entity, type_component_module)
   end
 
-  @spec has_children_with_component?(Ecspanse.Entity.t(), module(), Ecspanse.Token.t()) ::
+  @spec has_children_with_component?(Ecspanse.Entity.t(), module()) ::
           boolean()
-  def has_children_with_component?(entity, component_module, token) do
-    has_children_with_components?(entity, [component_module], token)
+  def has_children_with_component?(entity, component_module) do
+    has_children_with_components?(entity, [component_module])
   end
 
   @doc """
   TODO
   """
-  @spec has_children_with_components?(Ecspanse.Entity.t(), list(module()), Ecspanse.Token.t()) ::
+  @spec has_children_with_components?(Ecspanse.Entity.t(), list(module())) ::
           boolean()
-  defmemo has_children_with_components?(entity, component_module_list, token)
+  defmemo has_children_with_components?(entity, component_module_list)
           when is_list(component_module_list) do
     components =
       select(List.to_tuple(component_module_list), for_children_of: [entity])
-      |> stream(token)
+      |> stream()
       |> Enum.to_list()
 
     Enum.any?(components)
@@ -391,34 +360,34 @@ defmodule Ecspanse.Query do
   @doc """
   TODO
   """
-  @spec has_parents_with_type?(Ecspanse.Entity.t(), module(), Ecspanse.Token.t()) :: boolean()
-  def has_parents_with_type?(entity, type_component_module, token) do
+  @spec has_parents_with_type?(Ecspanse.Entity.t(), module()) :: boolean()
+  def has_parents_with_type?(entity, type_component_module) do
     unless type_component_module.__component_access_mode__() == :entity_type do
       raise Error, "Expected #{inspect(type_component_module)} to have entity_type access mode"
     end
 
-    has_parents_with_component?(entity, type_component_module, token)
+    has_parents_with_component?(entity, type_component_module)
   end
 
   @doc """
   TODO
   """
-  @spec has_parents_with_component?(Ecspanse.Entity.t(), module(), Ecspanse.Token.t()) ::
+  @spec has_parents_with_component?(Ecspanse.Entity.t(), module()) ::
           boolean()
-  def has_parents_with_component?(entity, component_module, token) do
-    has_parents_with_components?(entity, [component_module], token)
+  def has_parents_with_component?(entity, component_module) do
+    has_parents_with_components?(entity, [component_module])
   end
 
   @doc """
   TODO
   """
-  @spec has_parents_with_components?(Ecspanse.Entity.t(), list(module()), Ecspanse.Token.t()) ::
+  @spec has_parents_with_components?(Ecspanse.Entity.t(), list(module())) ::
           boolean()
-  defmemo has_parents_with_components?(entity, component_module_list, token)
+  defmemo has_parents_with_components?(entity, component_module_list)
           when is_list(component_module_list) do
     components =
       select(List.to_tuple(component_module_list), for_parents_of: [entity])
-      |> stream(token)
+      |> stream()
       |> Enum.to_list()
 
     Enum.any?(components)
@@ -428,14 +397,10 @@ defmodule Ecspanse.Query do
   TODO
   Fetches a resource state
   """
-  @spec fetch_resource(resource_module :: module(), Ecspanse.Token.t()) ::
+  @spec fetch_resource(resource_module :: module()) ::
           {:ok, resource_state :: struct()} | {:error, :not_found}
-  def fetch_resource(resource_module, token) do
-    resources_state_ets_name =
-      Process.get(:resources_state_ets_name) ||
-        Ecspanse.Util.decode_token(token).resources_state_ets_name
-
-    case :ets.lookup(resources_state_ets_name, resource_module) do
+  def fetch_resource(resource_module) do
+    case :ets.lookup(Util.resources_state_ets_table(), resource_module) do
       [{_key, resource}] -> {:ok, resource}
       [] -> {:error, :not_found}
     end
@@ -470,74 +435,74 @@ defmodule Ecspanse.Query do
     ])
   end
 
-  defp entities_with_components_stream(table, query, token) do
+  defp entities_with_components_stream(query) do
     cond do
       not Enum.empty?(query.for_entities) ->
-        filter_for_entities(table, query.for_entities)
+        filter_for_entities(query.for_entities)
 
       not Enum.empty?(query.not_for_entities) ->
-        filter_not_for_entities(table, query.not_for_entities)
+        filter_not_for_entities(query.not_for_entities)
 
       not Enum.empty?(query.for_children_of) ->
-        entities_with_components_stream_for_children(table, query, token)
+        entities_with_components_stream_for_children(query)
 
       not Enum.empty?(query.for_parents_of) ->
-        entities_with_components_stream_for_parents(table, query, token)
+        entities_with_components_stream_for_parents(query)
 
       true ->
-        filter_for_entities(table, [])
+        filter_for_entities([])
     end
   end
 
-  defp entities_with_components_stream_for_children(table, query, token) do
-    case list_children_entities(query.for_children_of, token) do
+  defp entities_with_components_stream_for_children(query) do
+    case list_children_entities(query.for_children_of) do
       [] -> []
-      entities -> filter_for_entities(table, entities)
+      entities -> filter_for_entities(entities)
     end
   end
 
-  defp entities_with_components_stream_for_parents(table, query, token) do
-    case list_parents_entities(query.for_parents_of, token) do
+  defp entities_with_components_stream_for_parents(query) do
+    case list_parents_entities(query.for_parents_of) do
       [] -> []
-      entities -> filter_for_entities(table, entities)
+      entities -> filter_for_entities(entities)
     end
   end
 
-  defp list_children_entities(for_children_entities, token) do
+  defp list_children_entities(for_children_entities) do
     select({Component.Children}, for: for_children_entities)
-    |> stream(token)
+    |> stream()
     |> Stream.map(fn {children} -> children.entities end)
     |> Stream.concat()
   end
 
-  defp list_parents_entities(for_parent_entities, token) do
+  defp list_parents_entities(for_parent_entities) do
     select({Component.Parents}, for: for_parent_entities)
-    |> stream(token)
+    |> stream()
     |> Stream.map(fn {parents} -> parents.entities end)
     |> Stream.concat()
   end
 
-  defp filter_for_entities(table, []) do
-    Ecspanse.Util.list_entities_components(table)
+  defp filter_for_entities([]) do
+    Ecspanse.Util.list_entities_components()
     |> Stream.map(fn {k, v} -> {k, v} end)
   end
 
-  defp filter_for_entities(table, entities) do
+  defp filter_for_entities(entities) do
     entity_ids = Enum.map(entities, & &1.id)
 
-    Ecspanse.Util.list_entities_components(table)
+    Ecspanse.Util.list_entities_components()
     |> Stream.filter(fn {entity_id, _component_modules} -> entity_id in entity_ids end)
   end
 
-  defp filter_not_for_entities(table, []) do
-    Ecspanse.Util.list_entities_components(table)
+  defp filter_not_for_entities([]) do
+    Ecspanse.Util.list_entities_components()
     |> Stream.map(fn {k, v} -> {k, v} end)
   end
 
-  defp filter_not_for_entities(table, entities) do
+  defp filter_not_for_entities(entities) do
     entity_ids = Enum.map(entities, & &1.id)
 
-    Ecspanse.Util.list_entities_components(table)
+    Ecspanse.Util.list_entities_components()
     |> Stream.reject(fn {entity_id, _component_modules} -> entity_id in entity_ids end)
   end
 
@@ -570,18 +535,18 @@ defmodule Ecspanse.Query do
          select_components,
          select_optional_components,
          entity_ids,
-         components_state_ets_name
+         components_state_ets_table
        ) do
     entity_ids
     |> Task.async_stream(
       fn entity_id ->
         {}
         |> map_entity(return_entity, entity_id)
-        |> add_select_components(select_components, entity_id, components_state_ets_name)
+        |> add_select_components(select_components, entity_id, components_state_ets_table)
         |> add_select_optional_components(
           select_optional_components,
           entity_id,
-          components_state_ets_name
+          components_state_ets_table
         )
       end,
       ordered: false,
@@ -603,10 +568,10 @@ defmodule Ecspanse.Query do
   end
 
   # add mandatory components to the select tuple
-  defp add_select_components(select_tuple, comp_modules, entity_id, components_state_ets_name) do
+  defp add_select_components(select_tuple, comp_modules, entity_id, components_state_ets_table) do
     Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
       case :ets.lookup(
-             components_state_ets_name,
+             components_state_ets_table,
              {entity_id, comp_module, comp_module.__component_groups__()}
            ) do
         [{_key, comp_state}] -> Tuple.append(acc, comp_state)
@@ -622,11 +587,11 @@ defmodule Ecspanse.Query do
          select_tuple,
          comp_modules,
          entity_id,
-         components_state_ets_name
+         components_state_ets_table
        ) do
     Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
       case :ets.lookup(
-             components_state_ets_name,
+             components_state_ets_table,
              {entity_id, comp_module, comp_module.__component_groups__()}
            ) do
         [{_key, comp_state}] -> Tuple.append(acc, comp_state)

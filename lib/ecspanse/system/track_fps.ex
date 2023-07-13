@@ -8,7 +8,7 @@ defmodule Ecspanse.System.TrackFPS do
 
   @impl true
   def run(frame) do
-    {:ok, fps_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.FPS, frame.token)
+    {:ok, fps_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.FPS)
     new_time = fps_resource.millisecond + frame.delta
 
     updated_resource =

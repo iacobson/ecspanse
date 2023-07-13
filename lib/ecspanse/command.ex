@@ -21,6 +21,7 @@ defmodule Ecspanse.Command do
   alias Ecspanse.Event
   alias Ecspanse.Query
   alias Ecspanse.Resource
+  alias Ecspanse.Util
 
   defmodule Operation do
     @moduledoc false
@@ -28,12 +29,8 @@ defmodule Ecspanse.Command do
     @type t :: %__MODULE__{
             name: name(),
             system: module(),
-            token: binary(),
             entities_components:
               list(%{(entity_id :: binary()) => list(component_module :: module())}),
-            components_state_ets_name: binary(),
-            resources_state_ets_name: binary(),
-            events_ets_name: binary(),
             system_execution: atom(),
             locked_components: list()
           }
@@ -56,11 +53,7 @@ defmodule Ecspanse.Command do
 
     defstruct name: nil,
               system: nil,
-              token: nil,
               entities_components: %{},
-              components_state_ets_name: nil,
-              resources_state_ets_name: nil,
-              events_ets_name: nil,
               system_execution: nil,
               locked_components: []
   end
@@ -357,18 +350,12 @@ defmodule Ecspanse.Command do
     end
 
     # Find the entities_components only once per Command and store it in the Operation
-    components_state_ets_name = Process.get(:components_state_ets_name)
-
-    entities_components = Ecspanse.Util.list_entities_components(components_state_ets_name)
+    entities_components = Util.list_entities_components()
 
     %Operation{
       name: operation_name,
       system: Process.get(:system_module),
-      token: Process.get(:token),
       entities_components: entities_components,
-      components_state_ets_name: components_state_ets_name,
-      resources_state_ets_name: Process.get(:resources_state_ets_name),
-      events_ets_name: Process.get(:events_ets_name),
       system_execution: Process.get(:system_execution),
       locked_components: Process.get(:locked_components)
     }
@@ -549,7 +536,7 @@ defmodule Ecspanse.Command do
     # Entity relations (children, parents) need to be handled before removing the entity's components
 
     :ok = validate_entities(operation, entities)
-    table = operation.components_state_ets_name
+    table = Util.components_state_ets_table()
 
     children_and_parents_components =
       Task.async(fn ->
@@ -948,7 +935,7 @@ defmodule Ecspanse.Command do
         resource_module
       )
 
-    table = operation.resources_state_ets_name
+    table = Util.resources_state_ets_table()
     :ets.delete(table, resource_module)
     resource_deleted_event(resource_state)
 
@@ -986,7 +973,7 @@ defmodule Ecspanse.Command do
     # this is stored in the ETS table
     resource_with_key = {resource_module, resource_state}
 
-    table = operation.resources_state_ets_name
+    table = Util.resources_state_ets_table()
 
     :ets.insert(table, resource_with_key)
 
@@ -1116,7 +1103,7 @@ defmodule Ecspanse.Command do
   # {{entity_id, Component.Children, []}, [entity_3, entity_2, entity_1]}
   # it is calling upsert_component which will validate the component is locked for creation
   defp upsert_children_for(operation, entity, entity_type, children) do
-    table = operation.components_state_ets_name
+    table = Util.components_state_ets_table()
 
     case :ets.lookup(table, {entity.id, Component.Children, []}) do
       [{_key, %Component.Children{entities: existing_children}}] ->
@@ -1143,7 +1130,7 @@ defmodule Ecspanse.Command do
   # {{entity_id, Component.Parents, []}, [entity_3, entity_2, entity_1]}
   # it is calling upsert_component which will validate the component is locked for creation
   defp upsert_parents_for(operation, entity, entity_type, parents) do
-    table = operation.components_state_ets_name
+    table = Util.components_state_ets_table()
 
     case :ets.lookup(table, {entity.id, Component.Parents, []}) do
       [{_key, %Component.Parents{entities: existing_parents}}] ->
@@ -1160,7 +1147,7 @@ defmodule Ecspanse.Command do
   defp remove_children_and_parents(_operation, _entity, []), do: []
 
   defp remove_children_and_parents(operation, entity, children) when is_list(children) do
-    table = operation.components_state_ets_name
+    table = Util.components_state_ets_table()
 
     entity_children =
       case :ets.lookup(table, {entity.id, Component.Children, []}) do
@@ -1206,7 +1193,7 @@ defmodule Ecspanse.Command do
   defp remove_parents_and_children(_operation, _entity, []), do: []
 
   defp remove_parents_and_children(operation, entity, parents) do
-    table = operation.components_state_ets_name
+    table = Util.components_state_ets_table()
 
     entity_parents =
       case :ets.lookup(table, {entity.id, Component.Parents, []}) do
@@ -1341,7 +1328,7 @@ defmodule Ecspanse.Command do
   end
 
   defp validate_unique_entity_names(operation, entity_ids) do
-    table = operation.components_state_ets_name
+    table = Util.components_state_ets_table()
 
     Enum.each(entity_ids, fn entity_id ->
       f =
@@ -1373,7 +1360,7 @@ defmodule Ecspanse.Command do
   defp validate_entities_exist(_operation, []), do: :ok
 
   defp validate_entities_exist(operation, entities) do
-    table = operation.components_state_ets_name
+    table = Util.components_state_ets_table()
     entity_ids = Enum.map(entities, & &1.id)
 
     # All this, just because `when entity_id in ^entity_ids` doesn't work :(
@@ -1413,7 +1400,7 @@ defmodule Ecspanse.Command do
   end
 
   defp validate_is_component(operation, component_module) do
-    Ecspanse.Util.validate_ecs_type(
+    Util.validate_ecs_type(
       component_module,
       :component,
       Error,
@@ -1534,7 +1521,7 @@ defmodule Ecspanse.Command do
   end
 
   defp validate_component_exists(operation, component) do
-    table = operation.components_state_ets_name
+    table = Util.components_state_ets_table()
 
     case :ets.lookup(
            table,
@@ -1562,7 +1549,7 @@ defmodule Ecspanse.Command do
   end
 
   defp validate_is_resource(operation, resource_module) do
-    Ecspanse.Util.validate_ecs_type(
+    Util.validate_ecs_type(
       resource_module,
       :resource,
       Error,
@@ -1604,7 +1591,7 @@ defmodule Ecspanse.Command do
         resource_module when is_atom(resource_module) -> resource_module
       end
 
-    table = operation.resources_state_ets_name
+    table = Util.resources_state_ets_table()
 
     case :ets.lookup(table, resource_module) do
       [] ->
@@ -1617,7 +1604,7 @@ defmodule Ecspanse.Command do
   end
 
   defp validate_resource_exists(operation, resource) do
-    table = operation.resources_state_ets_name
+    table = Util.resources_state_ets_table()
 
     case :ets.lookup(table, resource.__meta__.module) do
       [{_key, _val}] -> :ok
@@ -1647,7 +1634,7 @@ defmodule Ecspanse.Command do
   defp commit_inserts([]), do: :ok
 
   defp commit_inserts(components) do
-    table = Process.get(:components_state_ets_name)
+    table = Util.components_state_ets_table()
 
     # do not allow multiple operations for the same component
     unique_components = Enum.uniq_by(components, fn {key, _val} -> key end)
@@ -1670,7 +1657,7 @@ defmodule Ecspanse.Command do
   defp commit_updates([]), do: :ok
 
   defp commit_updates(components) do
-    table = Process.get(:components_state_ets_name)
+    table = Util.components_state_ets_table()
 
     # do not allow multiple operations for the same component
     unique_components = Enum.uniq_by(components, fn {key, _val} -> key end)
@@ -1702,7 +1689,7 @@ defmodule Ecspanse.Command do
   defp commit_deletes([]), do: :ok
 
   defp commit_deletes(components) do
-    table = Process.get(:components_state_ets_name)
+    table = Util.components_state_ets_table()
 
     Enum.each(components, fn {key, _val} ->
       :ets.delete(table, key)
@@ -1785,7 +1772,7 @@ defmodule Ecspanse.Command do
   defp recursive_children_entities(operation, entities, acc) do
     children =
       Query.select({Component.Children}, for: entities)
-      |> Query.stream(operation.token)
+      |> Query.stream()
       |> Stream.map(fn {%Component.Children{entities: children}} -> children end)
       |> Enum.concat()
 
@@ -1867,7 +1854,7 @@ defmodule Ecspanse.Command do
   end
 
   defp add_events(events) when is_list(events) do
-    table = Process.get(:events_ets_name)
+    table = Util.events_ets_table()
     :ets.insert(table, events)
   end
 end

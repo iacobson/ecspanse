@@ -15,25 +15,11 @@ defmodule Ecspanse.World do
 
   The framework creates some special resources, such as `State`, by default.
 
-
-  ## Signing and verifying the token
-  - set the `:opt_app` option in the defined World module
-  - set the `:ecspanse_secret` in the application configuration
-
-  Otherwise the token is signed with a default secret.
-
-
   ## Examples
 
   ```elixir
-  use Ecspanse.World, opt_app: :my_otp_app
-
-  config :my_otp_app, :ecspanse_secret, "my_secret_key"
-
-  add_system(MySystem, [])
-
   defmodule TestWorld1 do
-    use Ecspanse.World, otp_app: :test_otp_app, fps_limit: 60
+    use Ecspanse.World, fps_limit: 60
 
     def setup(world) do
       world
@@ -52,6 +38,7 @@ defmodule Ecspanse.World do
 
   alias __MODULE__
   alias Ecspanse.System
+  alias Ecspanse.Util
 
   @type t :: %__MODULE__{
           operations: operations(),
@@ -104,30 +91,17 @@ defmodule Ecspanse.World do
     quote bind_quoted: [opts: opts], location: :keep do
       @behaviour Ecspanse.World
 
-      otp_app = Keyword.get(opts, :otp_app)
       fps_limit = Keyword.get(opts, :fps_limit, :unlimited)
-
-      if otp_app && not is_atom(otp_app) do
-        raise ArgumentError,
-              "The key :otp_app must be an atom in World module #{inspect(__MODULE__)}"
-      end
 
       if fps_limit && not (is_integer(fps_limit) || fps_limit == :unlimited) do
         raise ArgumentError,
               "If set, the option :fps_limit must be a non negative integer in the World module #{inspect(__MODULE__)}"
       end
 
-      Module.register_attribute(__MODULE__, :otp_app, accumulate: false)
-      Module.put_attribute(__MODULE__, :otp_app, otp_app)
       Module.register_attribute(__MODULE__, :fps_limit, accumulate: false)
       Module.put_attribute(__MODULE__, :fps_limit, fps_limit)
       Module.register_attribute(__MODULE__, :ecs_type, accumulate: false)
       Module.put_attribute(__MODULE__, :ecs_type, :world)
-
-      @doc false
-      def __otp_app__ do
-        @otp_app
-      end
 
       @doc false
       def __fps_limit__ do
@@ -190,7 +164,7 @@ defmodule Ecspanse.World do
   ```
 
   """
-  @spec add_system_set(t(), {module, function}, opts :: keyword()) :: t()
+  @spec add_system_set(t(), {module(), function :: atom}, opts :: keyword()) :: t()
   def add_system_set(world, {module, function}, opts \\ []) do
     # add the system set options to the world
     # the World system_set_options is a map with the key {module, function} for every system set
@@ -396,22 +370,17 @@ defmodule Ecspanse.World do
   @doc """
   Utility function used for testing and development purposes.
 
-  The `debug/1` function returns the internal state of the world, which can be useful for debugging systems scheduling and batching. This function is only available in the `:dev` and `:test` environments.
-
-  ## Parameters
-
-  - `token` - a binary token that identifies the world.
+  The `debug/0` function returns the internal state of the world, which can be useful for debugging systems scheduling and batching. This function is only available in the `:dev` and `:test` environments.
 
   ## Returns
 
   The internal state of the world.
 
   """
-  @spec debug(token :: binary()) :: World.State.t()
-  def debug(token) do
+  @spec debug() :: World.State.t()
+  def debug() do
     if Mix.env() in [:dev, :test] do
-      %{world_name: world_name} = Ecspanse.Util.decode_token(token)
-      GenServer.call(world_name, :debug)
+      GenServer.call(Ecspanse.World, :debug)
     else
       {:error, "debug is only available for dev and test"}
     end
@@ -434,19 +403,17 @@ defmodule Ecspanse.World do
 
     ## Fields
 
-    - `token` - a binary token that identifies the world.
     - `event_batches` - a list of event batches to be executed during the frame.
     - `delta` - the time elapsed since the last frame in milliseconds.
 
     """
 
     @type t :: %__MODULE__{
-            token: binary(),
             event_batches: list(list(Ecspanse.Event.t())),
             delta: non_neg_integer()
           }
 
-    defstruct token: nil, event_batches: [], delta: 0
+    defstruct event_batches: [], delta: 0
   end
 
   defmodule State do
@@ -454,7 +421,6 @@ defmodule Ecspanse.World do
     # should not be present in the docs
 
     @opaque t :: %__MODULE__{
-              token: binary(),
               id: binary(),
               status:
                 :startup_systems
@@ -467,9 +433,6 @@ defmodule Ecspanse.World do
               world_pid: pid(),
               world_module: module(),
               supervisor: Ecspanse.World.supervisor(),
-              components_state_ets_name: atom(),
-              resources_state_ets_name: atom(),
-              events_ets_name: atom(),
               system_run_conditions_map: map(),
               startup_systems: list(Ecspanse.System.t()),
               frame_start_systems: list(Ecspanse.System.t()),
@@ -488,31 +451,23 @@ defmodule Ecspanse.World do
             }
 
     @enforce_keys [
-      :token,
       :id,
       :world_name,
       :world_pid,
       :world_module,
       :supervisor,
-      :components_state_ets_name,
-      :resources_state_ets_name,
-      :events_ets_name,
       :last_frame_monotonic_time,
       :fps_limit,
       :delta
     ]
 
-    defstruct token: nil,
-              id: nil,
+    defstruct id: nil,
               status: :startup_systems,
               frame_timer: :running,
               world_name: nil,
               world_pid: nil,
               world_module: nil,
               supervisor: nil,
-              components_state_ets_name: nil,
-              resources_state_ets_name: nil,
-              events_ets_name: nil,
               system_run_conditions_map: %{},
               startup_systems: [],
               frame_start_systems: [],
@@ -559,8 +514,8 @@ defmodule Ecspanse.World do
     # All processes can read and write to this table. But writing should only be done through Commands.
     # The race condition is handled by the System Component locking.
     # Commands should validate that only Systems are writing to this table.
-    components_state_ets_name =
-      :ets.new(String.to_atom("components_state:#{data.id}"), [
+    components_state_ets_table =
+      :ets.new(:ets_ecspanse_components_state, [
         :set,
         :public,
         :named_table,
@@ -572,8 +527,8 @@ defmodule Ecspanse.World do
     # All processes can read and write to this table.
     # But writing should only be done through Commands.
     # Commands should validate that only Systems are writing to this table.
-    resources_state_ets_name =
-      :ets.new(String.to_atom("resources_state:#{data.id}"), [
+    resources_state_ets_table =
+      :ets.new(:ets_ecspanse_resources_state, [
         :set,
         :public,
         :named_table,
@@ -588,8 +543,8 @@ defmodule Ecspanse.World do
     # Before being sent to the Systems, the events are sorted by their inserted_at timestamp, and group in batches.
     # The batches are determined by the unicity of the event {EventModule, key} per batch.
 
-    events_ets_name =
-      :ets.new(String.to_atom("events:#{data.id}"), [
+    events_ets_table =
+      :ets.new(:ets_ecspanse_events, [
         :duplicate_bag,
         :public,
         :named_table,
@@ -597,29 +552,24 @@ defmodule Ecspanse.World do
         write_concurrency: true
       ])
 
-    otp_app = data.world_module.__otp_app__()
-
-    token =
-      Ecspanse.Util.encode_payload(otp_app, %{
-        otp_app: data.world_module.__otp_app__(),
-        world_name: data.world_name,
-        world_pid: self(),
-        supervisor: data.supervisor,
-        components_state_ets_name: components_state_ets_name,
-        resources_state_ets_name: resources_state_ets_name,
-        events_ets_name: events_ets_name
-      })
+    # Store the ETS tables in an Agent so they can be accessed independently from this GenServer
+    Agent.start_link(
+      fn ->
+        %{
+          components_state_ets_table: components_state_ets_table,
+          resources_state_ets_table: resources_state_ets_table,
+          events_ets_table: events_ets_table
+        }
+      end,
+      name: :ecspanse_ets_tables
+    )
 
     state = %State{
-      token: token,
       id: data.id,
       world_name: data.world_name,
       world_pid: self(),
       world_module: data.world_module,
       supervisor: data.supervisor,
-      components_state_ets_name: components_state_ets_name,
-      resources_state_ets_name: resources_state_ets_name,
-      events_ets_name: events_ets_name,
       last_frame_monotonic_time: Elixir.System.monotonic_time(:millisecond),
       delta: 0,
       fps_limit: data.world_module.__fps_limit__(),
@@ -647,14 +597,6 @@ defmodule Ecspanse.World do
   end
 
   @impl true
-  def handle_call(:fetch_token, _from, %State{status: :startup_systems} = state) do
-    {:reply, {:error, :not_ready}, state}
-  end
-
-  def handle_call(:fetch_token, _from, state) do
-    {:reply, {:ok, state.token}, state}
-  end
-
   def handle_call(:debug, _from, state) do
     {:reply, state, state}
   end
@@ -667,12 +609,12 @@ defmodule Ecspanse.World do
   @impl true
   def handle_info({:run, system_start_events}, state) do
     # startup_events passed as options in the Ecspanse.new/2 function
-    event_batches = batch_events(system_start_events, state.token)
+    event_batches = batch_events(system_start_events)
 
     state = %{
       state
       | scheduled_systems: state.startup_systems,
-        frame_data: %Frame{event_batches: event_batches, token: state.token}
+        frame_data: %Frame{event_batches: event_batches}
     }
 
     send(self(), :run_next_system)
@@ -691,9 +633,9 @@ defmodule Ecspanse.World do
     delta = frame_monotonic_time - state.last_frame_monotonic_time
 
     event_batches =
-      state.events_ets_name
+      Util.events_ets_table()
       |> :ets.tab2list()
-      |> batch_events(state.token)
+      |> batch_events()
 
     # Frame limit
     # in order to finish a frame, two conditions must be met:
@@ -720,13 +662,12 @@ defmodule Ecspanse.World do
         delta: delta,
         frame_data: %Frame{
           delta: delta,
-          event_batches: event_batches,
-          token: state.token
+          event_batches: event_batches
         }
     }
 
     # Delete all events from the ETS table
-    :ets.delete_all_objects(state.events_ets_name)
+    :ets.delete_all_objects(Util.events_ets_table())
 
     Process.send_after(self(), :finish_frame_timer, round(limit))
     send(self(), :run_next_system)
@@ -868,7 +809,7 @@ defmodule Ecspanse.World do
     Enum.each(state.shutdown_systems, fn system ->
       task =
         Task.async(fn ->
-          prepare_system_process(state, system)
+          prepare_system_process(system)
           system.module.run(state.frame_data)
         end)
 
@@ -881,7 +822,7 @@ defmodule Ecspanse.World do
   defp run_system(system, state) do
     %Task{ref: ref} =
       Task.async(fn ->
-        prepare_system_process(state, system)
+        prepare_system_process(system)
         system.module.schedule_run(state.frame_data)
         :finished_system_execution
       end)
@@ -890,15 +831,11 @@ defmodule Ecspanse.World do
   end
 
   # This happens in the System process
-  defp prepare_system_process(state, system) do
+  defp prepare_system_process(system) do
     Process.put(:ecs_process_type, :system)
-    Process.put(:token, state.token)
     Process.put(:system_execution, system.execution)
     Process.put(:system_module, system.module)
     Process.put(:locked_components, system.module.__locked_components__())
-    Process.put(:components_state_ets_name, state.components_state_ets_name)
-    Process.put(:resources_state_ets_name, state.resources_state_ets_name)
-    Process.put(:events_ets_name, state.events_ets_name)
   end
 
   defp apply_operations([], state), do: state
@@ -1107,7 +1044,7 @@ defmodule Ecspanse.World do
     |> Enum.reduce(
       state,
       fn {{module, function, args} = condition, _value}, state ->
-        result = apply(module, function, [state.token | args])
+        result = apply(module, function, args)
 
         unless is_boolean(result) do
           raise "System run condition functions must return a boolean. Got: #{inspect(result)}. For #{inspect({module, function, args})}."
@@ -1137,22 +1074,22 @@ defmodule Ecspanse.World do
     |> Enum.map(fn {k, v} -> {k, v |> List.flatten() |> Enum.uniq()} end)
   end
 
-  defp batch_events(events, token) do
+  defp batch_events(events) do
     # inserted_at is the System time in milliseconds when the event was created
     events
     |> Enum.sort_by(fn {_k, v} -> v.inserted_at end, &</2)
-    |> do_event_batches([], token)
+    |> do_event_batches([])
   end
 
-  defp do_event_batches([], batches, _token), do: batches
+  defp do_event_batches([], batches), do: batches
 
-  defp do_event_batches(events, batches, token) do
+  defp do_event_batches(events, batches) do
     current_events = Enum.uniq_by(events, fn {k, _v} -> k end)
 
     batch =
       Enum.map(current_events, fn {_, v} -> v end)
 
     remaining_events = events -- current_events
-    do_event_batches(remaining_events, batches ++ [batch], token)
+    do_event_batches(remaining_events, batches ++ [batch])
   end
 end

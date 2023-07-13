@@ -11,6 +11,7 @@ defmodule Ecspanse.Resource do
     - access_mode:  :write | :readonly  - defaults to :write
 
   """
+  alias Ecspanse.Util
 
   @type resource_spec ::
           (resource_module :: module())
@@ -33,12 +34,10 @@ defmodule Ecspanse.Resource do
   Utility function used for developement.
   Returns all their resources and their state, toghether with their entity association.
   """
-  @spec debug(token :: binary()) :: list(resource_key_value())
-  def debug(token) do
+  @spec debug() :: list(resource_key_value())
+  def debug() do
     if Mix.env() in [:dev, :test] do
-      %{resources_state_ets_name: resources_state_ets_name} = Ecspanse.Util.decode_token(token)
-
-      :ets.match_object(resources_state_ets_name, {:"$0", :"$1"})
+      :ets.match_object(Util.resources_state_ets_table(), {:"$0", :"$1"})
     else
       {:error, "debug is only available in dev and test"}
     end

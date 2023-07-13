@@ -33,14 +33,14 @@ defmodule Ecspanse.SystemTest do
       lock_components: [TestComponent1, TestComponent2],
       events_subscription: [TestEvent1]
 
-    def run(%TestEvent1{value: value, entity: entity}, frame) do
+    def run(%TestEvent1{value: value, entity: entity}, _frame) do
       {:ok, test_component_1} =
-        Ecspanse.Query.fetch_component(entity, TestComponent1, frame.token)
+        Ecspanse.Query.fetch_component(entity, TestComponent1)
 
       Ecspanse.Command.update_component!(test_component_1, value: value)
 
       Ecspanse.Command.add_component!(entity, TestComponent2)
-      test_pid = Ecspanse.World.debug(frame.token).test_pid
+      test_pid = Ecspanse.World.debug().test_pid
 
       send(test_pid, :test_event_1)
     end
@@ -58,8 +58,8 @@ defmodule Ecspanse.SystemTest do
         Ecspanse.Event.ResourceUpdated
       ]
 
-    def run(event, frame) do
-      test_pid = Ecspanse.World.debug(frame.token).test_pid
+    def run(event, _frame) do
+      test_pid = Ecspanse.World.debug().test_pid
 
       case event do
         %Ecspanse.Event.ComponentCreated{component: %TestComponent1{} = component} ->
@@ -97,22 +97,40 @@ defmodule Ecspanse.SystemTest do
     end
   end
 
+  ###
+
+  setup do
+    on_exit(fn ->
+      :timer.sleep(5)
+
+      case Process.whereis(Ecspanse.World) do
+        pid when is_pid(pid) ->
+          Process.exit(pid, :normal)
+
+        _ ->
+          nil
+      end
+    end)
+
+    :ok
+  end
+
   describe "component locking" do
     test "when running an async system all the components that may be added, removed or updated must be locked" do
-      assert {:ok, token} = Ecspanse.new(TestWorld1, name: TestName1, test: true)
+      assert :ok = Ecspanse.new(TestWorld1, name: TestName1, test: true)
 
-      Ecspanse.System.debug(token)
+      Ecspanse.System.debug()
 
       entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
 
-      assert {:ok, component_1} = Ecspanse.Query.fetch_component(entity, TestComponent1, token)
+      assert {:ok, component_1} = Ecspanse.Query.fetch_component(entity, TestComponent1)
       assert component_1.value == :foo
 
-      assert {:error, :not_found} = Ecspanse.Query.fetch_component(entity, TestComponent2, token)
+      assert {:error, :not_found} = Ecspanse.Query.fetch_component(entity, TestComponent2)
 
       assert_receive {:next_frame, _state}
 
-      Ecspanse.event({TestEvent1, value: :bar, entity: entity}, token)
+      Ecspanse.event({TestEvent1, value: :bar, entity: entity})
 
       assert_receive {:next_frame, _state}
 
@@ -120,26 +138,26 @@ defmodule Ecspanse.SystemTest do
       :timer.sleep(20)
       assert_receive {:next_frame, _state}
 
-      assert {:ok, component_1} = Ecspanse.Query.fetch_component(entity, TestComponent1, token)
+      assert {:ok, component_1} = Ecspanse.Query.fetch_component(entity, TestComponent1)
       assert component_1.value == :bar
-      assert {:ok, _component_2} = Ecspanse.Query.fetch_component(entity, TestComponent2, token)
+      assert {:ok, _component_2} = Ecspanse.Query.fetch_component(entity, TestComponent2)
     end
   end
 
   describe "systems with events subscription" do
     test "systems with events subscription run only for the subscribed events" do
-      assert {:ok, token} = Ecspanse.new(TestWorld1, name: TestName1, test: true)
+      assert :ok = Ecspanse.new(TestWorld1, name: TestName1, test: true)
 
-      Ecspanse.System.debug(token)
+      Ecspanse.System.debug()
 
       entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
 
-      assert {:ok, component_1} = Ecspanse.Query.fetch_component(entity, TestComponent1, token)
+      assert {:ok, component_1} = Ecspanse.Query.fetch_component(entity, TestComponent1)
       assert component_1.value == :foo
 
       assert_receive {:next_frame, _state}
 
-      Ecspanse.event({TestEvent2, value: :baz, entity: entity}, token)
+      Ecspanse.event({TestEvent2, value: :baz, entity: entity})
 
       assert_receive {:next_frame, _state}
 
@@ -147,32 +165,32 @@ defmodule Ecspanse.SystemTest do
       :timer.sleep(20)
       assert_receive {:next_frame, _state}
 
-      assert {:ok, component_1} = Ecspanse.Query.fetch_component(entity, TestComponent1, token)
+      assert {:ok, component_1} = Ecspanse.Query.fetch_component(entity, TestComponent1)
       assert component_1.value == :foo
     end
   end
 
   describe "command generated events" do
     test "component_created event on component creation" do
-      assert {:ok, token} = Ecspanse.new(TestWorld1, name: TestName1, test: true)
-      Ecspanse.System.debug(token)
+      assert :ok = Ecspanse.new(TestWorld1, name: TestName1, test: true)
+      Ecspanse.System.debug()
       entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
       :timer.sleep(20)
       assert_receive {:next_frame, _state}
 
       assert_received {:component_created, created_component}
 
-      {:ok, component} = Ecspanse.Query.fetch_component(entity, TestComponent1, token)
+      {:ok, component} = Ecspanse.Query.fetch_component(entity, TestComponent1)
 
       assert created_component == component
     end
 
     test "component_deleted event on component deletion" do
-      assert {:ok, token} = Ecspanse.new(TestWorld1, name: TestName1, test: true)
-      Ecspanse.System.debug(token)
+      assert :ok = Ecspanse.new(TestWorld1, name: TestName1, test: true)
+      Ecspanse.System.debug()
       entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
 
-      {:ok, component} = Ecspanse.Query.fetch_component(entity, TestComponent1, token)
+      {:ok, component} = Ecspanse.Query.fetch_component(entity, TestComponent1)
 
       Ecspanse.Command.remove_component!(component)
       :timer.sleep(20)
@@ -184,23 +202,23 @@ defmodule Ecspanse.SystemTest do
     end
 
     test "component_updated event on component update" do
-      assert {:ok, token} = Ecspanse.new(TestWorld1, name: TestName1, test: true)
-      Ecspanse.System.debug(token)
+      assert :ok = Ecspanse.new(TestWorld1, name: TestName1, test: true)
+      Ecspanse.System.debug()
       entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
-      {:ok, component} = Ecspanse.Query.fetch_component(entity, TestComponent1, token)
+      {:ok, component} = Ecspanse.Query.fetch_component(entity, TestComponent1)
       Ecspanse.Command.update_component!(component, value: :bar)
       :timer.sleep(20)
       assert_receive {:next_frame, _state}
 
       assert_received {:component_updated, updated_component}
-      {:ok, component} = Ecspanse.Query.fetch_component(entity, TestComponent1, token)
+      {:ok, component} = Ecspanse.Query.fetch_component(entity, TestComponent1)
 
       assert updated_component == component
     end
 
     test "resource_created event on resource creation" do
-      assert {:ok, token} = Ecspanse.new(TestWorld1, name: TestName1, test: true)
-      Ecspanse.System.debug(token)
+      assert :ok = Ecspanse.new(TestWorld1, name: TestName1, test: true)
+      Ecspanse.System.debug()
       resource = Ecspanse.Command.insert_resource!(TestResource1)
       :timer.sleep(20)
       assert_receive {:next_frame, _state}
@@ -211,8 +229,8 @@ defmodule Ecspanse.SystemTest do
     end
 
     test "resource_deleted event on resource deletion" do
-      assert {:ok, token} = Ecspanse.new(TestWorld1, name: TestName1, test: true)
-      Ecspanse.System.debug(token)
+      assert :ok = Ecspanse.new(TestWorld1, name: TestName1, test: true)
+      Ecspanse.System.debug()
       resource = Ecspanse.Command.insert_resource!(TestResource1)
       resource = Ecspanse.Command.delete_resource!(resource)
       :timer.sleep(20)
@@ -224,8 +242,8 @@ defmodule Ecspanse.SystemTest do
     end
 
     test "resource_updated event on resource update" do
-      assert {:ok, token} = Ecspanse.new(TestWorld1, name: TestName1, test: true)
-      Ecspanse.System.debug(token)
+      assert :ok = Ecspanse.new(TestWorld1, name: TestName1, test: true)
+      Ecspanse.System.debug()
       resource = Ecspanse.Command.insert_resource!(TestResource1)
       resource = Ecspanse.Command.update_resource!(resource, value: :bar)
       :timer.sleep(20)

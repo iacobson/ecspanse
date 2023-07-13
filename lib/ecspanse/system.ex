@@ -27,13 +27,9 @@ defmodule Ecspanse.System do
 
   # The System process stores several keys to be used by the Commands and Queries.
   # - ecs_process_type (:system)
-  # - token
   # - system_execution :sync | :async
   # - locked_components
   # - system_module
-  # - components_state_ets_name
-  # - resources_state_ets_name
-  # - events_ets_name
 
   @type system_queue ::
           :startup_systems
@@ -62,19 +58,13 @@ defmodule Ecspanse.System do
   This is a powerful tool for testing and debugging, as the promoted process
   can change the components and resources state without having to be scheduled like a regular system.
   """
-  @spec debug(token :: binary()) :: :ok
-  def debug(token) do
+  @spec debug() :: :ok
+  def debug do
     if Mix.env() in [:dev, :test] do
-      token_payload = Ecspanse.Util.decode_token(token)
-
       Process.put(:ecs_process_type, :system)
-      Process.put(:token, token)
       Process.put(:system_execution, :sync)
       Process.put(:system_module, Ecspanse.System.Debug)
       Process.put(:locked_components, Ecspanse.System.Debug.__locked_components__())
-      Process.put(:components_state_ets_name, token_payload.components_state_ets_name)
-      Process.put(:resources_state_ets_name, token_payload.resources_state_ets_name)
-      Process.put(:events_ets_name, token_payload.events_ets_name)
 
       :ok
     else

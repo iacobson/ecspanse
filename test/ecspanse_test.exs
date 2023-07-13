@@ -47,17 +47,31 @@ defmodule EcspanseTest do
     end
   end
 
+  ###
+
+  setup do
+    on_exit(fn ->
+      :timer.sleep(5)
+
+      case Process.whereis(Ecspanse.World) do
+        pid when is_pid(pid) ->
+          Process.exit(pid, :normal)
+
+        _ ->
+          nil
+      end
+    end)
+
+    :ok
+  end
+
   describe "new/2" do
     test "creates a new world" do
-      assert {:ok, _token} = Ecspanse.new(TestWorld)
-      assert {:ok, token} = Ecspanse.new(TestWorld, name: TestName)
-
-      token_payload = Ecspanse.Util.decode_token(token)
-      assert token_payload.world_name == TestName
+      assert :ok = Ecspanse.new(TestWorld)
     end
 
     test "can inject events at startup" do
-      assert {:ok, _token} =
+      assert :ok =
                Ecspanse.new(TestWorld,
                  startup_events: [{TestStartupEvent, data: 123, pid: self()}]
                )
@@ -67,53 +81,32 @@ defmodule EcspanseTest do
     end
   end
 
-  describe "terminate/1" do
-    test "terminates the world" do
-      assert {:ok, token} = Ecspanse.new(TestWorld)
-      assert {:ok, _} = Ecspanse.fetch_world_process(token)
-      assert Ecspanse.terminate(token) == :ok
-
-      # wait for the world GenServer `terminate/2` callback to finish
-      :timer.sleep(100)
-      assert {:error, :not_found} = Ecspanse.fetch_world_process(token)
-    end
-  end
-
-  describe "fetch_token/1" do
-    test "fetches the world token from the world name" do
-      assert {:ok, token} = Ecspanse.new(TestWorld, name: TestName)
-      assert {:ok, found_token} = Ecspanse.fetch_token(TestName)
-      assert token == found_token
-    end
-  end
-
   describe "fetch_world_process/1" do
-    test "fetches the world process from the world token" do
-      assert {:ok, token} = Ecspanse.new(TestWorld, name: TestName)
-      assert {:ok, %{name: name, pid: pid}} = Ecspanse.fetch_world_process(token)
-      assert name == TestName
+    test "fetches the world process" do
+      assert :ok = Ecspanse.new(TestWorld, name: TestName)
+      assert {:ok, pid} = Ecspanse.fetch_world_process()
       assert Process.alive?(pid)
     end
   end
 
   describe "event/3" do
     test "queues an event for the next frame" do
-      assert {:ok, token} = Ecspanse.new(TestWorld, name: TestName, test: true)
+      assert :ok = Ecspanse.new(TestWorld, name: TestName, test: true)
       assert_receive {:next_frame, _state}
       assert_receive {:next_frame, state}
       assert state.frame_data.event_batches == []
-      Ecspanse.event(TestCustomEvent, token)
+      Ecspanse.event(TestCustomEvent)
       assert_receive {:next_frame, state}
       assert [[%EcspanseTest.TestCustomEvent{}]] = state.frame_data.event_batches
     end
 
     test "groups in individual batches an event without a batch key, queued multiple times in the same frame" do
-      assert {:ok, token} = Ecspanse.new(TestWorld, name: TestName, test: true)
+      assert :ok = Ecspanse.new(TestWorld, name: TestName, test: true)
       assert_receive {:next_frame, _state}
       assert_receive {:next_frame, state}
       assert state.frame_data.event_batches == []
-      Ecspanse.event(TestCustomEvent, token)
-      Ecspanse.event(TestCustomEvent, token)
+      Ecspanse.event(TestCustomEvent)
+      Ecspanse.event(TestCustomEvent)
       assert_receive {:next_frame, state}
 
       assert [[%EcspanseTest.TestCustomEvent{}], [%EcspanseTest.TestCustomEvent{}]] =
@@ -121,7 +114,7 @@ defmodule EcspanseTest do
     end
 
     test "providing unique batch keys, groups the events in the same batch for parallel processing" do
-      assert {:ok, token} = Ecspanse.new(TestWorld, name: TestName, test: true)
+      assert :ok = Ecspanse.new(TestWorld, name: TestName, test: true)
       entity_1 = Ecspanse.Entity.build(UUID.uuid4())
       entity_2 = Ecspanse.Entity.build(UUID.uuid4())
 
@@ -129,9 +122,9 @@ defmodule EcspanseTest do
       assert_receive {:next_frame, state}
       assert state.frame_data.event_batches == []
 
-      Ecspanse.event(TestCustomEvent, token, batch_key: entity_1.id)
-      Ecspanse.event(TestCustomEvent, token, batch_key: entity_2.id)
-      Ecspanse.event(TestCustomEvent, token, batch_key: entity_1.id)
+      Ecspanse.event(TestCustomEvent, batch_key: entity_1.id)
+      Ecspanse.event(TestCustomEvent, batch_key: entity_2.id)
+      Ecspanse.event(TestCustomEvent, batch_key: entity_1.id)
       assert_receive {:next_frame, state}
 
       assert [

@@ -148,8 +148,8 @@ defmodule Ecspanse.WorldTest do
     @moduledoc false
     use Ecspanse.System
 
-    def run(frame) do
-      {:ok, resource} = Ecspanse.Query.fetch_resource(TestResource1, frame.token)
+    def run(_frame) do
+      {:ok, resource} = Ecspanse.Query.fetch_resource(TestResource1)
       send(resource.pid, :foo)
     end
   end
@@ -158,8 +158,8 @@ defmodule Ecspanse.WorldTest do
     @moduledoc false
     use Ecspanse.System
 
-    def run(frame) do
-      {:ok, resource} = Ecspanse.Query.fetch_resource(TestResource1, frame.token)
+    def run(_frame) do
+      {:ok, resource} = Ecspanse.Query.fetch_resource(TestResource1)
       send(resource.pid, :bar)
     end
   end
@@ -178,10 +178,26 @@ defmodule Ecspanse.WorldTest do
 
   ##########
 
+  setup do
+    on_exit(fn ->
+      :timer.sleep(5)
+
+      case Process.whereis(Ecspanse.World) do
+        pid when is_pid(pid) ->
+          Process.exit(pid, :normal)
+
+        _ ->
+          nil
+      end
+    end)
+
+    :ok
+  end
+
   describe "setup/1 callback" do
     test "schedules systems in the correct order" do
-      assert {:ok, token} = Ecspanse.new(TestWorld1, name: TestName1, test: true)
-      state = Ecspanse.World.debug(token)
+      assert :ok = Ecspanse.new(TestWorld1, name: TestName1, test: true)
+      state = Ecspanse.World.debug()
 
       assert [
                %Ecspanse.System{
@@ -223,8 +239,8 @@ defmodule Ecspanse.WorldTest do
     end
 
     test "groups batched systems by their locked components" do
-      assert {:ok, token} = Ecspanse.new(TestWorld2, name: TestName2, test: true)
-      state = Ecspanse.World.debug(token)
+      assert :ok = Ecspanse.new(TestWorld2, name: TestName2, test: true)
+      state = Ecspanse.World.debug()
 
       assert [
                [
@@ -247,8 +263,8 @@ defmodule Ecspanse.WorldTest do
     end
 
     test "systems can be grouped in sets" do
-      assert {:ok, token} = Ecspanse.new(TestWorld3, name: TestName3, test: true)
-      state = Ecspanse.World.debug(token)
+      assert :ok = Ecspanse.new(TestWorld3, name: TestName3, test: true)
+      state = Ecspanse.World.debug()
 
       assert [
                [
@@ -265,8 +281,8 @@ defmodule Ecspanse.WorldTest do
     end
 
     test "async systems order of execution can be customized with the `run_after` option" do
-      assert {:ok, token} = Ecspanse.new(TestWorld4, name: TestName4, test: true)
-      state = Ecspanse.World.debug(token)
+      assert :ok = Ecspanse.new(TestWorld4, name: TestName4, test: true)
+      state = Ecspanse.World.debug()
 
       assert [
                [
@@ -289,16 +305,17 @@ defmodule Ecspanse.WorldTest do
     end
 
     test "systems can run conditionally depending on the world state resource" do
-      assert {:ok, token} =
+      assert :ok =
                Ecspanse.new(TestWorld5,
                  startup_events: [{TestEvent1, pid: self()}],
                  name: TestName5,
                  test: true
                )
 
-      Ecspanse.System.debug(token)
+      Ecspanse.System.debug()
+      :timer.sleep(10)
 
-      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State, token)
+      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
       refute state_resource.value
 
       assert_receive {:next_frame, _state}
@@ -306,22 +323,28 @@ defmodule Ecspanse.WorldTest do
       refute_receive :bar
       assert_receive {:next_frame, _state}
 
-      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State, token)
+      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
       Ecspanse.Command.update_resource!(state_resource, value: :foo)
 
+      :timer.sleep(10)
       assert_receive {:next_frame, _state}
-      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State, token)
+      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
       assert state_resource.value == :foo
+
+      :timer.sleep(10)
       assert_receive :foo
       refute_receive :bar
       assert_receive {:next_frame, _state}
 
-      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State, token)
+      :timer.sleep(10)
+      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
       Ecspanse.Command.update_resource!(state_resource, value: :bar)
 
       assert_receive {:next_frame, _state}
-      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State, token)
+      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
       assert state_resource.value == :bar
+
+      :timer.sleep(10)
       assert_receive :bar
       assert_receive {:next_frame, _state}
     end

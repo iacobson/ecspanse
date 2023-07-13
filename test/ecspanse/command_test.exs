@@ -31,28 +31,40 @@ defmodule Ecspanse.CommandTest do
   end
 
   setup do
-    assert {:ok, token} = Ecspanse.new(TestWorld1)
-    # simulate commands are run from a System
-    Ecspanse.System.debug(token)
+    on_exit(fn ->
+      :timer.sleep(5)
 
-    {:ok, token: token}
+      case Process.whereis(Ecspanse.World) do
+        pid when is_pid(pid) ->
+          Process.exit(pid, :normal)
+
+        _ ->
+          nil
+      end
+    end)
+
+    assert :ok = Ecspanse.new(TestWorld1)
+    # simulate commands are run from a System
+    Ecspanse.System.debug()
+
+    :ok
   end
 
   describe "spawn_entities!/1" do
-    test "spawns multiple entities", %{token: token} do
+    test "spawns multiple entities" do
       assert [%Ecspanse.Entity{} = entity_1, %Ecspanse.Entity{} = entity_2] =
                Ecspanse.Command.spawn_entities!([
                  {Ecspanse.Entity, components: [TestComponent1]},
                  {Ecspanse.Entity, components: [TestComponent1]}
                ])
 
-      assert {:ok, ^entity_1} = Ecspanse.Query.fetch_entity(entity_1.id, token)
-      assert {:ok, ^entity_2} = Ecspanse.Query.fetch_entity(entity_2.id, token)
+      assert {:ok, ^entity_1} = Ecspanse.Query.fetch_entity(entity_1.id)
+      assert {:ok, ^entity_2} = Ecspanse.Query.fetch_entity(entity_2.id)
     end
   end
 
   describe "despawn_entities!/1" do
-    test "despawns multiple entities", %{token: token} do
+    test "despawns multiple entities" do
       assert [%Ecspanse.Entity{} = entity_1, %Ecspanse.Entity{} = entity_2] =
                Ecspanse.Command.spawn_entities!([
                  {Ecspanse.Entity, components: [TestComponent1]},
@@ -63,20 +75,20 @@ defmodule Ecspanse.CommandTest do
                entity_3 =
                Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [entity_1]})
 
-      assert {:ok, ^entity_1} = Ecspanse.Query.fetch_entity(entity_1.id, token)
-      assert {:ok, ^entity_2} = Ecspanse.Query.fetch_entity(entity_2.id, token)
+      assert {:ok, ^entity_1} = Ecspanse.Query.fetch_entity(entity_1.id)
+      assert {:ok, ^entity_2} = Ecspanse.Query.fetch_entity(entity_2.id)
 
       Ecspanse.Command.despawn_entities!([entity_1, entity_2])
 
-      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_1.id, token)
-      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_2.id, token)
+      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_1.id)
+      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_2.id)
 
-      assert {:ok, ^entity_3} = Ecspanse.Query.fetch_entity(entity_3.id, token)
+      assert {:ok, ^entity_3} = Ecspanse.Query.fetch_entity(entity_3.id)
     end
   end
 
   describe "despawn_entities_and_children!/1" do
-    test "despawns entities and their children", %{token: token} do
+    test "despawns entities and their children" do
       assert %Ecspanse.Entity{} =
                entity_1 =
                Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
@@ -97,19 +109,19 @@ defmodule Ecspanse.CommandTest do
 
       Ecspanse.Command.despawn_entities_and_children!([entity_4, entity_5])
 
-      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_1.id, token)
-      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_2.id, token)
-      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_3.id, token)
-      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_4.id, token)
-      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_5.id, token)
-      assert {:ok, ^entity_6} = Ecspanse.Query.fetch_entity(entity_6.id, token)
+      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_1.id)
+      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_2.id)
+      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_3.id)
+      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_4.id)
+      assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_5.id)
+      assert {:ok, ^entity_6} = Ecspanse.Query.fetch_entity(entity_6.id)
 
-      assert Ecspanse.Query.list_children(entity_6, token) == []
+      assert Ecspanse.Query.list_children(entity_6) == []
     end
   end
 
   describe "add_components!/1" do
-    test "adds components to an existing entity", %{token: token} do
+    test "adds components to an existing entity" do
       assert %Ecspanse.Entity{} =
                entity =
                Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
@@ -119,46 +131,45 @@ defmodule Ecspanse.CommandTest do
       assert {:ok, {%TestComponent1{}, %TestComponent2{}, %TestComponent3{}}} =
                Ecspanse.Query.fetch_components(
                  entity,
-                 {TestComponent1, TestComponent2, TestComponent3},
-                 token
+                 {TestComponent1, TestComponent2, TestComponent3}
                )
     end
   end
 
   describe "update_components!/1" do
-    test "updates components state", %{token: token} do
+    test "updates components state" do
       assert %Ecspanse.Entity{} =
                entity =
                Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
 
       assert {:ok, %TestComponent1{value: :foo} = comp} =
-               Ecspanse.Query.fetch_component(entity, TestComponent1, token)
+               Ecspanse.Query.fetch_component(entity, TestComponent1)
 
       Ecspanse.Command.update_components!([{comp, value: :bar}])
 
       assert {:ok, %TestComponent1{value: :bar}} =
-               Ecspanse.Query.fetch_component(entity, TestComponent1, token)
+               Ecspanse.Query.fetch_component(entity, TestComponent1)
     end
   end
 
   describe "remove_components!/1" do
-    test "removes components from an existing entity", %{token: token} do
+    test "removes components from an existing entity" do
       assert %Ecspanse.Entity{} =
                entity =
                Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
 
       assert {:ok, %TestComponent1{} = comp} =
-               Ecspanse.Query.fetch_component(entity, TestComponent1, token)
+               Ecspanse.Query.fetch_component(entity, TestComponent1)
 
       Ecspanse.Command.remove_components!([comp])
 
       assert {:error, :not_found} =
-               Ecspanse.Query.fetch_component(entity, TestComponent1, token)
+               Ecspanse.Query.fetch_component(entity, TestComponent1)
     end
   end
 
   describe "add_children!/1" do
-    test "adds children to an existing entity", %{token: token} do
+    test "adds children to an existing entity" do
       assert %Ecspanse.Entity{} =
                entity =
                Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
@@ -173,12 +184,12 @@ defmodule Ecspanse.CommandTest do
 
       Ecspanse.Command.add_children!([{entity, [child_1, child_2]}])
 
-      assert [^child_1, ^child_2] = Ecspanse.Query.list_children(entity, token)
+      assert [^child_1, ^child_2] = Ecspanse.Query.list_children(entity)
     end
   end
 
   describe "add_parents!/1" do
-    test "adds parents to an existing entity", %{token: token} do
+    test "adds parents to an existing entity" do
       assert %Ecspanse.Entity{} =
                entity =
                Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
@@ -193,12 +204,12 @@ defmodule Ecspanse.CommandTest do
 
       Ecspanse.Command.add_parents!([{entity, [parent_1, parent_2]}])
 
-      assert [^parent_1, ^parent_2] = Ecspanse.Query.list_parents(entity, token)
+      assert [^parent_1, ^parent_2] = Ecspanse.Query.list_parents(entity)
     end
   end
 
   describe "remove_children!/1" do
-    test "removes children from an existing entity", %{token: token} do
+    test "removes children from an existing entity" do
       assert %Ecspanse.Entity{} =
                entity =
                Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
@@ -213,16 +224,16 @@ defmodule Ecspanse.CommandTest do
 
       Ecspanse.Command.add_children!([{entity, [child_1, child_2]}])
 
-      assert [^child_1, ^child_2] = Ecspanse.Query.list_children(entity, token)
+      assert [^child_1, ^child_2] = Ecspanse.Query.list_children(entity)
 
       Ecspanse.Command.remove_children!([{entity, [child_1]}])
 
-      assert [^child_2] = Ecspanse.Query.list_children(entity, token)
+      assert [^child_2] = Ecspanse.Query.list_children(entity)
     end
   end
 
   describe "remove_parents!/1" do
-    test "removes parents from an existing entity", %{token: token} do
+    test "removes parents from an existing entity" do
       assert %Ecspanse.Entity{} =
                entity =
                Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
@@ -237,50 +248,50 @@ defmodule Ecspanse.CommandTest do
 
       Ecspanse.Command.add_parents!([{entity, [parent_1, parent_2]}])
 
-      assert [^parent_1, ^parent_2] = Ecspanse.Query.list_parents(entity, token)
+      assert [^parent_1, ^parent_2] = Ecspanse.Query.list_parents(entity)
 
       Ecspanse.Command.remove_parents!([{entity, [parent_1]}])
 
-      assert [^parent_2] = Ecspanse.Query.list_parents(entity, token)
+      assert [^parent_2] = Ecspanse.Query.list_parents(entity)
     end
   end
 
   describe "insert_resource!/1" do
-    test "inserts a resource in the world", %{token: token} do
+    test "inserts a resource in the world" do
       assert {:error, :not_found} =
-               Ecspanse.Query.fetch_resource(TestResource1, token)
+               Ecspanse.Query.fetch_resource(TestResource1)
 
       assert %TestResource1{} = Ecspanse.Command.insert_resource!({TestResource1, value: :bar})
 
       assert {:ok, %TestResource1{value: :bar}} =
-               Ecspanse.Query.fetch_resource(TestResource1, token)
+               Ecspanse.Query.fetch_resource(TestResource1)
     end
   end
 
   describe "update_resource!/2" do
-    test "updates a resource state", %{token: token} do
+    test "updates a resource state" do
       assert %TestResource1{} =
                resource = Ecspanse.Command.insert_resource!({TestResource1, value: :bar})
 
       Ecspanse.Command.update_resource!(resource, value: :foo)
 
       assert {:ok, %TestResource1{value: :foo}} =
-               Ecspanse.Query.fetch_resource(TestResource1, token)
+               Ecspanse.Query.fetch_resource(TestResource1)
     end
   end
 
   describe "delete_resource!/1" do
-    test "deletes a resource from the world", %{token: token} do
+    test "deletes a resource from the world" do
       assert %TestResource1{} =
                resource = Ecspanse.Command.insert_resource!({TestResource1, value: :bar})
 
       assert {:ok, %TestResource1{value: :bar}} =
-               Ecspanse.Query.fetch_resource(TestResource1, token)
+               Ecspanse.Query.fetch_resource(TestResource1)
 
       Ecspanse.Command.delete_resource!(resource)
 
       assert {:error, :not_found} =
-               Ecspanse.Query.fetch_resource(TestResource1, token)
+               Ecspanse.Query.fetch_resource(TestResource1)
     end
   end
 end
