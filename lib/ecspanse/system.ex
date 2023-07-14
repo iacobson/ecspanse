@@ -122,7 +122,7 @@ defmodule Ecspanse.System do
     The function may return any value. The value is ignored.
     Recives the current Frame struct as argument.
     """
-    @callback run(Ecspanse.World.Frame.t()) :: any()
+    @callback run(Ecspanse.Frame.t()) :: any()
   end
 
   defmodule WithEventsSubscription do
@@ -135,7 +135,7 @@ defmodule Ecspanse.System do
     The function may return any value. The value is ignored.
     Recives the triggering Event and the current Frame struct as arguments.
     """
-    @callback run(event :: struct(), Ecspanse.World.Frame.t()) :: any()
+    @callback run(event :: struct(), Ecspanse.Frame.t()) :: any()
   end
 
   defmacro __using__(opts) do
