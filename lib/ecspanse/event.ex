@@ -30,8 +30,7 @@ defmodule Ecspanse.Event do
   """
 
   @type event_spec ::
-          event_module ::
-          module()
+          (event_module :: module())
           | {event_module :: module(), event_fields :: keyword()}
 
   defmacro __using__(opts) do

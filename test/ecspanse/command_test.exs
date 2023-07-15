@@ -1,12 +1,12 @@
 defmodule Ecspanse.CommandTest do
   use ExUnit.Case
 
-  defmodule TestWorld1 do
+  defmodule TestServer1 do
     @moduledoc false
-    use Ecspanse.World
+    use Ecspanse
 
-    def setup(world) do
-      world
+    def setup(data) do
+      data
     end
   end
 
@@ -31,19 +31,8 @@ defmodule Ecspanse.CommandTest do
   end
 
   setup do
-    on_exit(fn ->
-      :timer.sleep(5)
-
-      case Process.whereis(Ecspanse.World) do
-        pid when is_pid(pid) ->
-          Process.exit(pid, :normal)
-
-        _ ->
-          nil
-      end
-    end)
-
-    assert :ok = Ecspanse.new(TestWorld1)
+    start_supervised(TestServer1)
+    Ecspanse.Server.test_server(self())
     # simulate commands are run from a System
     Ecspanse.System.debug()
 
@@ -257,7 +246,7 @@ defmodule Ecspanse.CommandTest do
   end
 
   describe "insert_resource!/1" do
-    test "inserts a resource in the world" do
+    test "inserts a resource" do
       assert {:error, :not_found} =
                Ecspanse.Query.fetch_resource(TestResource1)
 
@@ -281,7 +270,7 @@ defmodule Ecspanse.CommandTest do
   end
 
   describe "delete_resource!/1" do
-    test "deletes a resource from the world" do
+    test "deletes a resource" do
       assert %TestResource1{} =
                resource = Ecspanse.Command.insert_resource!({TestResource1, value: :bar})
 

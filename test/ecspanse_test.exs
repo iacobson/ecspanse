@@ -35,63 +35,368 @@ defmodule EcspanseTest do
     end
   end
 
-  defmodule TestWorld do
+  defmodule TestServer0 do
     @moduledoc false
-    use Ecspanse.World, fps_limit: 60
+    use Ecspanse, fps_limit: 60
 
     @impl true
-    def setup(world) do
-      world
-      |> Ecspanse.World.add_startup_system(TestStartupSystem)
-      |> Ecspanse.World.add_frame_start_system(TestRunningSystem)
+    def setup(data) do
+      data
+      |> Ecspanse.add_startup_system(TestStartupSystem)
+      |> Ecspanse.add_frame_start_system(TestRunningSystem)
     end
   end
 
-  ###
+  #########
 
-  setup do
-    on_exit(fn ->
-      :timer.sleep(5)
+  defmodule TestSystem1 do
+    @moduledoc false
+    use Ecspanse.System
 
-      case Process.whereis(Ecspanse.World) do
-        pid when is_pid(pid) ->
-          Process.exit(pid, :normal)
-
-        _ ->
-          nil
-      end
-    end)
-
-    :ok
+    def run(_frame), do: :ok
   end
 
-  describe "new/2" do
-    test "creates a new world" do
-      assert :ok = Ecspanse.new(TestWorld)
-    end
+  defmodule TestSystem2 do
+    @moduledoc false
+    use Ecspanse.System
 
-    test "can inject events at startup" do
-      assert :ok =
-               Ecspanse.new(TestWorld,
-                 startup_events: [{TestStartupEvent, data: 123, pid: self()}]
-               )
+    def run(_frame), do: :ok
+  end
 
-      assert_receive {:startup, 123}
-      refute_receive {:running, _}
+  defmodule TestSystem3 do
+    @moduledoc false
+    use Ecspanse.System
+
+    def run(_frame), do: :ok
+  end
+
+  defmodule TestSystem4 do
+    @moduledoc false
+    use Ecspanse.System
+
+    def run(_frame), do: :ok
+  end
+
+  defmodule TestSystem5 do
+    @moduledoc false
+    use Ecspanse.System
+
+    def run(_frame), do: :ok
+  end
+
+  defmodule TestServer1 do
+    @moduledoc false
+    use Ecspanse
+
+    def setup(data) do
+      data
+      |> Ecspanse.add_system(TestSystem5)
+      |> Ecspanse.add_frame_end_system(TestSystem3)
+      |> Ecspanse.add_frame_start_system(TestSystem2)
+      |> Ecspanse.add_startup_system(TestSystem1)
+      |> Ecspanse.add_shutdown_system(TestSystem4)
     end
   end
 
-  describe "fetch_world_process/1" do
-    test "fetches the world process" do
-      assert :ok = Ecspanse.new(TestWorld, name: TestName)
-      assert {:ok, pid} = Ecspanse.fetch_world_process()
+  ##########
+
+  defmodule TestComponent1 do
+    @moduledoc false
+    use Ecspanse.Component
+  end
+
+  defmodule TestSystem6 do
+    @moduledoc false
+    use Ecspanse.System, lock_components: [TestComponent1]
+
+    def run(_frame), do: :ok
+  end
+
+  defmodule TestSystem7 do
+    @moduledoc false
+    use Ecspanse.System, lock_components: [TestComponent1]
+
+    def run(_frame), do: :ok
+  end
+
+  defmodule TestSystem8 do
+    @moduledoc false
+    use Ecspanse.System
+
+    def run(_frame), do: :ok
+  end
+
+  defmodule TestServer2 do
+    @moduledoc false
+    use Ecspanse
+
+    def setup(data) do
+      data
+      |> Ecspanse.add_system(TestSystem6)
+      |> Ecspanse.add_system(TestSystem7)
+      |> Ecspanse.add_system(TestSystem8)
+    end
+  end
+
+  ##########
+
+  defmodule TestServer3 do
+    @moduledoc false
+    use Ecspanse
+
+    def setup(data) do
+      data
+      |> Ecspanse.add_system_set({__MODULE__, :test_system_set})
+    end
+
+    def test_system_set(data) do
+      data
+      |> Ecspanse.add_system(TestSystem1)
+      |> Ecspanse.add_system(TestSystem2)
+    end
+  end
+
+  ##########
+
+  defmodule TestServer4 do
+    @moduledoc false
+    use Ecspanse
+
+    def setup(data) do
+      data
+      |> Ecspanse.add_system(TestSystem6)
+      |> Ecspanse.add_system(TestSystem8, run_after: [TestSystem6])
+      |> Ecspanse.add_system(TestSystem7)
+    end
+  end
+
+  ##########
+
+  defmodule TestResource1 do
+    @moduledoc false
+    use Ecspanse.Resource, state: [pid: nil]
+  end
+
+  defmodule TestSystem9 do
+    @moduledoc false
+    use Ecspanse.System
+
+    def run(_frame) do
+      Ecspanse.Command.insert_resource!(TestResource1)
+    end
+  end
+
+  defmodule TestSystem10 do
+    @moduledoc false
+    use Ecspanse.System
+
+    def run(_frame) do
+      {:ok, resource} = Ecspanse.Query.fetch_resource(TestResource1)
+      send(resource.pid, :foo)
+    end
+  end
+
+  defmodule TestSystem11 do
+    @moduledoc false
+    use Ecspanse.System
+
+    def run(_frame) do
+      {:ok, resource} = Ecspanse.Query.fetch_resource(TestResource1)
+      send(resource.pid, :bar)
+    end
+  end
+
+  defmodule TestServer5 do
+    @moduledoc false
+    use Ecspanse
+
+    def setup(data) do
+      data
+      |> Ecspanse.add_startup_system(TestSystem9)
+      |> Ecspanse.add_system(TestSystem10, run_in_state: [:foo])
+      |> Ecspanse.add_system(TestSystem11, run_in_state: [:bar])
+    end
+  end
+
+  ###############
+
+  describe "setup/1 callback" do
+    test "schedules systems in the correct order" do
+      start_supervised(TestServer1)
+      Ecspanse.Server.test_server(self())
+      state = Ecspanse.Server.debug()
+
+      assert [
+               %Ecspanse.System{
+                 queue: :startup_systems,
+                 module: Ecspanse.System.CreateDefaultResources
+               },
+               %Ecspanse.System{queue: :startup_systems, module: TestSystem1}
+             ] = state.startup_systems
+
+      assert [
+               %Ecspanse.System{
+                 queue: :frame_start_systems,
+                 module: TestSystem2
+               }
+             ] = state.frame_start_systems
+
+      assert [
+               %Ecspanse.System{
+                 queue: :frame_end_systems,
+                 module: TestSystem3
+               }
+             ] = state.frame_end_systems
+
+      assert [
+               %Ecspanse.System{
+                 queue: :shutdown_systems,
+                 module: TestSystem4
+               }
+             ] = state.shutdown_systems
+
+      assert [
+               [
+                 %Ecspanse.System{
+                   queue: :batch_systems,
+                   module: TestSystem5
+                 }
+               ]
+             ] = state.batch_systems
+    end
+
+    test "groups batched systems by their locked components" do
+      start_supervised(TestServer2)
+      Ecspanse.Server.test_server(self())
+
+      state = Ecspanse.Server.debug()
+
+      assert [
+               [
+                 %Ecspanse.System{
+                   queue: :batch_systems,
+                   module: TestSystem6
+                 },
+                 %Ecspanse.System{
+                   queue: :batch_systems,
+                   module: TestSystem8
+                 }
+               ],
+               [
+                 %Ecspanse.System{
+                   queue: :batch_systems,
+                   module: TestSystem7
+                 }
+               ]
+             ] = state.batch_systems
+    end
+
+    test "systems can be grouped in sets" do
+      start_supervised(TestServer3)
+      Ecspanse.Server.test_server(self())
+      state = Ecspanse.Server.debug()
+
+      assert [
+               [
+                 %Ecspanse.System{
+                   queue: :batch_systems,
+                   module: TestSystem1
+                 },
+                 %Ecspanse.System{
+                   queue: :batch_systems,
+                   module: TestSystem2
+                 }
+               ]
+             ] = state.batch_systems
+    end
+
+    test "async systems order of execution can be customized with the `run_after` option" do
+      start_supervised(TestServer4)
+      Ecspanse.Server.test_server(self())
+      state = Ecspanse.Server.debug()
+
+      assert [
+               [
+                 %Ecspanse.System{
+                   queue: :batch_systems,
+                   module: TestSystem6
+                 }
+               ],
+               [
+                 %Ecspanse.System{
+                   queue: :batch_systems,
+                   module: TestSystem8
+                 },
+                 %Ecspanse.System{
+                   queue: :batch_systems,
+                   module: TestSystem7
+                 }
+               ]
+             ] = state.batch_systems
+    end
+
+    test "systems can run conditionally depending on the data state resource" do
+      start_supervised(TestServer5)
+      Ecspanse.Server.test_server(self())
+
+      Ecspanse.System.debug()
+      :timer.sleep(10)
+
+      assert_receive {:next_frame, _state}
+
+      {:ok, pid_resource} = Ecspanse.Query.fetch_resource(TestResource1)
+      Ecspanse.Command.update_resource!(pid_resource, pid: self())
+      :timer.sleep(10)
+
+      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
+      refute state_resource.value
+
+      assert_receive {:next_frame, _state}
+      refute_receive :foo
+      refute_receive :bar
+      assert_receive {:next_frame, _state}
+
+      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
+      Ecspanse.Command.update_resource!(state_resource, value: :foo)
+
+      :timer.sleep(10)
+      assert_receive {:next_frame, _state}
+      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
+      assert state_resource.value == :foo
+
+      :timer.sleep(10)
+      assert_receive :foo
+      refute_receive :bar
+      assert_receive {:next_frame, _state}
+
+      :timer.sleep(10)
+      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
+      Ecspanse.Command.update_resource!(state_resource, value: :bar)
+
+      assert_receive {:next_frame, _state}
+      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
+      assert state_resource.value == :bar
+
+      :timer.sleep(10)
+      assert_receive :bar
+      assert_receive {:next_frame, _state}
+    end
+  end
+
+  describe "fetch_pid/1" do
+    test "fetches the data process" do
+      start_supervised(TestServer0)
+
+      assert {:ok, pid} = Ecspanse.fetch_pid()
       assert Process.alive?(pid)
     end
   end
 
   describe "event/3" do
     test "queues an event for the next frame" do
-      assert :ok = Ecspanse.new(TestWorld, name: TestName, test: true)
+      start_supervised(TestServer0)
+      Ecspanse.Server.test_server(self())
+
       assert_receive {:next_frame, _state}
       assert_receive {:next_frame, state}
       assert state.frame_data.event_batches == []
@@ -101,7 +406,9 @@ defmodule EcspanseTest do
     end
 
     test "groups in individual batches an event without a batch key, queued multiple times in the same frame" do
-      assert :ok = Ecspanse.new(TestWorld, name: TestName, test: true)
+      start_supervised(TestServer0)
+      Ecspanse.Server.test_server(self())
+
       assert_receive {:next_frame, _state}
       assert_receive {:next_frame, state}
       assert state.frame_data.event_batches == []
@@ -114,7 +421,9 @@ defmodule EcspanseTest do
     end
 
     test "providing unique batch keys, groups the events in the same batch for parallel processing" do
-      assert :ok = Ecspanse.new(TestWorld, name: TestName, test: true)
+      start_supervised(TestServer0)
+      Ecspanse.Server.test_server(self())
+
       entity_1 = Ecspanse.Entity.build(UUID.uuid4())
       entity_2 = Ecspanse.Entity.build(UUID.uuid4())
 

@@ -3,7 +3,7 @@ defmodule Ecspanse.Resource.FPS do
   # TODO
   A special resource provided by the framework to check the FPS in real-time.
   The framework also provides a special system that updates the FPS resource.
-  The TrackFPS system needs to be added to the World, in order to calculate the FPS.
+  The TrackFPS system needs to be added to the Server, in order to calculate the FPS.
 
   """
   use Ecspanse.Resource,

@@ -202,7 +202,7 @@ defmodule Ecspanse.System do
         [] ->
           @doc false
           # at this point, the events for entities that do not exist
-          # have already been filtered out in the World batching
+          # have already been filtered out in the Server batching
           def schedule_run(frame) do
             run(frame)
           end
@@ -210,7 +210,7 @@ defmodule Ecspanse.System do
         event_modules ->
           @doc false
           # at this point, the events for entities that do not exist
-          # have already been filtered out in the World batching
+          # have already been filtered out in the Server batching
           def schedule_run(frame) do
             Enum.each(frame.event_batches, fn events ->
               events

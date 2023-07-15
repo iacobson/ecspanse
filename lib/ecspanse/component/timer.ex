@@ -13,7 +13,7 @@ defmodule Ecspanse.Component.Timer do
 
   There is a special Ecspanse.System.Timer system provided by the framework that
   automatically decrements the time of the Timer component and dispatches the event when the time reaches 0.
-  This System needs to be manually added in the world setup, otherwise the timer will not work.
+  This System needs to be manually added in the systems setup, otherwise the timer will not work.
   Attention! the System meeds to be added as sync, as frame start system of frame end system.
   This is a deliberate decision, to allow the developer to decide if the timers shuld run only in
   cetain states or certain conditions. For example, the developer might want to pause the timers

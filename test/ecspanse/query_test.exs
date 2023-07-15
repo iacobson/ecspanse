@@ -1,15 +1,6 @@
 defmodule Ecspanse.QueryTest do
   use ExUnit.Case
 
-  defmodule TestWorld1 do
-    @moduledoc false
-    use Ecspanse.World
-
-    def setup(world) do
-      world
-    end
-  end
-
   defmodule TestComponent1 do
     @moduledoc false
     use Ecspanse.Component
@@ -40,29 +31,28 @@ defmodule Ecspanse.QueryTest do
     use Ecspanse.Resource
   end
 
+  defmodule TestServer1 do
+    @moduledoc false
+    use Ecspanse
+
+    def setup(data) do
+      data
+    end
+  end
+
   ###
 
   setup do
-    on_exit(fn ->
-      :timer.sleep(5)
-
-      case Process.whereis(Ecspanse.World) do
-        pid when is_pid(pid) ->
-          Process.exit(pid, :normal)
-
-        _ ->
-          nil
-      end
-    end)
+    start_supervised(TestServer1)
+    Ecspanse.Server.test_server(self())
+    # simulate commands are run from a System
+    Ecspanse.System.debug()
 
     :ok
   end
 
   describe "select/2" do
     test "returns components for entities with all components" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       Ecspanse.Command.spawn_entity!(
         {Ecspanse.Entity, components: [TestComponent1, TestComponent2, TestComponent3]}
       )
@@ -89,9 +79,6 @@ defmodule Ecspanse.QueryTest do
     end
 
     test "returns also the entities if they are the first element of the query tuple" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity, components: [TestComponent1, TestComponent2, TestComponent3]}
@@ -122,9 +109,6 @@ defmodule Ecspanse.QueryTest do
     end
 
     test "can query entities relations" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
 
@@ -148,9 +132,6 @@ defmodule Ecspanse.QueryTest do
     end
 
     test "can query optional components" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       Ecspanse.Command.spawn_entity!(
         {Ecspanse.Entity, components: [TestComponent1, TestComponent2, TestComponent3]}
       )
@@ -172,9 +153,6 @@ defmodule Ecspanse.QueryTest do
     end
 
     test "can filter for existing components that are not in the query tuple" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       Ecspanse.Command.spawn_entity!(
         {Ecspanse.Entity, components: [TestComponent1, TestComponent2, TestComponent3]}
       )
@@ -196,9 +174,6 @@ defmodule Ecspanse.QueryTest do
     end
 
     test "can filter out components that are not in the query tuple" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       Ecspanse.Command.spawn_entity!(
         {Ecspanse.Entity, components: [TestComponent1, TestComponent2]}
       )
@@ -220,9 +195,6 @@ defmodule Ecspanse.QueryTest do
     end
 
     test "can apply multiple filters" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       Ecspanse.Command.spawn_entity!(
         {Ecspanse.Entity, components: [TestComponent1, TestComponent2]}
       )
@@ -245,9 +217,6 @@ defmodule Ecspanse.QueryTest do
     end
 
     test "can filter results for specific entities" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity, components: [TestComponent1, TestComponent2, TestComponent3]}
@@ -274,9 +243,6 @@ defmodule Ecspanse.QueryTest do
     end
 
     test "can filter out results for specific entities" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity, components: [TestComponent1, TestComponent2, TestComponent3]}
@@ -303,9 +269,6 @@ defmodule Ecspanse.QueryTest do
     end
 
     test "can query just children of entities" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity, components: [TestComponent1, TestComponent2, TestComponent3]}
@@ -334,9 +297,6 @@ defmodule Ecspanse.QueryTest do
     end
 
     test "can query just parents of entities" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity, components: [TestComponent1, TestComponent2, TestComponent3]}
@@ -365,9 +325,6 @@ defmodule Ecspanse.QueryTest do
     end
 
     test "can return only one result and not a stream" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       Ecspanse.Command.spawn_entity!(
         {Ecspanse.Entity, components: [TestComponent1, TestComponent2, TestComponent3]}
       )
@@ -380,26 +337,18 @@ defmodule Ecspanse.QueryTest do
 
   describe "fetch_entity/2" do
     test "returns the entity for a component" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
 
       assert {:ok, ^entity} = Ecspanse.Query.fetch_entity(entity.id)
     end
 
     test "returns error if the entity does not exist" do
-      assert :ok = Ecspanse.new(TestWorld1)
-
       assert {:error, :not_found} = Ecspanse.Query.fetch_entity(UUID.uuid4())
     end
   end
 
   describe "get_component_entity/2" do
     test "returns the entity for a component" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
 
       assert {component} =
@@ -412,9 +361,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "list_children/2" do
     test "returns the children of an entity" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, [components: [TestComponent1]]})
 
       entity_2 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, [components: [TestComponent1]]})
@@ -427,9 +373,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "list_parents/2" do
     test "returns the parents of an entity" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, [components: [TestComponent1]]})
 
       entity_2 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [entity_1]})
@@ -442,9 +385,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "list_group_components/2" do
     test "returns the components of a group" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       Ecspanse.Command.spawn_entity!(
         {Ecspanse.Entity,
          components: [TestComponent1, TestComponent2, TestComponent4, TestComponent5]}
@@ -470,9 +410,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "list_group_components/3" do
     test "returns the components of a group for a given entity" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity,
@@ -497,9 +434,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "fetch_component/3" do
     test "returns a component for a given entity" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity,
@@ -520,9 +454,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "fetch_components/3" do
     test "returns a tuple of components if the entity has all of them" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity,
@@ -546,9 +477,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "is_type?/3" do
     test "checks if an entity has a certain entity_type component" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity, components: [TestComponent1, TestComponent5]}
@@ -563,9 +491,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "has_component?/3" do
     test "checks if an entity has a certain component" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity, components: [TestComponent1, TestComponent5]}
@@ -580,9 +505,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "has_components?/3" do
     test "check if an entity has all of the given components" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity, components: [TestComponent1, TestComponent5]}
@@ -597,9 +519,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "has_children_with_type?/3" do
     test "checks if an entity has children with a certain entity_type component" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity, components: [TestComponent1, TestComponent5]}
@@ -617,9 +536,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "has_children_with_component?/3" do
     test "checks if an entity has children with a certain component" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity, components: [TestComponent1, TestComponent5]}
@@ -637,9 +553,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "has_children_with_components?/3" do
     test "checks if an entity has children with all of the given components" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity, components: [TestComponent1, TestComponent5]}
@@ -664,9 +577,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "has_parents_with_type?/3" do
     test "checks if an entity has parents with a certain entity_type component" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity, components: [TestComponent1, TestComponent5]}
@@ -684,9 +594,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "has_parents_with_component?/3" do
     test "checks if an entity has parents with a certain component" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity, components: [TestComponent1, TestComponent5]}
@@ -704,9 +611,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "has_parents_with_components?/3" do
     test "checks if an entity has parents with all of the given components" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity, components: [TestComponent1, TestComponent5]}
@@ -731,9 +635,6 @@ defmodule Ecspanse.QueryTest do
 
   describe "fetch_resource/2" do
     test "fetches a resource from the world" do
-      assert :ok = Ecspanse.new(TestWorld1)
-      Ecspanse.System.debug()
-
       resource = Ecspanse.Command.insert_resource!(TestResource1)
 
       assert {:ok, ^resource} = Ecspanse.Query.fetch_resource(TestResource1)
