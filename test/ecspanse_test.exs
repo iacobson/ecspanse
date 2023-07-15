@@ -222,7 +222,7 @@ defmodule EcspanseTest do
 
   describe "setup/1 callback" do
     test "schedules systems in the correct order" do
-      start_supervised(TestServer1)
+      start_supervised({TestServer1, :test})
       Ecspanse.Server.test_server(self())
       state = Ecspanse.Server.debug()
 
@@ -266,7 +266,7 @@ defmodule EcspanseTest do
     end
 
     test "groups batched systems by their locked components" do
-      start_supervised(TestServer2)
+      start_supervised({TestServer2, :test})
       Ecspanse.Server.test_server(self())
 
       state = Ecspanse.Server.debug()
@@ -292,7 +292,7 @@ defmodule EcspanseTest do
     end
 
     test "systems can be grouped in sets" do
-      start_supervised(TestServer3)
+      start_supervised({TestServer3, :test})
       Ecspanse.Server.test_server(self())
       state = Ecspanse.Server.debug()
 
@@ -311,7 +311,7 @@ defmodule EcspanseTest do
     end
 
     test "async systems order of execution can be customized with the `run_after` option" do
-      start_supervised(TestServer4)
+      start_supervised({TestServer4, :test})
       Ecspanse.Server.test_server(self())
       state = Ecspanse.Server.debug()
 
@@ -336,7 +336,7 @@ defmodule EcspanseTest do
     end
 
     test "systems can run conditionally depending on the data state resource" do
-      start_supervised(TestServer5)
+      start_supervised({TestServer5, :test})
       Ecspanse.Server.test_server(self())
 
       Ecspanse.System.debug()
@@ -385,7 +385,7 @@ defmodule EcspanseTest do
 
   describe "fetch_pid/1" do
     test "fetches the data process" do
-      start_supervised(TestServer0)
+      start_supervised({TestServer0, :test})
 
       assert {:ok, pid} = Ecspanse.fetch_pid()
       assert Process.alive?(pid)
@@ -394,7 +394,7 @@ defmodule EcspanseTest do
 
   describe "event/3" do
     test "queues an event for the next frame" do
-      start_supervised(TestServer0)
+      start_supervised({TestServer0, :test})
       Ecspanse.Server.test_server(self())
 
       assert_receive {:next_frame, _state}
@@ -406,7 +406,7 @@ defmodule EcspanseTest do
     end
 
     test "groups in individual batches an event without a batch key, queued multiple times in the same frame" do
-      start_supervised(TestServer0)
+      start_supervised({TestServer0, :test})
       Ecspanse.Server.test_server(self())
 
       assert_receive {:next_frame, _state}
@@ -421,7 +421,7 @@ defmodule EcspanseTest do
     end
 
     test "providing unique batch keys, groups the events in the same batch for parallel processing" do
-      start_supervised(TestServer0)
+      start_supervised({TestServer0, :test})
       Ecspanse.Server.test_server(self())
 
       entity_1 = Ecspanse.Entity.build(UUID.uuid4())

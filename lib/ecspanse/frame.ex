@@ -1,13 +1,9 @@
 defmodule Ecspanse.Frame do
   @moduledoc """
-  A struct that represents the current frame in the world.
+  A struct that represents the current frame.
 
   It contains information about the elapsed time since the last frame, as well as any event batches that were generated during the frame.
   The Frame struct is passed to all systems during the frame.
-
-  ## Structs
-
-  - `Frame` - a struct that represents a single frame in the world.
 
   ## Fields
 

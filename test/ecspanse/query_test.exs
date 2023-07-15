@@ -43,7 +43,7 @@ defmodule Ecspanse.QueryTest do
   ###
 
   setup do
-    start_supervised(TestServer1)
+    start_supervised({TestServer1, :test})
     Ecspanse.Server.test_server(self())
     # simulate commands are run from a System
     Ecspanse.System.debug()
@@ -634,7 +634,7 @@ defmodule Ecspanse.QueryTest do
   end
 
   describe "fetch_resource/2" do
-    test "fetches a resource from the world" do
+    test "fetches a resource" do
       resource = Ecspanse.Command.insert_resource!(TestResource1)
 
       assert {:ok, ^resource} = Ecspanse.Query.fetch_resource(TestResource1)

@@ -1,35 +1,6 @@
 defmodule Ecspanse.Server do
   @moduledoc """
-  The `Ecspanse.Server` module is the main entry point for the Ecspanse framework.
-
-  The world module is defined with the `use Ecspanse.Server` macro.
-
-  ## Configuration
-
-  The following configuration options are available:
-
-  - `:fps_limit` - optional - the maximum number of frames per second. Defaults to `:unlimited`.
-
-  ## Special Resources
-
-  The framework creates some special resources, such as `State`, by default.
-
-  ## Examples
-
-  ```elixir
-  defmodule TestServer1 do
-    use Ecspanse.Server, fps_limit: 60
-
-    def setup(data) do
-      world
-      |> Ecspanse.Server.add_system(TestSystem5)
-      |> Ecspanse.Server.add_frame_end_system(TestSystem3)
-      |> Ecspanse.Server.add_frame_start_system(TestSystem2)
-      |> Ecspanse.Server.add_startup_system(TestSystem1)
-      |> Ecspanse.Server.add_shutdown_system(TestSystem4)
-    end
-  end
-  ```
+  The Server is responsible for managing the internal state of the framework, scheduling and running the Systems and batching the Events.
 
   """
   require Ex2ms
@@ -45,15 +16,16 @@ defmodule Ecspanse.Server do
   @doc """
   Utility function used for testing and development purposes.
 
-  The `debug/0` function returns the internal state of the world, which can be useful for debugging systems scheduling and batching. This function is only available in the `:dev` and `:test` environments.
+  The `debug/0` function returns the internal state of the framework, which can be useful for debugging systems scheduling and batching.
+  This function is only available in the `:dev` and `:test` environments.
 
   ## Returns
 
-  The internal state of the world.
+  The internal state of the framework.
 
   """
   @spec debug() :: Server.State.t()
-  def debug() do
+  def debug do
     if Mix.env() in [:dev, :test] do
       GenServer.call(__MODULE__, :debug)
     else
@@ -80,8 +52,9 @@ defmodule Ecspanse.Server do
   #############################
 
   defmodule State do
-    @moduledoc false
-    # should not be present in the docs
+    @moduledoc """
+    The internal state of the framework.
+    """
 
     @opaque t :: %__MODULE__{
               status:
@@ -319,7 +292,7 @@ defmodule Ecspanse.Server do
     Process.send_after(self(), :finish_frame_timer, round(limit))
     send(self(), :run_next_system)
 
-    # for worlds started with the `test: true` option
+    # if the test_server/1 function is called, send the state to the test process
     if state.test do
       send(state.test_pid, {:next_frame, state})
     end

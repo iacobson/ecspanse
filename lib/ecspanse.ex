@@ -1,9 +1,8 @@
 defmodule Ecspanse do
   @moduledoc """
 
-  TODO move the doc from WORLD
 
-  Ecspanse is an experimental Entity Component System (ECS) library for Elixir, designed to manage game state and provide tools for measuring time and frame duration.
+  Ecspanse is an Entity Component System (ECS) library for Elixir, designed to manage game state and provide tools for measuring time and frame duration.
   It is not a game engine, but a flexible foundation for building game logic.
 
   The core structure of the Ecspanse library is:
@@ -17,6 +16,38 @@ defmodule Ecspanse do
   - `Ecspanse.Query`: A tool for retrieving entities, components, or resources.
   - `Ecspanse.Command`: A mechanism for changing component and resource state, which can only be triggered from a system.
   - `Ecspanse.Event`: A mechanism for triggering events, which can be listened to by systems. It is the way to communicate externally with the data.
+
+  # Usage
+
+  A module needs to be created that `use Ecspanse`. This implements the `Ecspanse` behaviour, so the `setup/1` callback must be defined.
+  All their systems and their execution order are defined in the `setup/1` callback.
+
+  ## Example
+
+  ```elixir
+  defmodule TestServer1 do
+    use Ecspanse, fps_limit: 60
+
+    def setup(data) do
+      world
+      |> Ecspanse.Server.add_system(TestSystem5)
+      |> Ecspanse.Server.add_frame_end_system(TestSystem3)
+      |> Ecspanse.Server.add_frame_start_system(TestSystem2)
+      |> Ecspanse.Server.add_startup_system(TestSystem1)
+      |> Ecspanse.Server.add_shutdown_system(TestSystem4)
+    end
+  end
+  ```
+
+  ## Configuration
+
+  The following configuration options are available:
+  - `:fps_limit` - optional - the maximum number of frames per second. Defaults to `:unlimited`.
+
+
+  # Special Resources
+
+  Some special resources, such as `State` or `FPS`, are created by default by the framework.
 
   """
 
@@ -91,17 +122,25 @@ defmodule Ecspanse do
       Module.put_attribute(__MODULE__, :fps_limit, fps_limit)
 
       @doc false
-      def child_spec(_arg) do
-        payload = %{
-          ecspanse_module: __MODULE__,
-          fps_limit: @fps_limit
-        }
+      def child_spec(arg) do
+        if Mix.env() == :test && arg != :test do
+          %{
+            id: UUID.uuid4(),
+            start: {Ecspanse.TestServer, :start_link, [nil]},
+            restart: :temporary
+          }
+        else
+          payload = %{
+            ecspanse_module: __MODULE__,
+            fps_limit: @fps_limit
+          }
 
-        %{
-          id: __MODULE__,
-          start: {Ecspanse.Server, :start_link, [payload]},
-          restart: :permanent
-        }
+          %{
+            id: __MODULE__,
+            start: {Ecspanse.Server, :start_link, [payload]},
+            restart: :permanent
+          }
+        end
       end
     end
   end

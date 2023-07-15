@@ -1,7 +1,7 @@
 defmodule Ecspanse.Resource.State do
   @moduledoc """
   # TODO
-  A special resource provided by the framework to store the world state.
+  A special resource provided by the framework to store a generic state.
   This is a high level state, with an atom type value.
   It is very useful in controlling the Systems execution.
 

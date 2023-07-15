@@ -99,7 +99,7 @@ defmodule Ecspanse.SystemTest do
   ###
 
   setup do
-    start_supervised(TestServer1)
+    start_supervised({TestServer1, :test})
     Ecspanse.Server.test_server(self())
 
     # simulate commands are run from a System
