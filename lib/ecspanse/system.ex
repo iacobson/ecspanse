@@ -5,11 +5,7 @@ defmodule Ecspanse.System do
   All components that are to be modified, created or deleted, must be defined in the `lock_components` option.
   Some systems may not need to lock any components, in which case the option can be omitted.
 
-  The `lock_components` is a list of either:
-  - Component modules.
-  - `{Component, entity_type: EntityTypeComponent}` tuples,
-  where `Component` is the component module
-  and `EntityTypeComponent` is the component module that defines the entity with access mode `:entity_type`
+  The `lock_components` is a list of Component modules.
 
 
   The 'events_subscription` option is used to define a system that will be executed only when specific events are triggered.
@@ -156,26 +152,6 @@ defmodule Ecspanse.System do
       end
 
       Enum.each(locked_components, fn
-        {component, entity_type: entity_type_component} ->
-          Ecspanse.Util.validate_ecs_type(
-            component,
-            :component,
-            ArgumentError,
-            "All modules provided to the #{inspect(__MODULE__)} System :lock_components option must be Components. #{inspect(component)} is not a Component"
-          )
-
-          Ecspanse.Util.validate_ecs_type(
-            component,
-            :component,
-            ArgumentError,
-            "All modules provided to the #{inspect(__MODULE__)} System :lock_components option must be Components. #{inspect(entity_type_component)} is not a Component"
-          )
-
-          unless entity_type_component.__component_access_mode__() == :entity_type do
-            raise ArgumentError,
-                  "System #{inspect(__MODULE__)}. When providing a tuple to the :lock_components option, the second element must be a component with access mode :entity_type. #{inspect(entity_type_component)} does not have access mode :entity_type"
-          end
-
         component ->
           Ecspanse.Util.validate_ecs_type(
             component,
@@ -186,8 +162,9 @@ defmodule Ecspanse.System do
       end)
 
       # IMPORTANT
-      # both write and readonly components that will be modified should be locked
-      # for example, a readonly component cannot be edited, but can be deleted or created
+      # even components that are not directly updated must be locked.
+      # for example a component may be created or deleted
+      # or we want to make sure some component state does not change durin the system execution
       Module.register_attribute(__MODULE__, :ecs_type, accumulate: false)
       Module.register_attribute(__MODULE__, :locked_components, accumulate: false)
       Module.put_attribute(__MODULE__, :ecs_type, :system)

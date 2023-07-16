@@ -6,7 +6,6 @@ defmodule Ecspanse.Server do
   require Ex2ms
   require Logger
 
-  alias __MODULE__
   alias Ecspanse.Frame
   alias Ecspanse.System
   alias Ecspanse.Util
@@ -25,7 +24,7 @@ defmodule Ecspanse.Server do
     The internal state of the framework.
 
     """
-    @spec debug() :: Server.State.t()
+    @spec debug() :: Ecspanse.Server.State.t()
     def debug do
       GenServer.call(__MODULE__, :debug)
     end
@@ -538,39 +537,13 @@ defmodule Ecspanse.Server do
   end
 
   defp batch_system(system, [batch | batches], checked_batches) do
-    # when one or more locked components are entity specific {component, entity_type_component}
-    # need to verify also that the generic component is not present as locked in the batch
-    # this adds quite a bit of extra complexity
-    # it needs to check also for new components not to be present in the batch as entity scoped components
-
-    # Example
-    # System1 lock_components [Component1]
-    # and
-    # System2 lock_components [{Component1, EntityTypeComponent}]
-    # should NOT be allowed in the same batch
-
     system_locked_components = system.module.__locked_components__()
-
-    entity_scoped_components =
-      Enum.filter(system_locked_components, &match?({_, entity_type: _}, &1))
-      |> Enum.map(&elem(&1, 0))
 
     batch_locked_components =
       Enum.map(batch, & &1.module.__locked_components__()) |> List.flatten()
 
-    entity_scoped_batched =
-      Enum.filter(batch_locked_components, &match?({_, entity_type: _}, &1))
-      |> Enum.map(&elem(&1, 0))
-
-    if batch_locked_components --
-         system_locked_components --
-         entity_scoped_components ==
-         batch_locked_components and
-         entity_scoped_batched --
-           system_locked_components ==
-           entity_scoped_batched do
+    if batch_locked_components -- system_locked_components == batch_locked_components do
       updated_batch = batch ++ [system]
-      # return result
       checked_batches ++ [updated_batch] ++ batches
     else
       batch_system(system, batches, checked_batches ++ [batch])

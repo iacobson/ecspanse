@@ -297,18 +297,6 @@ defmodule Ecspanse.Query do
   @doc """
   TODO
   """
-  @spec is_type?(Ecspanse.Entity.t(), module()) :: boolean()
-  def is_type?(entity, type_component_module) do
-    unless type_component_module.__component_access_mode__() == :entity_type do
-      raise Error, "Expected #{inspect(type_component_module)} to have entity_type access mode"
-    end
-
-    has_component?(entity, type_component_module)
-  end
-
-  @doc """
-  TODO
-  """
   @spec has_component?(Ecspanse.Entity.t(), module()) :: boolean()
   def has_component?(entity, component_module) when is_atom(component_module) do
     has_components?(entity, [component_module])
@@ -325,15 +313,6 @@ defmodule Ecspanse.Query do
     entities_components = Ecspanse.Util.list_entities_components()
 
     component_module_list -- Map.get(entities_components, entity.id, []) == []
-  end
-
-  @spec has_children_with_type?(Ecspanse.Entity.t(), module()) :: boolean()
-  def has_children_with_type?(entity, type_component_module) do
-    unless type_component_module.__component_access_mode__() == :entity_type do
-      raise Error, "Expected #{inspect(type_component_module)} to have entity_type access mode"
-    end
-
-    has_children_with_component?(entity, type_component_module)
   end
 
   @spec has_children_with_component?(Ecspanse.Entity.t(), module()) ::
@@ -355,18 +334,6 @@ defmodule Ecspanse.Query do
       |> Enum.to_list()
 
     Enum.any?(components)
-  end
-
-  @doc """
-  TODO
-  """
-  @spec has_parents_with_type?(Ecspanse.Entity.t(), module()) :: boolean()
-  def has_parents_with_type?(entity, type_component_module) do
-    unless type_component_module.__component_access_mode__() == :entity_type do
-      raise Error, "Expected #{inspect(type_component_module)} to have entity_type access mode"
-    end
-
-    has_parents_with_component?(entity, type_component_module)
   end
 
   @doc """

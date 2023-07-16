@@ -8,10 +8,8 @@ defmodule Ecspanse.Resource do
   - opts
     - state: must be a list with all the Rerource state struct keys and their initial values (if any)
     Eg: [:foo, :bar, baz: 1]
-    - access_mode:  :write | :readonly  - defaults to :write
 
   """
-  alias Ecspanse.Util
 
   @type resource_spec ::
           (resource_module :: module())
@@ -36,8 +34,8 @@ defmodule Ecspanse.Resource do
     Returns all their resources and their state, toghether with their entity association.
     """
     @spec debug() :: list(resource_key_value())
-    def debug() do
-      :ets.match_object(Util.resources_state_ets_table(), {:"$0", :"$1"})
+    def debug do
+      :ets.match_object(Ecspanse.Util.resources_state_ets_table(), {:"$0", :"$1"})
     end
   end
 
@@ -46,30 +44,19 @@ defmodule Ecspanse.Resource do
     # should not be present in the docs
 
     @opaque t :: %__MODULE__{
-              module: module(),
-              access_mode: :write | :readonly
+              module: module()
             }
 
-    @enforce_keys [:module, :access_mode]
-    defstruct module: nil, access_mode: nil
+    @enforce_keys [:module]
+    defstruct module: nil
   end
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
       @behaviour Ecspanse.Resource
-      @allowed_access_mode [:write, :readonly]
-
-      resource_access_mode = Keyword.get(opts, :access_mode, :write)
-
-      if resource_access_mode not in @allowed_access_mode do
-        raise ArgumentError,
-              "Invalid access mode for Resource: #{inspect(__MODULE__)}. Allowed access modes are: #{inspect(@allowed_access_mode)}"
-      end
 
       Module.register_attribute(__MODULE__, :ecs_type, accumulate: false)
-      Module.register_attribute(__MODULE__, :resource_access_mode, accumulate: false)
       Module.put_attribute(__MODULE__, :ecs_type, :resource)
-      Module.put_attribute(__MODULE__, :resource_access_mode, resource_access_mode)
 
       state = Keyword.get(opts, :state, [])
 
@@ -89,11 +76,6 @@ defmodule Ecspanse.Resource do
       @doc false
       def __ecs_type__ do
         @ecs_type
-      end
-
-      @doc false
-      def __resource_access_mode__ do
-        @resource_access_mode
       end
     end
   end

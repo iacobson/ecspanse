@@ -414,9 +414,6 @@ defmodule Ecspanse.Command do
             {module, _} when is_atom(module) -> module
           end)
 
-        entity_type_component_module =
-          get_entity_type_component_module_form_component_specs(operation, component_specs)
-
         children_entities = Keyword.get(opts, :children, [])
         parents_entities = Keyword.get(opts, :parents, [])
 
@@ -427,7 +424,6 @@ defmodule Ecspanse.Command do
           entity: Entity.build(entity_id),
           component_specs: component_specs,
           component_modules: component_modules ++ [Component.Children, Component.Parents],
-          entity_type_component_module: entity_type_component_module,
           children_entities: children_entities,
           parents_entities: parents_entities
         }
@@ -465,10 +461,9 @@ defmodule Ecspanse.Command do
       Task.async(fn ->
         for %{
               entity: entity,
-              entity_type_component_module: entity_type_component_module,
               component_specs: component_specs
             } <- entity_spec_list do
-          upsert_components(operation, entity, entity_type_component_module, component_specs, [])
+          upsert_components(operation, entity, component_specs, [])
         end
       end)
 
@@ -476,14 +471,12 @@ defmodule Ecspanse.Command do
       Task.async(fn ->
         for %{
               entity: entity,
-              entity_type_component_module: entity_type_component_module,
               children_entities: children_entities
             } <-
               entity_spec_list do
           create_children_and_parents(
             operation,
             entity,
-            entity_type_component_module,
             children_entities
           )
         end
@@ -493,14 +486,12 @@ defmodule Ecspanse.Command do
       Task.async(fn ->
         for %{
               entity: entity,
-              entity_type_component_module: entity_type_component_module,
               parents_entities: parents_entities
             } <-
               entity_spec_list do
           create_parents_and_children(
             operation,
             entity,
-            entity_type_component_module,
             parents_entities
           )
         end
@@ -628,11 +619,7 @@ defmodule Ecspanse.Command do
 
     components =
       for {entity, component_specs} <- list do
-        entity_type_component_module =
-          get_entity_type_component_module_form_component_specs(operation, component_specs) ||
-            get_entity_type_component_module_for_entity(operation, entity)
-
-        upsert_components(operation, entity, entity_type_component_module, component_specs, [])
+        upsert_components(operation, entity, component_specs, [])
       end
 
     Task.await_many([v1, v2, v3])
@@ -663,22 +650,17 @@ defmodule Ecspanse.Command do
         Enum.each(updates, fn {component, _state_changes} ->
           :ok = validate_is_component(operation, component.__meta__.module)
           :ok = validate_component_exists(operation, component)
-          :ok = validate_component_writable(operation, component)
         end)
       end)
 
     v3 =
       Task.async(fn ->
         Enum.each(updates, fn {component, _state_changes} ->
-          entity_type_component_module =
-            get_entity_type_component_module_for_entity(operation, component.__meta__.entity)
-
           :ok =
             validate_locked_component(
               operation,
               operation.system_execution,
-              component.__meta__.module,
-              entity_type_component_module
+              component.__meta__.module
             )
         end)
       end)
@@ -736,13 +718,9 @@ defmodule Ecspanse.Command do
 
     children_and_parents_components =
       for {entity, children_entities} <- list do
-        entity_type_component_module =
-          get_entity_type_component_module_for_entity(operation, entity)
-
         create_children_and_parents(
           operation,
           entity,
-          entity_type_component_module,
           children_entities
         )
       end
@@ -776,13 +754,9 @@ defmodule Ecspanse.Command do
 
     parents_and_children_components =
       for {entity, parents_entities} <- list do
-        entity_type_component_module =
-          get_entity_type_component_module_for_entity(operation, entity)
-
         create_parents_and_children(
           operation,
           entity,
-          entity_type_component_module,
           parents_entities
         )
       end
@@ -905,7 +879,6 @@ defmodule Ecspanse.Command do
        ) do
     resource_module = resource_state.__meta__.module
     :ok = validate_resource_exists(operation, resource_state)
-    :ok = validate_resource_writable(operation, resource_state)
 
     state_changes = Keyword.delete(state_changes, :__meta__)
 
@@ -964,8 +937,7 @@ defmodule Ecspanse.Command do
 
     resource_meta =
       struct!(Resource.Meta, %{
-        module: resource_module,
-        access_mode: resource_module.__resource_access_mode__()
+        module: resource_module
       })
 
     resource_state = struct!(resource_module, Keyword.put(state, :__meta__, resource_meta))
@@ -980,26 +952,25 @@ defmodule Ecspanse.Command do
     resource_state
   end
 
-  defp upsert_components(_operation, _entity, _entity_type, [], components), do: components
+  defp upsert_components(_operation, _entity, [], components), do: components
 
   defp upsert_components(
          operation,
          entity,
-         entity_type,
          [component_spec | component_specs],
          components
        ) do
-    component = upsert_component(operation, entity, component_spec, entity_type)
-    upsert_components(operation, entity, entity_type, component_specs, [component | components])
+    component = upsert_component(operation, entity, component_spec)
+    upsert_components(operation, entity, component_specs, [component | components])
   end
 
   # Used also for children and parents. Validating children and parents should be done before this
-  defp upsert_component(operation, entity, component_module, entity_type)
+  defp upsert_component(operation, entity, component_module)
        when is_atom(component_module) do
-    upsert_component(operation, entity, {component_module, []}, entity_type)
+    upsert_component(operation, entity, {component_module, []})
   end
 
-  defp upsert_component(operation, entity, {component_module, state}, entity_type)
+  defp upsert_component(operation, entity, {component_module, state})
        when is_atom(component_module) and is_list(state) do
     :ok = validate_is_component(operation, component_module)
 
@@ -1008,17 +979,13 @@ defmodule Ecspanse.Command do
       validate_locked_component(
         operation,
         operation.system_execution,
-        component_module,
-        entity_type
+        component_module
       )
-
-    :ok = validate_entity_type_component(operation, component_module, entity_type)
 
     component_meta =
       struct!(Component.Meta, %{
         entity: entity,
         module: component_module,
-        access_mode: component_module.__component_access_mode__(),
         groups: component_module.__component_groups__()
       })
 
@@ -1035,14 +1002,12 @@ defmodule Ecspanse.Command do
       entity = component_state.__meta__.entity
       component_module = component_state.__meta__.module
       component_groups = component_state.__meta__.groups
-      entity_type = get_entity_type_component_module_for_entity(operation, entity)
 
       :ok =
         validate_locked_component(
           operation,
           operation.system_execution,
-          component_module,
-          entity_type
+          component_module
         )
 
       {{entity.id, component_module, component_groups}, component_state}
@@ -1050,48 +1015,38 @@ defmodule Ecspanse.Command do
   end
 
   # Adds to, or creates the Entity's children and adds to or create the children's parents components
-  defp create_children_and_parents(operation, entity, entity_type, []) do
+  defp create_children_and_parents(operation, entity, []) do
     # Create empty children component for entity
-    empty_entity_children = upsert_children_for(operation, entity, entity_type, [])
+    empty_entity_children = upsert_children_for(operation, entity, [])
     [empty_entity_children]
   end
 
-  defp create_children_and_parents(operation, entity, entity_type, children)
+  defp create_children_and_parents(operation, entity, children)
        when is_list(children) do
-    entity_children = upsert_children_for(operation, entity, entity_type, children)
+    entity_children = upsert_children_for(operation, entity, children)
 
     entities_parents =
       Enum.map(children, fn child_entity ->
-        # We need the entity_type_component_module of the child entity
-        entity_type_component_module =
-          get_entity_type_component_module_for_entity(operation, child_entity)
-
-        upsert_parents_for(operation, child_entity, entity_type_component_module, [
-          entity
-        ])
+        upsert_parents_for(operation, child_entity, [entity])
       end)
 
     [entity_children | entities_parents]
   end
 
   # Adds to, or creates the Entity's parents and adds to or create the parent's children components
-  defp create_parents_and_children(operation, entity, entity_type, []) do
+  defp create_parents_and_children(operation, entity, []) do
     # Create empty parents component for entity
-    empty_entity_parents = upsert_parents_for(operation, entity, entity_type, [])
+    empty_entity_parents = upsert_parents_for(operation, entity, [])
     [empty_entity_parents]
   end
 
-  defp create_parents_and_children(operation, entity, entity_type, parents)
+  defp create_parents_and_children(operation, entity, parents)
        when is_list(parents) do
-    entity_parents = upsert_parents_for(operation, entity, entity_type, parents)
+    entity_parents = upsert_parents_for(operation, entity, parents)
 
     entities_children =
       Enum.map(parents, fn parent_entity ->
-        # We need the entity_type_component_module of the parent entity
-        entity_type_component_module =
-          get_entity_type_component_module_for_entity(operation, parent_entity)
-
-        upsert_children_for(operation, parent_entity, entity_type_component_module, [
+        upsert_children_for(operation, parent_entity, [
           entity
         ])
       end)
@@ -1099,10 +1054,10 @@ defmodule Ecspanse.Command do
     [entity_parents | entities_children]
   end
 
-  # Returns a Children component with its key
+  # Returns Children component with its key
   # {{entity_id, Component.Children, []}, [entity_3, entity_2, entity_1]}
   # it is calling upsert_component which will validate the component is locked for creation
-  defp upsert_children_for(operation, entity, entity_type, children) do
+  defp upsert_children_for(operation, entity, children) do
     table = Util.components_state_ets_table()
 
     case :ets.lookup(table, {entity.id, Component.Children, []}) do
@@ -1112,16 +1067,14 @@ defmodule Ecspanse.Command do
         upsert_component(
           operation,
           entity,
-          {Component.Children, [entities: children]},
-          entity_type
+          {Component.Children, [entities: children]}
         )
 
       [] ->
         upsert_component(
           operation,
           entity,
-          {Component.Children, [entities: children]},
-          entity_type
+          {Component.Children, [entities: children]}
         )
     end
   end
@@ -1129,16 +1082,16 @@ defmodule Ecspanse.Command do
   # Returns a Parents component with its key
   # {{entity_id, Component.Parents, []}, [entity_3, entity_2, entity_1]}
   # it is calling upsert_component which will validate the component is locked for creation
-  defp upsert_parents_for(operation, entity, entity_type, parents) do
+  defp upsert_parents_for(operation, entity, parents) do
     table = Util.components_state_ets_table()
 
     case :ets.lookup(table, {entity.id, Component.Parents, []}) do
       [{_key, %Component.Parents{entities: existing_parents}}] ->
         parents = Enum.concat(existing_parents, parents) |> Enum.uniq()
-        upsert_component(operation, entity, {Component.Parents, [entities: parents]}, entity_type)
+        upsert_component(operation, entity, {Component.Parents, [entities: parents]})
 
       [] ->
-        upsert_component(operation, entity, {Component.Parents, [entities: parents]}, entity_type)
+        upsert_component(operation, entity, {Component.Parents, [entities: parents]})
     end
   end
 
@@ -1152,13 +1105,10 @@ defmodule Ecspanse.Command do
     entity_children =
       case :ets.lookup(table, {entity.id, Component.Children, []}) do
         [{_key, %Component.Children{entities: existing_children}}] ->
-          entity_type = get_entity_type_component_module_for_entity(operation, entity)
-
           upsert_component(
             operation,
             entity,
-            {Component.Children, [entities: existing_children -- children]},
-            entity_type
+            {Component.Children, [entities: existing_children -- children]}
           )
 
         [] ->
@@ -1167,17 +1117,12 @@ defmodule Ecspanse.Command do
 
     entities_parents =
       Enum.map(children, fn child_entity ->
-        # We need the entity_type_component_module of the child entity
-        entity_type_component_module =
-          get_entity_type_component_module_for_entity(operation, child_entity)
-
         case :ets.lookup(table, {child_entity.id, Component.Parents, []}) do
           [{_key, %Component.Parents{entities: existing_parents}}] ->
             upsert_component(
               operation,
               child_entity,
-              {Component.Parents, [entities: existing_parents -- [entity]]},
-              entity_type_component_module
+              {Component.Parents, [entities: existing_parents -- [entity]]}
             )
 
           [] ->
@@ -1198,13 +1143,10 @@ defmodule Ecspanse.Command do
     entity_parents =
       case :ets.lookup(table, {entity.id, Component.Parents, []}) do
         [{_key, %Component.Parents{entities: existing_parents}}] ->
-          entity_type = get_entity_type_component_module_for_entity(operation, entity)
-
           upsert_component(
             operation,
             entity,
-            {Component.Parents, [entities: existing_parents -- parents]},
-            entity_type
+            {Component.Parents, [entities: existing_parents -- parents]}
           )
 
         [] ->
@@ -1213,17 +1155,12 @@ defmodule Ecspanse.Command do
 
     entities_children =
       Enum.map(parents, fn parent_entity ->
-        # We need the entity_type_component_module of the parent entity
-        entity_type_component_module =
-          get_entity_type_component_module_for_entity(operation, parent_entity)
-
         case :ets.lookup(table, {parent_entity.id, Component.Children, []}) do
           [{_key, %Component.Children{entities: existing_children}}] ->
             upsert_component(
               operation,
               parent_entity,
-              {Component.Children, [entities: existing_children -- [entity]]},
-              entity_type_component_module
+              {Component.Children, [entities: existing_children -- [entity]]}
             )
 
           [] ->
@@ -1248,9 +1185,8 @@ defmodule Ecspanse.Command do
       {{entity_id, module, _groups}, values} ->
         list = Enum.map(values, fn value -> value.entities end) |> List.flatten() |> Enum.uniq()
         entity = Entity.build(entity_id)
-        entity_type = get_entity_type_component_module_for_entity(operation, entity)
 
-        upsert_component(operation, entity, {module, entities: list}, entity_type)
+        upsert_component(operation, entity, {module, entities: list})
     end)
   end
 
@@ -1269,9 +1205,8 @@ defmodule Ecspanse.Command do
           |> select_entities_present_in_all_relations(values)
 
         entity = Entity.build(entity_id)
-        entity_type = get_entity_type_component_module_for_entity(operation, entity)
 
-        upsert_component(operation, entity, {module, entities: list}, entity_type)
+        upsert_component(operation, entity, {module, entities: list})
     end)
   end
 
@@ -1441,7 +1376,7 @@ defmodule Ecspanse.Command do
   end
 
   # There is no lock validation for sync systems
-  defp validate_locked_component(operation, :sync, component_module, _entity_type) do
+  defp validate_locked_component(operation, :sync, component_module) do
     unless Enum.empty?(operation.locked_components) do
       Logger.warning(
         "#{inspect(operation)}. Component: #{inspect(component_module)}. There is no need to lock components in Systems that execute synchronously. The values are ignored"
@@ -1451,8 +1386,7 @@ defmodule Ecspanse.Command do
     :ok
   end
 
-  # when the Entity does not have an entity_type component assigned yet
-  defp validate_locked_component(operation, :async, component_module, nil) do
+  defp validate_locked_component(operation, :async, component_module) do
     locked_components = operation.locked_components
 
     if component_module in locked_components do
@@ -1461,33 +1395,6 @@ defmodule Ecspanse.Command do
       raise Error,
             {operation,
              "#{inspect(component_module)} is not locked. It can not be created or updated in an async System"}
-    end
-  end
-
-  defp validate_locked_component(operation, :async, component_module, entity_type) do
-    locked_components = operation.locked_components
-
-    if component_module in locked_components or
-         {component_module, entity_type: entity_type} in locked_components do
-      :ok
-    else
-      raise Error,
-            {operation,
-             "#{inspect(component_module)} is not locked. It can not be created or updated in an async System"}
-    end
-  end
-
-  # here we don't have to consider the case when the entity_type_component_module is nil
-  # the entity type should be found before executing this function by checking
-  # newly added components or existing components
-  defp validate_entity_type_component(operation, component_module, entity_type_component_module) do
-    if component_module.__component_access_mode__() == :entity_type and
-         component_module != entity_type_component_module do
-      raise Error,
-            {operation,
-             "Component #{inspect(component_module)} has `access_mode: entity_type`. The entity already has a component with `access_mode: :entity_type`: #{inspect(entity_type_component_module)}."}
-    else
-      :ok
     end
   end
 
@@ -1529,16 +1436,6 @@ defmodule Ecspanse.Command do
          ) do
       [{_key, _val}] -> :ok
       _ -> raise Error, {operation, "#{inspect(component)} does not exist"}
-    end
-  end
-
-  defp validate_component_writable(operation, component) do
-    if component.__meta__.access_mode == :write do
-      :ok
-    else
-      raise Error,
-            {operation,
-             "#{inspect(component)} has no write access. Cannot update a component without access_mode: :write."}
     end
   end
 
@@ -1609,16 +1506,6 @@ defmodule Ecspanse.Command do
     case :ets.lookup(table, resource.__meta__.module) do
       [{_key, _val}] -> :ok
       _ -> raise Error, {operation, "#{inspect(resource)} does not exist"}
-    end
-  end
-
-  defp validate_resource_writable(operation, resource) do
-    if resource.__meta__.access_mode == :write do
-      :ok
-    else
-      raise Error,
-            {operation,
-             "#{inspect(resource)} has no write access. Cannot update a resource without access_mode: :write."}
     end
   end
 
@@ -1704,66 +1591,6 @@ defmodule Ecspanse.Command do
   end
 
   # helper query functions
-
-  # looks filters through entity components to see if any has `access_mode: :entity_type`
-  defp get_entity_type_component_module_for_entity(operation, %Entity{id: entity_id}) do
-    entities_components = operation.entities_components
-
-    result =
-      case entities_components[entity_id] do
-        [] ->
-          []
-
-        nil ->
-          []
-
-        components when is_list(components) ->
-          components
-          |> Enum.filter(&(&1.__component_access_mode__() == :entity_type))
-      end
-
-    case result do
-      [component_module] ->
-        component_module
-
-      [] ->
-        nil
-
-      list ->
-        raise Error,
-              {operation,
-               "An entity has more than one entity_type component: #{inspect(list)}. All entities may have only one component with `access_mode: :entity_type`"}
-    end
-  end
-
-  defp get_entity_type_component_module_form_component_specs(operation, component_specs) do
-    result =
-      component_specs
-      |> Enum.filter(fn
-        module when is_atom(module) ->
-          module.__component_access_mode__() == :entity_type
-
-        {module, _state} ->
-          module.__component_access_mode__() == :entity_type
-      end)
-      |> Enum.map(fn
-        module when is_atom(module) -> module
-        {module, _state} -> module
-      end)
-
-    case result do
-      [component_module] ->
-        component_module
-
-      [] ->
-        nil
-
-      list ->
-        raise Error,
-              {operation,
-               "An entity has more than one entity_type component: #{inspect(list)}. All entities may have only one component with `access_mode: :entity_type`"}
-    end
-  end
 
   defp recursive_children_entities(_operation, [], acc) do
     acc

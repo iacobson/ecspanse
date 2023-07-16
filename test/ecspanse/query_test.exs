@@ -23,7 +23,7 @@ defmodule Ecspanse.QueryTest do
 
   defmodule TestComponent5 do
     @moduledoc false
-    use Ecspanse.Component, groups: [:foo, :baz], access_mode: :entity_type
+    use Ecspanse.Component, groups: [:foo, :baz]
   end
 
   defmodule TestResource1 do
@@ -475,20 +475,6 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "is_type?/3" do
-    test "checks if an entity has a certain entity_type component" do
-      entity_1 =
-        Ecspanse.Command.spawn_entity!(
-          {Ecspanse.Entity, components: [TestComponent1, TestComponent5]}
-        )
-
-      entity_2 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
-
-      assert Ecspanse.Query.is_type?(entity_1, TestComponent5)
-      refute Ecspanse.Query.is_type?(entity_2, TestComponent5)
-    end
-  end
-
   describe "has_component?/3" do
     test "checks if an entity has a certain component" do
       entity_1 =
@@ -514,23 +500,6 @@ defmodule Ecspanse.QueryTest do
 
       assert Ecspanse.Query.has_components?(entity_1, [TestComponent1, TestComponent5])
       refute Ecspanse.Query.has_components?(entity_2, [TestComponent1, TestComponent5])
-    end
-  end
-
-  describe "has_children_with_type?/3" do
-    test "checks if an entity has children with a certain entity_type component" do
-      entity_1 =
-        Ecspanse.Command.spawn_entity!(
-          {Ecspanse.Entity, components: [TestComponent1, TestComponent5]}
-        )
-
-      entity_2 =
-        Ecspanse.Command.spawn_entity!(
-          {Ecspanse.Entity, components: [TestComponent1, TestComponent5], children: [entity_1]}
-        )
-
-      refute Ecspanse.Query.has_children_with_type?(entity_1, TestComponent5)
-      assert Ecspanse.Query.has_children_with_type?(entity_2, TestComponent5)
     end
   end
 
@@ -572,23 +541,6 @@ defmodule Ecspanse.QueryTest do
                entity_2,
                [TestComponent1, TestComponent5]
              )
-    end
-  end
-
-  describe "has_parents_with_type?/3" do
-    test "checks if an entity has parents with a certain entity_type component" do
-      entity_1 =
-        Ecspanse.Command.spawn_entity!(
-          {Ecspanse.Entity, components: [TestComponent1, TestComponent5]}
-        )
-
-      entity_2 =
-        Ecspanse.Command.spawn_entity!(
-          {Ecspanse.Entity, components: [TestComponent1, TestComponent5], parents: [entity_1]}
-        )
-
-      refute Ecspanse.Query.has_parents_with_type?(entity_1, TestComponent5)
-      assert Ecspanse.Query.has_parents_with_type?(entity_2, TestComponent5)
     end
   end
 

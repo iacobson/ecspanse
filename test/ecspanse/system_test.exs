@@ -8,7 +8,7 @@ defmodule Ecspanse.SystemTest do
 
   defmodule TestComponent2 do
     @moduledoc false
-    use Ecspanse.Component, access_mode: :readonly
+    use Ecspanse.Component
   end
 
   defmodule TestResource1 do
