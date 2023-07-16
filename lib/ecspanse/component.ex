@@ -36,16 +36,14 @@ defmodule Ecspanse.Component do
   @callback validate(component :: struct()) :: :ok | {:error, any()}
   @optional_callbacks validate: 1
 
-  @doc """
-  Utility function used for developement.
-  Returns all their components and their state, toghether with their entity association.
-  """
-  @spec debug() :: list(component_key_value())
-  def debug do
-    if Mix.env() in [:dev, :test] do
+  if Mix.env() in [:dev, :test] do
+    @doc """
+    Utility function used for developement.
+    Returns all their components and their state, toghether with their entity association.
+    """
+    @spec debug() :: list(component_key_value())
+    def debug do
       :ets.match_object(Util.components_state_ets_table(), {:"$0", :"$1"})
-    else
-      {:error, "debug is only available in dev and test"}
     end
   end
 

@@ -13,37 +13,33 @@ defmodule Ecspanse.Server do
 
   @type name :: atom() | {:global, term()} | {:via, module(), term()}
 
-  @doc """
-  Utility function used for testing and development purposes.
+  if Mix.env() in [:dev, :test] do
+    @doc """
+    Utility function used for testing and development purposes.
 
-  The `debug/0` function returns the internal state of the framework, which can be useful for debugging systems scheduling and batching.
-  This function is only available in the `:dev` and `:test` environments.
+    The `debug/0` function returns the internal state of the framework, which can be useful for debugging systems scheduling and batching.
+    This function is only available in the `:dev` and `:test` environments.
 
-  ## Returns
+    ## Returns
 
-  The internal state of the framework.
+    The internal state of the framework.
 
-  """
-  @spec debug() :: Server.State.t()
-  def debug do
-    if Mix.env() in [:dev, :test] do
+    """
+    @spec debug() :: Server.State.t()
+    def debug do
       GenServer.call(__MODULE__, :debug)
-    else
-      {:error, "debug is only available for dev and test"}
     end
   end
 
-  @doc """
-  Utility function for testing and development purposes.
-  The server is turned to test mode.
-  A `{:next_frame, %Ecspanse.Server.State{}}` tupple message will be sent to the process running this function at the beginning of each frame.
-  This is useful for tests or debugging
-  """
-  def test_server(test_pid) do
-    if Mix.env() in [:dev, :test] do
+  if Mix.env() in [:dev, :test] do
+    @doc """
+    Utility function for testing and development purposes.
+    The server is turned to test mode.
+    A `{:next_frame, %Ecspanse.Server.State{}}` tupple message will be sent to the process running this function at the beginning of each frame.
+    This is useful for tests or debugging
+    """
+    def test_server(test_pid) do
       GenServer.cast(__MODULE__, {:test_server, test_pid})
-    else
-      {:error, "debug is only available for test"}
     end
   end
 
@@ -209,17 +205,15 @@ defmodule Ecspanse.Server do
     {:reply, state, state}
   end
 
-  @impl true
-  def handle_cast({:test_server, test_pid}, state) do
-    if Mix.env() in [:dev, :test] do
+  if Mix.env() in [:dev, :test] do
+    @impl true
+    def handle_cast({:test_server, test_pid}, state) do
       state = %{
         state
         | test: true,
           test_pid: test_pid
       }
 
-      {:noreply, state}
-    else
       {:noreply, state}
     end
   end

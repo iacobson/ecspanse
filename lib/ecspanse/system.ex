@@ -53,22 +53,20 @@ defmodule Ecspanse.System do
             run_after: [],
             run_conditions: []
 
-  @doc """
-  Gives any process Ecspanse.System abilities (eg. executing commands).
-  This is a powerful tool for testing and debugging, as the promoted process
-  can change the components and resources state without having to be scheduled like a regular system.
-  """
-  @spec debug() :: :ok
-  def debug do
-    if Mix.env() in [:dev, :test] do
+  if Mix.env() in [:dev, :test] do
+    @doc """
+    Gives any process Ecspanse.System abilities (eg. executing commands).
+    This is a powerful tool for testing and debugging, as the promoted process
+    can change the components and resources state without having to be scheduled like a regular system.
+    """
+    @spec debug() :: :ok
+    def debug do
       Process.put(:ecs_process_type, :system)
       Process.put(:system_execution, :sync)
       Process.put(:system_module, Ecspanse.System.Debug)
       Process.put(:locked_components, Ecspanse.System.Debug.__locked_components__())
 
       :ok
-    else
-      {:error, "debug is only available in dev and test"}
     end
   end
 

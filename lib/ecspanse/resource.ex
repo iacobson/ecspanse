@@ -30,16 +30,14 @@ defmodule Ecspanse.Resource do
   @callback validate(resource :: struct()) :: :ok | {:error, any()}
   @optional_callbacks validate: 1
 
-  @doc """
-  Utility function used for developement.
-  Returns all their resources and their state, toghether with their entity association.
-  """
-  @spec debug() :: list(resource_key_value())
-  def debug() do
-    if Mix.env() in [:dev, :test] do
+  if Mix.env() in [:dev, :test] do
+    @doc """
+    Utility function used for developement.
+    Returns all their resources and their state, toghether with their entity association.
+    """
+    @spec debug() :: list(resource_key_value())
+    def debug() do
       :ets.match_object(Util.resources_state_ets_table(), {:"$0", :"$1"})
-    else
-      {:error, "debug is only available in dev and test"}
     end
   end
 

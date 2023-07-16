@@ -121,21 +121,38 @@ defmodule Ecspanse do
       Module.register_attribute(__MODULE__, :fps_limit, accumulate: false)
       Module.put_attribute(__MODULE__, :fps_limit, fps_limit)
 
-      @doc false
-      def child_spec(arg) do
-        if Mix.env() == :test && arg != :test do
-          %{
-            id: UUID.uuid4(),
-            start: {Ecspanse.TestServer, :start_link, [nil]},
-            restart: :temporary
-          }
-        else
+      if Mix.env() == :test do
+        # Do not start the "real" server in test mode
+        @doc false
+        def child_spec(arg) do
+          if arg == :test do
+            payload = %{
+              ecspanse_module: __MODULE__,
+              fps_limit: @fps_limit
+            }
+
+            spec = %{
+              id: __MODULE__,
+              start: {Ecspanse.Server, :start_link, [payload]},
+              restart: :permanent
+            }
+          else
+            %{
+              id: UUID.uuid4(),
+              start: {Ecspanse.TestServer, :start_link, [nil]},
+              restart: :temporary
+            }
+          end
+        end
+      else
+        @doc false
+        def child_spec(arg) do
           payload = %{
             ecspanse_module: __MODULE__,
             fps_limit: @fps_limit
           }
 
-          %{
+          spec = %{
             id: __MODULE__,
             start: {Ecspanse.Server, :start_link, [payload]},
             restart: :permanent
