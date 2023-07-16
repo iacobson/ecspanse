@@ -242,11 +242,6 @@ defmodule Ecspanse.Server do
   end
 
   def handle_info(:start_frame, state) do
-    # Collect Memoize garbage
-    Task.start(fn ->
-      Memoize.garbage_collect()
-    end)
-
     # use monotonic time
     # https://til.hashrocket.com/posts/k6kydebcau-precise-timings-with-monotonictime
     frame_monotonic_time = Elixir.System.monotonic_time(:millisecond)

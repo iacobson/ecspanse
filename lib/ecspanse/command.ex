@@ -1645,7 +1645,7 @@ defmodule Ecspanse.Command do
       [] ->
         :ets.insert(table, components)
         # invalidate the cache when inserting new components
-        Memoize.invalidate()
+        Util.invalidate_cache()
         component_created_events(components)
         :ok
 
@@ -1675,7 +1675,7 @@ defmodule Ecspanse.Command do
 
         if Enum.any?(relation_updates) do
           # invalidate the cache when updating Children or Parents
-          Memoize.invalidate()
+          Util.invalidate_cache()
         end
 
         component_updated_events(components)
@@ -1696,7 +1696,7 @@ defmodule Ecspanse.Command do
     end)
 
     # invalidate the cache when deleting components
-    Memoize.invalidate()
+    Util.invalidate_cache()
 
     component_deleted_events(components)
 

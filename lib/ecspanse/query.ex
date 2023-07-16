@@ -85,7 +85,7 @@ defmodule Ecspanse.Query do
 
   """
   @spec select(component_modules :: tuple(), keyword()) :: t()
-  defmemo select(component_modules_tuple, filters \\ []), max_waiter: 100, waiter_sleep_ms: 5 do
+  defmemo select(component_modules_tuple, filters \\ []), max_waiter: 1000, waiter_sleep_ms: 0 do
     comp = Tuple.to_list(component_modules_tuple) |> List.flatten()
 
     # The order is essential here, because the result will be pattern_matched on the initial tuple
@@ -217,7 +217,7 @@ defmodule Ecspanse.Query do
   Returns a list of entities that are children of the given entity
   """
   @spec list_children(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
-  defmemo list_children(%Entity{id: entity_id}), max_waiter: 100, waiter_sleep_ms: 5 do
+  defmemo list_children(%Entity{id: entity_id}), max_waiter: 1000, waiter_sleep_ms: 0 do
     case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Children, []}) do
       [{_key, %Component.Children{entities: children_entities}}] -> children_entities
       [] -> []
@@ -229,7 +229,7 @@ defmodule Ecspanse.Query do
   Returns a list of entities that are parents of the given entity
   """
   @spec list_parents(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
-  defmemo list_parents(%Entity{id: entity_id}), max_waiter: 100, waiter_sleep_ms: 5 do
+  defmemo list_parents(%Entity{id: entity_id}), max_waiter: 1000, waiter_sleep_ms: 0 do
     case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Parents, []}) do
       [{_key, %Component.Parents{entities: parents_entities}}] -> parents_entities
       [] -> []
@@ -320,8 +320,8 @@ defmodule Ecspanse.Query do
   @spec has_components?(Ecspanse.Entity.t(), list(module())) :: boolean()
   defmemo has_components?(entity, component_module_list)
           when is_list(component_module_list),
-          max_waiter: 100,
-          waiter_sleep_ms: 5 do
+          max_waiter: 1000,
+          waiter_sleep_ms: 0 do
     entities_components = Ecspanse.Util.list_entities_components()
 
     component_module_list -- Map.get(entities_components, entity.id, []) == []

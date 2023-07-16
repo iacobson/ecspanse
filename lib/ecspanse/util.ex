@@ -8,8 +8,9 @@ defmodule Ecspanse.Util do
 
   @doc false
   defmemo components_state_ets_table,
-    max_waiter: 100,
-    waiter_sleep_ms: 5 do
+    permanent: true,
+    max_waiter: 1000,
+    waiter_sleep_ms: 0 do
     Agent.get(:ecspanse_ets_tables, fn state ->
       state.components_state_ets_table
     end)
@@ -17,8 +18,9 @@ defmodule Ecspanse.Util do
 
   @doc false
   defmemo resources_state_ets_table,
-    max_waiter: 100,
-    waiter_sleep_ms: 5 do
+    permanent: true,
+    max_waiter: 1000,
+    waiter_sleep_ms: 0 do
     Agent.get(:ecspanse_ets_tables, fn state ->
       state.resources_state_ets_table
     end)
@@ -26,8 +28,9 @@ defmodule Ecspanse.Util do
 
   @doc false
   defmemo events_ets_table,
-    max_waiter: 100,
-    waiter_sleep_ms: 5 do
+    permanent: true,
+    max_waiter: 1000,
+    waiter_sleep_ms: 0 do
     Agent.get(:ecspanse_ets_tables, fn state ->
       state.events_ets_table
     end)
@@ -37,8 +40,8 @@ defmodule Ecspanse.Util do
   # Returns a map with entity_id as key and a list of component modules as value
   # Example %{"entity_id" => [Component1, Component2]}
   defmemo list_entities_components,
-    max_waiter: 100,
-    waiter_sleep_ms: 5 do
+    max_waiter: 1000,
+    waiter_sleep_ms: 0 do
     f =
       Ex2ms.fun do
         {{entity_id, component_module, _component_groups}, _component_state} ->
@@ -104,5 +107,11 @@ defmodule Ecspanse.Util do
       _exception ->
         reraise exception, attributes, __STACKTRACE__
     end
+  end
+
+  @doc false
+  def invalidate_cache do
+    Memoize.invalidate(Ecspanse.Query)
+    Memoize.invalidate(Ecspanse.Util, :list_entities_components)
   end
 end
