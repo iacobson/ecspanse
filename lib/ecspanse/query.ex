@@ -315,6 +315,28 @@ defmodule Ecspanse.Query do
     component_module_list -- Map.get(entities_components, entity.id, []) == []
   end
 
+  @doc """
+  TODO
+  """
+  @spec is_child_of?(parent: Ecspanse.Entity.t(), child: Ecspanse.Entity.t()) :: boolean()
+  defmemo is_child_of?(parent: %Entity{} = parent, child: %Entity{} = child),
+    max_waiter: 1000,
+    waiter_sleep_ms: 0 do
+    parents = list_parents(child)
+    parent in parents
+  end
+
+  @doc """
+  TODO
+  """
+  @spec is_parent_of?(parent: Ecspanse.Entity.t(), child: Ecspanse.Entity.t()) :: boolean()
+  defmemo is_parent_of?(parent: %Entity{} = parent, child: %Entity{} = child),
+    max_waiter: 1000,
+    waiter_sleep_ms: 0 do
+    children = list_children(parent)
+    child in children
+  end
+
   @spec has_children_with_component?(Ecspanse.Entity.t(), module()) ::
           boolean()
   def has_children_with_component?(entity, component_module) do

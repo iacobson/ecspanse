@@ -45,7 +45,7 @@ defmodule Ecspanse.QueryTest do
   setup do
     start_supervised({TestServer1, :test})
     Ecspanse.Server.test_server(self())
-    # simulate commands are run from a System
+    # # simulate commands are run from a System
     Ecspanse.System.debug()
 
     :ok
@@ -335,7 +335,7 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "fetch_entity/2" do
+  describe "fetch_entity/1" do
     test "returns the entity for a component" do
       entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
 
@@ -347,7 +347,7 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "get_component_entity/2" do
+  describe "get_component_entity/1" do
     test "returns the entity for a component" do
       entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
 
@@ -359,7 +359,7 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "list_children/2" do
+  describe "list_children/1" do
     test "returns the children of an entity" do
       entity_1 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, [components: [TestComponent1]]})
 
@@ -371,7 +371,7 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "list_parents/2" do
+  describe "list_parents/1" do
     test "returns the parents of an entity" do
       entity_1 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, [components: [TestComponent1]]})
 
@@ -383,7 +383,7 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "list_group_components/2" do
+  describe "list_group_components/1" do
     test "returns the components of a group" do
       Ecspanse.Command.spawn_entity!(
         {Ecspanse.Entity,
@@ -408,7 +408,7 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "list_group_components/3" do
+  describe "list_group_components/2" do
     test "returns the components of a group for a given entity" do
       entity_1 =
         Ecspanse.Command.spawn_entity!(
@@ -432,7 +432,7 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "fetch_component/3" do
+  describe "fetch_component/2" do
     test "returns a component for a given entity" do
       entity_1 =
         Ecspanse.Command.spawn_entity!(
@@ -452,7 +452,7 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "fetch_components/3" do
+  describe "fetch_components/2" do
     test "returns a tuple of components if the entity has all of them" do
       entity_1 =
         Ecspanse.Command.spawn_entity!(
@@ -475,7 +475,7 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "has_component?/3" do
+  describe "has_component?/2" do
     test "checks if an entity has a certain component" do
       entity_1 =
         Ecspanse.Command.spawn_entity!(
@@ -489,7 +489,7 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "has_components?/3" do
+  describe "has_components?/2" do
     test "check if an entity has all of the given components" do
       entity_1 =
         Ecspanse.Command.spawn_entity!(
@@ -503,7 +503,21 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "has_children_with_component?/3" do
+  describe "is_child_of/2, is_parent_of/2" do
+    test "checks if there is a relation between 2 entities" do
+      entity_1 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, [components: [TestComponent1]]})
+
+      entity_2 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [entity_1]})
+
+      assert Ecspanse.Query.is_child_of?(parent: entity_1, child: entity_2)
+      refute Ecspanse.Query.is_child_of?(parent: entity_2, child: entity_1)
+
+      assert Ecspanse.Query.is_parent_of?(parent: entity_1, child: entity_2)
+      refute Ecspanse.Query.is_parent_of?(parent: entity_2, child: entity_1)
+    end
+  end
+
+  describe "has_children_with_component?/2" do
     test "checks if an entity has children with a certain component" do
       entity_1 =
         Ecspanse.Command.spawn_entity!(
@@ -520,7 +534,7 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "has_children_with_components?/3" do
+  describe "has_children_with_components?/2" do
     test "checks if an entity has children with all of the given components" do
       entity_1 =
         Ecspanse.Command.spawn_entity!(
@@ -544,7 +558,7 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "has_parents_with_component?/3" do
+  describe "has_parents_with_component?/2" do
     test "checks if an entity has parents with a certain component" do
       entity_1 =
         Ecspanse.Command.spawn_entity!(
@@ -561,7 +575,7 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "has_parents_with_components?/3" do
+  describe "has_parents_with_components?/2" do
     test "checks if an entity has parents with all of the given components" do
       entity_1 =
         Ecspanse.Command.spawn_entity!(
@@ -585,7 +599,7 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "fetch_resource/2" do
+  describe "fetch_resource/1" do
     test "fetches a resource" do
       resource = Ecspanse.Command.insert_resource!(TestResource1)
 

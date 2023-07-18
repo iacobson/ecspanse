@@ -26,6 +26,47 @@ defmodule Ecspanse.Component do
   https://medium.com/very-big-things/towards-maintainable-elixir-the-core-and-the-interface-c267f0da43
   """
   @callback validate(component :: struct()) :: :ok | {:error, any()}
+
+  @doc """
+  TODO
+
+  Fetches the component for an entity.
+
+  Example:
+  ```
+  defmodule MyComponent do
+    use Ecspanse.Component
+  end
+
+  {:ok, entity} = Ecspanse.spawn_entity!(Ecspanse.Entity, components: [MyComponent])
+  {:ok, component} = MyComponent.fetch(entity)
+  ```
+
+  Under the hood, it is just a shortcut for:
+  ```
+  {:ok, component} = Ecspanse.Query.fetch_component(entity, MyComponent)
+  ```
+  """
+  @callback fetch(entity :: Ecspanse.Entity.t()) ::
+              {:ok, component :: struct()} | {:error, :not_found}
+
+  @doc """
+  TODO
+
+  Lists all components for the current component module, for all entities.
+
+  Example:
+  ```
+  defmodule MyComponent do
+    use Ecspanse.Component
+  end
+
+  {:ok, entity} = Ecspanse.spawn_entity!(Ecspanse.Entity, components: [MyComponent])
+  my_components = MyComponent.list()
+  ```
+  """
+  @callback list() :: list(component :: struct())
+
   @optional_callbacks validate: 1
 
   if Mix.env() in [:dev, :test] do
@@ -92,6 +133,19 @@ defmodule Ecspanse.Component do
       @doc false
       def __component_groups__ do
         @groups
+      end
+
+      @impl Ecspanse.Component
+      def fetch(entity) do
+        Ecspanse.Query.fetch_component(entity, __MODULE__)
+      end
+
+      @impl Ecspanse.Component
+      def list do
+        Ecspanse.Query.select({__MODULE__})
+        |> Ecspanse.Query.stream()
+        |> Stream.map(fn {component} -> component end)
+        |> Enum.to_list()
       end
     end
   end
