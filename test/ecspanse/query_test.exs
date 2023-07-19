@@ -18,12 +18,12 @@ defmodule Ecspanse.QueryTest do
 
   defmodule TestComponent4 do
     @moduledoc false
-    use Ecspanse.Component, groups: [:foo, :bar]
+    use Ecspanse.Component, tags: [:foo, :bar]
   end
 
   defmodule TestComponent5 do
     @moduledoc false
-    use Ecspanse.Component, groups: [:foo, :baz]
+    use Ecspanse.Component, tags: [:baz]
   end
 
   defmodule TestResource1 do
@@ -54,11 +54,13 @@ defmodule Ecspanse.QueryTest do
   describe "select/2" do
     test "returns components for entities with all components" do
       Ecspanse.Command.spawn_entity!(
-        {Ecspanse.Entity, components: [TestComponent1, TestComponent2, TestComponent3]}
+        {Ecspanse.Entity,
+         components: [{TestComponent1, [], [:tag1]}, TestComponent2, TestComponent3]}
       )
 
       Ecspanse.Command.spawn_entity!(
-        {Ecspanse.Entity, components: [TestComponent1, TestComponent2, TestComponent3]}
+        {Ecspanse.Entity,
+         components: [TestComponent1, {TestComponent2, [], [:tag2]}, TestComponent3]}
       )
 
       Ecspanse.Command.spawn_entity!(
@@ -383,11 +385,16 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "list_group_components/1" do
+  describe "list_tagged_components/1" do
     test "returns the components of a group" do
       Ecspanse.Command.spawn_entity!(
         {Ecspanse.Entity,
-         components: [TestComponent1, TestComponent2, TestComponent4, TestComponent5]}
+         components: [
+           TestComponent1,
+           TestComponent2,
+           TestComponent4,
+           {TestComponent5, [], [:foo]}
+         ]}
       )
 
       Ecspanse.Command.spawn_entity!(
@@ -395,10 +402,10 @@ defmodule Ecspanse.QueryTest do
       )
 
       Ecspanse.Command.spawn_entity!(
-        {Ecspanse.Entity, components: [TestComponent3, TestComponent5]}
+        {Ecspanse.Entity, components: [TestComponent3, {TestComponent5, [], [:foo]}]}
       )
 
-      components = Ecspanse.Query.list_group_components(:foo)
+      components = Ecspanse.Query.list_tagged_components([:foo])
 
       assert length(components) == 4
 
@@ -408,23 +415,31 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
-  describe "list_group_components/2" do
+  describe "list_tagged_components_for_entities/2" do
     test "returns the components of a group for a given entity" do
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity,
-           components: [TestComponent1, TestComponent2, TestComponent4, TestComponent5]}
+           components: [
+             TestComponent1,
+             TestComponent2,
+             {TestComponent4, [], [:alpha]},
+             TestComponent5
+           ]}
+        )
+
+      entity_2 =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity, components: [TestComponent1, TestComponent4]}
         )
 
       Ecspanse.Command.spawn_entity!(
-        {Ecspanse.Entity, components: [TestComponent1, TestComponent4]}
+        {Ecspanse.Entity,
+         components: [TestComponent3, {TestComponent4, [], [:alpha]}, TestComponent5]}
       )
 
-      Ecspanse.Command.spawn_entity!(
-        {Ecspanse.Entity, components: [TestComponent3, TestComponent5]}
-      )
-
-      components = Ecspanse.Query.list_group_components(entity_1, :bar)
+      components =
+        Ecspanse.Query.list_tagged_components_for_entities([entity_1, entity_2], [:bar, :alpha])
 
       assert length(components) == 1
 
@@ -437,7 +452,12 @@ defmodule Ecspanse.QueryTest do
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity,
-           components: [TestComponent1, TestComponent2, TestComponent4, TestComponent5]}
+           components: [
+             {TestComponent1, [], [:tag1]},
+             TestComponent2,
+             TestComponent4,
+             TestComponent5
+           ]}
         )
 
       Ecspanse.Command.spawn_entity!(

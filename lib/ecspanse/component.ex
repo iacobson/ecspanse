@@ -5,13 +5,18 @@ defmodule Ecspanse.Component do
   - opts
     - state: must be a list with all the Component state struct keys and their initial values (if any)
     Eg: [:foo, :bar, baz: 1]
-    - groups: list of groups (atoms) that this component belongs to. Defaults to []
+    - tags: list of tags (atoms) for the current component. Defaults to [].
+    Tags can be added only at compile time or when inserting a component
+    or spawning an entity with a component, by providing the tags in the component specs.
+    Then cannot be eddited or removed later on. Tags added on component creation are merged with the
+    tags provided at compile time.
 
   """
 
   @type component_spec ::
           (component_module :: module())
           | {component_module :: module(), initial_state :: keyword()}
+          | {component_module :: module(), initial_state :: keyword(), tags :: list(atom())}
 
   @doc """
   Optional callback to validate the component state.
@@ -74,9 +79,9 @@ defmodule Ecspanse.Component do
     Utility function used for developement.
     Returns all their components and their state, toghether with their entity association.
     """
-    @spec debug() :: list(component_key_value())
+    @spec debug() :: list(component_key_tags_value())
     def debug do
-      :ets.match_object(Ecspanse.Util.components_state_ets_table(), {:"$0", :"$1"})
+      :ets.match_object(Ecspanse.Util.components_state_ets_table(), {:"$0", :"$1", :"$2"})
     end
   end
 
@@ -87,28 +92,28 @@ defmodule Ecspanse.Component do
     @opaque t :: %__MODULE__{
               entity: Ecspanse.Entity.t(),
               module: module(),
-              groups: list(atom())
+              tags: list(atom())
             }
 
     @enforce_keys [:entity, :module]
-    defstruct entity: nil, module: nil, groups: []
+    defstruct entity: nil, module: nil, tags: []
   end
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
       @behaviour Ecspanse.Component
 
-      groups = Keyword.get(opts, :groups, [])
+      tags = Keyword.get(opts, :tags, [])
 
-      unless is_list(groups) do
+      unless is_list(tags) do
         raise ArgumentError,
-              "Invalid groups for Component: #{inspect(__MODULE__)}. The `:groups` option must be a list of atoms."
+              "Invalid tags for Component: #{inspect(__MODULE__)}. The `:tags` option must be a list of atoms."
       end
 
       Module.register_attribute(__MODULE__, :ecs_type, accumulate: false)
-      Module.register_attribute(__MODULE__, :groups, accumulate: false)
+      Module.register_attribute(__MODULE__, :tags, accumulate: false)
       Module.put_attribute(__MODULE__, :ecs_type, :component)
-      Module.put_attribute(__MODULE__, :groups, groups)
+      Module.put_attribute(__MODULE__, :tags, tags)
 
       state = Keyword.get(opts, :state, [])
 
@@ -131,8 +136,8 @@ defmodule Ecspanse.Component do
       end
 
       @doc false
-      def __component_groups__ do
-        @groups
+      def __component_tags__ do
+        @tags
       end
 
       @impl Ecspanse.Component
@@ -154,7 +159,7 @@ defmodule Ecspanse.Component do
   #    INTERNAL STATE         #
   #############################
 
-  @opaque component_key_value ::
-            {{Ecspanse.Entity.id(), component_module :: module(), groups :: list(atom())},
+  @opaque component_key_tags_value ::
+            {{Ecspanse.Entity.id(), component_module :: module()}, tags :: list(atom()),
              component_state :: struct()}
 end

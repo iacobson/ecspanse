@@ -43,7 +43,7 @@ defmodule Ecspanse.CommandTest do
     test "spawns multiple entities" do
       assert [%Ecspanse.Entity{} = entity_1, %Ecspanse.Entity{} = entity_2] =
                Ecspanse.Command.spawn_entities!([
-                 {Ecspanse.Entity, components: [TestComponent1]},
+                 {Ecspanse.Entity, components: [{TestComponent1, [value: :bar], [:tag1, :tag2]}]},
                  {Ecspanse.Entity, components: [TestComponent1]}
                ])
 
@@ -115,7 +115,9 @@ defmodule Ecspanse.CommandTest do
                entity =
                Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
 
-      Ecspanse.Command.add_components!([{entity, [TestComponent2, TestComponent3]}])
+      Ecspanse.Command.add_components!([
+        {entity, [{TestComponent2, [], [:tag1, :tag_2]}, TestComponent3]}
+      ])
 
       assert {:ok, {%TestComponent1{}, %TestComponent2{}, %TestComponent3{}}} =
                Ecspanse.Query.fetch_components(
@@ -129,7 +131,9 @@ defmodule Ecspanse.CommandTest do
     test "updates components state" do
       assert %Ecspanse.Entity{} =
                entity =
-               Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
+               Ecspanse.Command.spawn_entity!(
+                 {Ecspanse.Entity, components: [{TestComponent1, [], [:tag1]}]}
+               )
 
       assert {:ok, %TestComponent1{value: :foo} = comp} =
                Ecspanse.Query.fetch_component(entity, TestComponent1)

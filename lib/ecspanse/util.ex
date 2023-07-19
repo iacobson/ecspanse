@@ -44,7 +44,7 @@ defmodule Ecspanse.Util do
     waiter_sleep_ms: 0 do
     f =
       Ex2ms.fun do
-        {{entity_id, component_module, _component_groups}, _component_state} ->
+        {{entity_id, component_module}, _component_tags, _component_state} ->
           {entity_id, component_module}
       end
 
@@ -53,15 +53,15 @@ defmodule Ecspanse.Util do
   end
 
   @doc false
-  # Returns a list of tuples with entity_id, component_groups and component_state
-  # Example: [{"entity_id", [:group1,:group2], %MyComponent{foo: :bar}}]
+  # Returns a list of tuples with entity_id, component_tags and component_state
+  # Example: [{"entity_id", [:tag1,:tag2], %MyComponent{foo: :bar}}]
   # Cannot be memoized as it returns the componet state, so it will be invalidated every frame multiple times.
-  def list_entities_components_groups do
+  def list_entities_components_tags do
     f =
       Ex2ms.fun do
-        {{entity_id, _component_module, component_groups}, component_state}
-        when component_groups != [] ->
-          {entity_id, component_groups, component_state}
+        {{entity_id, _component_module}, component_tags, component_state}
+        when component_tags != [] ->
+          {entity_id, component_tags, component_state}
       end
 
     :ets.select(components_state_ets_table(), f)

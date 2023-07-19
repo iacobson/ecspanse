@@ -16,7 +16,7 @@ defmodule Ecspanse.System.Timer do
 
   @impl true
   def run(frame) do
-    Query.list_group_components(:ecs_timer)
+    Query.list_tagged_components([:ecs_timer])
     |> Stream.filter(fn timer -> timer.time > 0 and not timer.paused end)
     |> Enum.group_by(fn timer -> timer.mode end)
     |> Enum.each(fn

@@ -188,7 +188,7 @@ defmodule Ecspanse.Query do
   def fetch_entity(entity_id) do
     f =
       Ex2ms.fun do
-        {{^entity_id, _component_module, _component_groups}, _component_state} -> ^entity_id
+        {{^entity_id, _component_module}, _component_tags, _component_state} -> ^entity_id
       end
 
     result = :ets.select(Util.components_state_ets_table(), f, 1)
@@ -218,8 +218,8 @@ defmodule Ecspanse.Query do
   """
   @spec list_children(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
   defmemo list_children(%Entity{id: entity_id}), max_waiter: 1000, waiter_sleep_ms: 0 do
-    case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Children, []}) do
-      [{_key, %Component.Children{entities: children_entities}}] -> children_entities
+    case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Children}) do
+      [{_key, _tags, %Component.Children{entities: children_entities}}] -> children_entities
       [] -> []
     end
   end
@@ -230,36 +230,56 @@ defmodule Ecspanse.Query do
   """
   @spec list_parents(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
   defmemo list_parents(%Entity{id: entity_id}), max_waiter: 1000, waiter_sleep_ms: 0 do
-    case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Parents, []}) do
-      [{_key, %Component.Parents{entities: parents_entities}}] -> parents_entities
+    case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Parents}) do
+      [{_key, _tags, %Component.Parents{entities: parents_entities}}] -> parents_entities
       [] -> []
     end
   end
 
   @doc """
   TODO
-  Fetches components in a group, for all entities.
+  Fetches tagged components, for all entities.
   """
-  @spec list_group_components(group :: atom()) ::
+  @spec list_tagged_components(list(tag :: atom())) ::
           list(components_state :: struct())
-  def list_group_components(group) do
-    Ecspanse.Util.list_entities_components_groups()
-    |> Stream.filter(fn {_entity_id, groups, _state} -> group in groups end)
-    |> Enum.map(fn {_entity_id, _groups, state} -> state end)
+  def list_tagged_components(tags) do
+    :ok = validate_tags(tags)
+
+    Ecspanse.Util.list_entities_components_tags()
+    |> Stream.filter(fn {_entity_id, component_tags, _state} ->
+      Enum.all?(tags, &(&1 in component_tags))
+    end)
+    |> Enum.map(fn {_entity_id, _tags, state} -> state end)
   end
 
   @doc """
   TODO
-  Fetches components in a group, for an entity.
+  Fetches tagged components, for a single entity.
   """
-  @spec list_group_components(Ecspanse.Entity.t(), group :: atom()) ::
+  @spec list_tagged_components_for_entity(Ecspanse.Entity.t(), list(tag :: atom())) ::
           list(components_state :: struct())
-  def list_group_components(entity, group) do
-    Ecspanse.Util.list_entities_components_groups()
-    |> Stream.filter(fn {entity_id, groups, _state} ->
-      entity_id == entity.id && group in groups
+  def list_tagged_components_for_entity(entity, tags) do
+    list_tagged_components_for_entities([entity], tags)
+  end
+
+  @doc """
+  TODO
+  Fetches tagged components, for a list of entities.
+  """
+  @spec list_tagged_components_for_entities(list(Ecspanse.Entity.t()), list(tag :: atom())) ::
+          list(components_state :: struct())
+  def list_tagged_components_for_entities(entities, tags) do
+    :ok = validate_entities(entities)
+    :ok = validate_tags(tags)
+
+    entity_ids = Enum.map(entities, & &1.id)
+
+    Ecspanse.Util.list_entities_components_tags()
+    |> Stream.filter(fn {component_entity_id, component_tags, _state} ->
+      component_entity_id in entity_ids &&
+        Enum.all?(tags, &(&1 in component_tags))
     end)
-    |> Enum.map(fn {_entity_id, _groups, state} -> state end)
+    |> Enum.map(fn {_entity_id, _tags, state} -> state end)
   end
 
   @doc """
@@ -269,11 +289,8 @@ defmodule Ecspanse.Query do
   @spec fetch_component(Ecspanse.Entity.t(), module()) ::
           {:ok, component_state :: struct()} | {:error, :not_found}
   def fetch_component(%Entity{id: entity_id}, component_module) do
-    case :ets.lookup(
-           Util.components_state_ets_table(),
-           {entity_id, component_module, component_module.__component_groups__()}
-         ) do
-      [{_key, component}] -> {:ok, component}
+    case :ets.lookup(Util.components_state_ets_table(), {entity_id, component_module}) do
+      [{_key, _tags, component}] -> {:ok, component}
       [] -> {:error, :not_found}
     end
   end
@@ -559,11 +576,8 @@ defmodule Ecspanse.Query do
   # add mandatory components to the select tuple
   defp add_select_components(select_tuple, comp_modules, entity_id, components_state_ets_table) do
     Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
-      case :ets.lookup(
-             components_state_ets_table,
-             {entity_id, comp_module, comp_module.__component_groups__()}
-           ) do
-        [{_key, comp_state}] -> Tuple.append(acc, comp_state)
+      case :ets.lookup(components_state_ets_table, {entity_id, comp_module}) do
+        [{_key, _tags, comp_state}] -> Tuple.append(acc, comp_state)
         # checking for race conditions when a required component is removed during the query
         # the whole entity should be filtered out
         [] -> Tuple.append(acc, :reject)
@@ -579,11 +593,8 @@ defmodule Ecspanse.Query do
          components_state_ets_table
        ) do
     Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
-      case :ets.lookup(
-             components_state_ets_table,
-             {entity_id, comp_module, comp_module.__component_groups__()}
-           ) do
-        [{_key, comp_state}] -> Tuple.append(acc, comp_state)
+      case :ets.lookup(components_state_ets_table, {entity_id, comp_module}) do
+        [{_key, _tags, comp_state}] -> Tuple.append(acc, comp_state)
         [] -> Tuple.append(acc, nil)
       end
     end)
@@ -647,5 +658,22 @@ defmodule Ecspanse.Query do
     end)
 
     :ok
+  end
+
+  defp validate_tags(tags) do
+    unless is_list(tags) do
+      raise Error, "Expected `tags:` to be a list, got: `#{Kernel.inspect(tags)}`"
+    end
+
+    non_tags = Enum.reject(tags, &is_atom/1)
+
+    case non_tags do
+      [] ->
+        :ok
+
+      _ ->
+        raise Error,
+              "Expected tags to be a list of atoms, got: `#{Kernel.inspect(non_tags)}`"
+    end
   end
 end

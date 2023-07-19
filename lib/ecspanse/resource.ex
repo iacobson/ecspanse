@@ -35,7 +35,7 @@ defmodule Ecspanse.Resource do
     """
     @spec debug() :: list(resource_key_value())
     def debug do
-      :ets.match_object(Ecspanse.Util.resources_state_ets_table(), {:"$0", :"$1"})
+      :ets.match_object(Ecspanse.Util.resources_state_ets_table(), {:"$0", :"$1", :"$2"})
     end
   end
 

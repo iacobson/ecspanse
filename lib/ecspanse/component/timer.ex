@@ -50,7 +50,7 @@ defmodule Ecspanse.Component.Timer do
   """
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
-      groups = Keyword.get(opts, :groups, []) ++ [:ecs_timer]
+      tags = Keyword.get(opts, :tags, []) ++ [:ecs_timer]
 
       state = Keyword.get(opts, :state, [])
 
@@ -90,7 +90,7 @@ defmodule Ecspanse.Component.Timer do
       end
 
       use Ecspanse.Component,
-        groups: groups,
+        tags: tags,
         state: [
           duration: duration,
           time: time,

@@ -119,7 +119,7 @@ defmodule Ecspanse.Server do
     # - keep under control the GenServer memory usage
     # - elimitate GenServer bottlenecks. Various Systems or Queries can read directly from the ETS tables.
 
-    # This is the main ETS table that holds the components state as a list of Ecspanse.Component.component_key_value() tuples
+    # This is the main ETS table that holds the components state as a list of Ecspanse.Component.component_key_tags_value() tuples
     # All processes can read and write to this table. But writing should only be done through Commands.
     # The race condition is handled by the System Component locking.
     # Commands should validate that only Systems are writing to this table.
