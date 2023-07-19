@@ -1562,9 +1562,15 @@ defmodule Ecspanse.Command do
     case duplicates do
       [] ->
         :ets.insert(table, components)
-        # invalidate the cache when inserting new components
-        Util.invalidate_cache()
+
+        invalidate =
+          Task.async(fn ->
+            # invalidate the cache when inserting components
+            Util.invalidate_cache()
+          end)
+
         component_created_events(components)
+        Task.await(invalidate)
         :ok
 
       _ ->
@@ -1586,17 +1592,13 @@ defmodule Ecspanse.Command do
       [] ->
         :ets.insert(table, components)
 
-        relation_updates =
-          Enum.filter(components, fn {{_entity_id, module}, _tags, _component} ->
-            module in [Ecspanse.Component.Children, Ecspanse.Component.Parent]
+        invalidate =
+          Task.async(fn ->
+            maybe_invalidate_cache_on_relation_update(components)
           end)
 
-        if Enum.any?(relation_updates) do
-          # invalidate the cache when updating Children or Parents
-          Util.invalidate_cache()
-        end
-
         component_updated_events(components)
+        Task.await(invalidate)
         :ok
 
       _ ->
@@ -1613,12 +1615,28 @@ defmodule Ecspanse.Command do
       :ets.delete(table, key)
     end)
 
-    # invalidate the cache when deleting components
-    Util.invalidate_cache()
+    invalidate =
+      Task.async(fn ->
+        # invalidate the cache when deleting components
+        Util.invalidate_cache()
+      end)
 
     component_deleted_events(components)
+    Task.await(invalidate)
 
     :ok
+  end
+
+  defp maybe_invalidate_cache_on_relation_update(components) do
+    relation_updates =
+      Enum.any?(components, fn {{_entity_id, module}, _tags, _component} ->
+        module in [Ecspanse.Component.Children, Ecspanse.Component.Parent]
+      end)
+
+    if relation_updates do
+      # invalidate the cache when updating Children or Parents
+      Util.invalidate_cache()
+    end
   end
 
   # helper query functions

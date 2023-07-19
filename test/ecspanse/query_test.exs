@@ -415,6 +415,45 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
+  describe "list_tagged_components_for_entity/2" do
+    test "returns the components of a group for a given entity" do
+      entity_1 =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity,
+           components: [
+             TestComponent1,
+             TestComponent2,
+             {TestComponent4, [], [:alpha]},
+             TestComponent5
+           ]}
+        )
+
+      Ecspanse.Command.spawn_entity!(
+        {Ecspanse.Entity, components: [TestComponent1, TestComponent4]}
+      )
+
+      Ecspanse.Command.spawn_entity!(
+        {Ecspanse.Entity,
+         components: [
+           {TestComponent4, [], [:alpha]}
+         ]}
+      )
+
+      Ecspanse.Command.spawn_entity!(
+        {Ecspanse.Entity,
+         components: [TestComponent3, {TestComponent4, [], [:alpha]}, TestComponent5]}
+      )
+
+      components = Ecspanse.Query.list_tagged_components_for_entity(entity_1, [:bar, :alpha])
+
+      assert length(components) == 1
+
+      assert [%TestComponent4{} = comp] = components
+      e = Ecspanse.Query.get_component_entity(comp)
+      assert e.id == entity_1.id
+    end
+  end
+
   describe "list_tagged_components_for_entities/2" do
     test "returns the components of a group for a given entity" do
       entity_1 =
@@ -433,17 +472,103 @@ defmodule Ecspanse.QueryTest do
           {Ecspanse.Entity, components: [TestComponent1, TestComponent4]}
         )
 
+      entity_3 =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity,
+           components: [
+             {TestComponent4, [], [:alpha]}
+           ]}
+        )
+
       Ecspanse.Command.spawn_entity!(
         {Ecspanse.Entity,
          components: [TestComponent3, {TestComponent4, [], [:alpha]}, TestComponent5]}
       )
 
       components =
-        Ecspanse.Query.list_tagged_components_for_entities([entity_1, entity_2], [:bar, :alpha])
+        Ecspanse.Query.list_tagged_components_for_entities([entity_1, entity_2, entity_3], [
+          :bar,
+          :alpha
+        ])
 
-      assert length(components) == 1
+      assert length(components) == 2
 
-      assert [%TestComponent4{}] = components
+      assert [%TestComponent4{} = comp_1, %TestComponent4{} = comp_2] = components
+      e1 = Ecspanse.Query.get_component_entity(comp_1)
+      e2 = Ecspanse.Query.get_component_entity(comp_2)
+      assert Enum.all?([e1, e2], fn e -> e.id in [entity_1.id, entity_3.id] end)
+    end
+  end
+
+  describe "list_tagged_components_for_children/2" do
+    test "returns the components of a group for the children of a given entity" do
+      entity_1 =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity,
+           components: [
+             TestComponent1,
+             TestComponent2,
+             {TestComponent4, [], [:alpha]},
+             TestComponent5
+           ]}
+        )
+
+      entity_2 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, children: [entity_1]})
+
+      entity_3 =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity, components: [{TestComponent4, [], [:alpha]}], parents: [entity_2]}
+        )
+
+      Ecspanse.Command.spawn_entity!(
+        {Ecspanse.Entity,
+         components: [TestComponent3, {TestComponent4, [], [:alpha]}, TestComponent5]}
+      )
+
+      components = Ecspanse.Query.list_tagged_components_for_children(entity_2, [:bar, :alpha])
+
+      assert length(components) == 2
+
+      assert [%TestComponent4{} = comp_1, %TestComponent4{} = comp_2] = components
+      e1 = Ecspanse.Query.get_component_entity(comp_1)
+      e2 = Ecspanse.Query.get_component_entity(comp_2)
+      assert Enum.all?([e1, e2], fn e -> e.id in [entity_1.id, entity_3.id] end)
+    end
+  end
+
+  describe "list_tagged_components_for_parents/2" do
+    test "returns the components of a group for the parents of a given entity" do
+      entity_1 =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity,
+           components: [
+             TestComponent1,
+             TestComponent2,
+             {TestComponent4, [], [:alpha]},
+             TestComponent5
+           ]}
+        )
+
+      entity_2 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [entity_1]})
+
+      entity_3 =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity, components: [{TestComponent4, [], [:alpha]}], children: [entity_2]}
+        )
+
+      Ecspanse.Command.spawn_entity!(
+        {Ecspanse.Entity,
+         components: [TestComponent3, {TestComponent4, [], [:alpha]}, TestComponent5]}
+      )
+
+      components = Ecspanse.Query.list_tagged_components_for_parents(entity_2, [:bar, :alpha])
+
+      assert length(components) == 2
+
+      assert [%TestComponent4{} = comp_1, %TestComponent4{} = comp_2] = components
+      e1 = Ecspanse.Query.get_component_entity(comp_1)
+      e2 = Ecspanse.Query.get_component_entity(comp_2)
+      assert Enum.all?([e1, e2], fn e -> e.id in [entity_1.id, entity_3.id] end)
     end
   end
 

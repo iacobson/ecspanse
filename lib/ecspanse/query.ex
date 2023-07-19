@@ -259,7 +259,14 @@ defmodule Ecspanse.Query do
   @spec list_tagged_components_for_entity(Ecspanse.Entity.t(), list(tag :: atom())) ::
           list(components_state :: struct())
   def list_tagged_components_for_entity(entity, tags) do
-    list_tagged_components_for_entities([entity], tags)
+    :ok = validate_entities([entity])
+    :ok = validate_tags(tags)
+
+    Ecspanse.Util.list_entities_components_tags(entity)
+    |> Stream.filter(fn {_component_entity_id, component_tags, _state} ->
+      Enum.all?(tags, &(&1 in component_tags))
+    end)
+    |> Enum.map(fn {_entity_id, _tags, state} -> state end)
   end
 
   @doc """
@@ -280,6 +287,34 @@ defmodule Ecspanse.Query do
         Enum.all?(tags, &(&1 in component_tags))
     end)
     |> Enum.map(fn {_entity_id, _tags, state} -> state end)
+  end
+
+  @doc """
+  TODO
+  Fetches tagged components, for the children of the given entity.
+  """
+  @spec list_tagged_components_for_children(Ecspanse.Entity.t(), list(tag :: atom())) ::
+          list(components_state :: struct())
+  def list_tagged_components_for_children(entity, tags) do
+    case list_children(entity) do
+      [] -> []
+      [child] -> list_tagged_components_for_entity(child, tags)
+      children -> list_tagged_components_for_entities(children, tags)
+    end
+  end
+
+  @doc """
+  TODO
+  Fetches tagged components, for the parents of the given entity.
+  """
+  @spec list_tagged_components_for_parents(Ecspanse.Entity.t(), list(tag :: atom())) ::
+          list(components_state :: struct())
+  def list_tagged_components_for_parents(entity, tags) do
+    case list_parents(entity) do
+      [] -> []
+      [parent] -> list_tagged_components_for_entity(parent, tags)
+      parents -> list_tagged_components_for_entities(parents, tags)
+    end
   end
 
   @doc """
