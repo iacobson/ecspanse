@@ -1,28 +1,25 @@
 defmodule Ecspanse do
   @moduledoc """
-
-
   Ecspanse is an Entity Component System (ECS) library for Elixir, designed to manage game state and provide tools for measuring time and frame duration.
-  It is not a game engine, but a flexible foundation for building game logic.
+  It is not a game engine, but a flexible foundation for managing state and building game logic.
 
   The core structure of the Ecspanse library is:
 
-  - `Ecspanse.Server`: The data orchestrates the execution of systems and the storage of entities, components, and resources.
-  Each data schedules system execution and listens for events.
+  - `Ecspanse`: The main module used to configure and interact with the library.
+  - `Ecspanse.Server`: The server orchestrates the execution of systems and the storage of components, resources, and events.
   - `Ecspanse.Entity`: A simple struct with an ID, serving as a holder for components.
-  - `Ecspanse.Component`: A struct that holds state information.
-  - `Ecspanse.System`: The core logic of the library. Systems are configured for each data and run every frame, either synchronously or asynchronously.
+  - `Ecspanse.Component`: A struct that may hold state information or act as a simple label for an entity.
+  - `Ecspanse.System`: Holds the application core logic. Systems run every frame, either synchronously or asynchronously.
   - `Ecspanse.Resource`: Global state storage, similar to components but not tied to a specific entity. Resources can only be created, updated, and deleted by synchronously executed systems.
   - `Ecspanse.Query`: A tool for retrieving entities, components, or resources.
-  - `Ecspanse.Command`: A mechanism for changing component and resource state, which can only be triggered from a system.
-  - `Ecspanse.Event`: A mechanism for triggering events, which can be listened to by systems. It is the way to communicate externally with the data.
+  - `Ecspanse.Command`: A mechanism for changing component and resource state. They can only be triggered from a system.
+  - `Ecspanse.Event`: A mechanism for triggering events, which can be listened to by systems. It is the way to communicate externally with the systems.
 
-  # Usage
+  ## Usage
 
-  A module needs to be created that `use Ecspanse`. This implements the `Ecspanse` behaviour, so the `setup/1` callback must be defined.
-  All their systems and their execution order are defined in the `setup/1` callback.
+  To use Ecspanse, a module needs to be created that `use Ecspanse`. This implements the `Ecspanse` behaviour, so the `setup/1` callback must be defined. All the systems and their execution order are defined in the `setup/1` callback.
 
-  ## Example
+  ### Example
 
   ```elixir
   defmodule TestServer1 do
@@ -42,7 +39,7 @@ defmodule Ecspanse do
   ## Configuration
 
   The following configuration options are available:
-  - `:fps_limit` - optional - the maximum number of frames per second. Defaults to `:unlimited`.
+  - `:fps_limit` (optional) - the maximum number of frames per second. Defaults to :unlimited.
 
 
   # Special Resources
@@ -58,7 +55,7 @@ defmodule Ecspanse do
 
   defmodule Data do
     @moduledoc """
-    The Data struct holds the state the Ecspanse initialization process.
+    The `Data` module defines a struct that holds the state of the Ecspanse initialization process.
     """
     @type t :: %__MODULE__{
             operations: operations(),
@@ -74,24 +71,25 @@ defmodule Ecspanse do
   end
 
   @doc """
-  The `setup/1` callback is called when the data is created and is the place to setup the running systems in the data.
+  The `setup/1` callback is called on Ecspanse startup and is the place to define the running systems.
 
-  ## Parameters
+
+  ## Arguments
 
   - `data` - the current state of the Ecspanse initialization data.
 
   ## Returns
 
-  The updated data needed for initialization.
+  The updated initialization data.
 
   ## Example
 
   ```elixir
-  defmodule MyServer do
-    use Server
+  defmodule MyProject do
+    use Ecspanse
 
-    @impl Server
-    def setup(data) do
+    @impl Ecspanse
+    def setup(%Ecspanse.Data{} = data) do
       data
       |> Ecspanse.add_startup_event(MyStartupEvent)
       |> Ecspanse.add_startup_event({MyOtherStartupEvent, value: :foo})
@@ -163,18 +161,18 @@ defmodule Ecspanse do
   end
 
   @doc """
-  Adds a startup system to the data.
+  Schedules a startup system.
 
-  A startup system is run only once when the data is created. Startup systems do not take options.
+  A startup system runs only once during the Ecspanse startup process. Startup systems do not take any options.
 
-  ## Parameters
+  ## Arguments
 
-  - `data` - the current state of the data.
-  - `system_module` - the module that defines the startup system.
+  - `data` - the current state of the Ecspanse initialization data.
+  - `system_module` - the scheduled system module.
 
   ## Returns
 
-  The updated state of the data.
+  The updated state of the Ecspanse initialization data.
   """
   @spec add_startup_system(Ecspanse.Data.t(), system_module :: module()) :: Ecspanse.Data.t()
   def add_startup_system(%Ecspanse.Data{operations: operations} = data, system_module) do
@@ -189,21 +187,20 @@ defmodule Ecspanse do
   end
 
   @doc """
-
-  Adds a frame start system to the data.
+  Schedules a frame start system to be executed each frame during the game loop.
 
   A frame start system is executed synchronously at the beginning of each frame.
-  Sync systems are executed in the order they were added to the data.
+  Sync systems are executed in the order they were added.
 
-  ## Parameters
+  ## Arguments
 
-  - `data` - the current state of the data.
-  - `system_module` - the module that defines the frame start system.
+  - `data` - the current state of the Ecspanse initialization data.
+  - `system_module` - the scheduled system module.
   - `opts` - optional - a keyword list of options to apply to the system. See the `add_system/3` function for more information about the options.
 
   ## Returns
 
-  The updated state of the data.
+  The updated state of the Ecspanse initialization data.
   """
 
   @spec add_frame_start_system(Ecspanse.Data.t(), system_module :: module(), opts :: keyword()) ::
@@ -229,11 +226,11 @@ defmodule Ecspanse do
   end
 
   @doc """
-  Adds an async system to the data, to be executed asynchronously each frame during the game loop.
+  Schedules an async systen to be executed each frame during the game loop.
 
   The `add_system/3` function takes the data as an argument and returns the updated data. Inside the function, a new system is created using the `System` struct and added to the data's operations list.
 
-  ## Parameters
+  ## Arguments
 
   - `data` - the current state of the data.
   - `system_module` - the module that defines the system.
@@ -241,29 +238,29 @@ defmodule Ecspanse do
 
   ## Options
 
-  - `:run_in_state` - a list of states in which the system should be run.
-  - `:run_not_in_state` - a list of states in which the system should not be run.
-  - `:run_if` - a tuple containing the module and function that define a condition for running the system. Eg. `[{Module, :function}]`
-  - `:run_after` - a system or list of systems that must be run before this system.
+  - `:run_in_state` - a list of states in which the system should run.
+  - `:run_not_in_state` - a list of states in which the system should not run.
+  - `:run_if` - a list of tuples containing the module and function that define a condition for running the system. Eg. `[{Module, :function}]`. The function must return a boolean.
+  - `:run_after` - a system or list of systems that must run before this system.
 
   ## Returns
 
-  The updated state of the data.
+  The updated state of the Ecspanse initialization data.
 
   ## Order of execution
-  You can specify the order in which systems are run using the `run_after` option. This option takes a system or list of systems that must be run before this system.
+
+  Systems are executed each frame during the game loop. Sync systems run in the order they were added to the data's operations list.
+  Async systems are grouped together depending on the componets they are locking.
+  The order in which systems run can pe specified using the `run_after` option. This option takes a system or list of systems that must be run before the current system.
 
   When using the `run_after: SystemModule1` or `run_after: [SystemModule1, SystemModule2]` option, the following rules apply:
+  - The system(s) specified in `run_after` must be already scheduled. This prevents circular dependencies.
+  - There is a deliberate choice to allow **only the `run_after`** ordering option. While a `run_before` option would simplify some relations, it can also introduce circular dependencies.
 
-  - The system(s) specified in `run_after` must already be added to the data. This prevents circular dependencies.
-  - There is a deliberate choice to allow only the `run_after` option. While a `before` option would simplify some relations, it can also introduce circular dependencies.
-
-  For example, consider the following systems:
-
+  Example of circular dependency:
   - System A
-  - System B, which must be run before System A
-  - System C, which must be run after System A and before System B
-
+  - System B, run_before: System A
+  - System C, run_after: System A, run_before: System B
   """
   @spec add_system(Ecspanse.Data.t(), system_module :: module(), opts :: keyword()) ::
           Ecspanse.Data.t()
@@ -292,22 +289,20 @@ defmodule Ecspanse do
   end
 
   @doc """
-
-  Adds a frame end system to the data.
+  Schedules a frame end system to be executed each frame during the game loop.
 
   A frame end system is executed synchronously at the end of each frame.
-  Sync systems are executed in the order they were added to the data.
+  Sync systems are executed in the order they were added.
 
-  ## Parameters
+  ## Arguments
 
-  - `data` - the current state of the data.
-  - `system_module` - the module that defines the frame start system.
+  - `data` - the current state of the Ecspanse initialization data.
+  - `system_module` - the scheduled system module.
   - `opts` - optional - a keyword list of options to apply to the system. See the `add_system/3` function for more information about the options.
 
   ## Returns
 
-  The updated state of the data.
-
+  The updated state of the Ecspanse initialization data.
   """
   @spec add_frame_end_system(Ecspanse.Data.t(), system_module :: module(), opts :: keyword()) ::
           Ecspanse.Data.t()
@@ -332,21 +327,19 @@ defmodule Ecspanse do
   end
 
   @doc """
-  Run only once on Server shutdown
-  Does not take options
+  Schedules a shutdown system.
 
-  Adds a shutdown system to the data.
+  A shutdown system runs only once when the Ecspanse.Server terminates. Shutdown systems do not take any options.
+  This is useful for cleaning up or saving the game state.
 
-  A shudtown system is run only once when the data is terminated. Shutdown systems do not take options.
+  ## Arguments
 
-  ## Parameters
-
-  - `data` - the current state of the data.
-  - `system_module` - the module that defines the startup system.
+  - `data` - the current state of the Ecspanse initialization data.
+  - `system_module` - the scheduled system module.
 
   ## Returns
 
-  The updated state of the data.
+  The updated state of the Ecspanse initialization data.
   """
   @spec add_shutdown_system(Ecspanse.Data.t(), system_module :: module()) :: Ecspanse.Data.t()
   def add_shutdown_system(%Ecspanse.Data{operations: operations} = data, system_module) do
@@ -361,28 +354,28 @@ defmodule Ecspanse do
   end
 
   @doc """
+  Convenient way to group together related systems.
 
-  Adds a system set to the data.
+  New systems can be added to the set using the `add_system_*` functions.
+  System sets can also be nested.
 
-  A system set is a way to group systems together. The `opts` parameter is a keyword list of options that are applied on top of the system's options inside the set. System sets can also be nested.
-  See the `add_system/3` function for more information about the options.
-
-  The `add_system_set/3` function takes the data as an argument and returns the updated data. Inside the function, new systems can be added using the `add_system_*` functions.
-
-  ## Parameters
+  ## Arguments
 
   - `data` - the current state of the data.
   - `{module, function}` - the module and function that define the system set.
   - `opts` - optional - a keyword list of options to apply to the system set.
 
+  The `opts` parameter is a keyword list of options that are applied on top of each set systems options.
+  See the `add_system/3` function for more information about the options.
+
   ## Returns
 
-  The updated state of the data.
+  The updated state of the Ecspanse initialization data.
 
   ## Example
 
   ```elixir
-  defmodule MySetup do
+  defmodule MyProject do
     use Ecspanse
 
     @impl Ecspanse
@@ -407,7 +400,6 @@ defmodule Ecspanse do
     end
   end
   ```
-
   """
   @spec add_system_set(Ecspanse.Data.t(), {module(), function :: atom}, opts :: keyword()) ::
           Ecspanse.Data.t()
@@ -451,16 +443,18 @@ defmodule Ecspanse do
   end
 
   @doc """
-  Queues a data event to be processed in the next frame.
+  Queues an event to be processed in the next frame.
 
-  The first argument is an event spec.
+  ## Arguments
+  - `Ecspanse.Event.event_spec()`
+  - `opts` - optional - a keyword list of options to apply to the event.
 
   ## Options
 
   - `:batch_key` - A key for grouping multiple similar events in different batches within the same frame.
-  The data groups the events into batches with unique `{EventModule, batch_key}` combinations.
+  The event scheduler groups the events into batches by unique `{EventModule, batch_key}` combinations.
   In most cases, the key may be an entity ID that either triggers or is impacted by the event.
-  Defaults to "default", meaning that similar events will be processed in separate batches.
+  Defaults to `default`, meaning that similar events will be placed in separate batches.
 
   ## Examples
 
