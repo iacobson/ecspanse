@@ -129,4 +129,9 @@ defmodule Ecspanse.Util do
     Memoize.invalidate(Ecspanse.Query)
     Memoize.invalidate(Ecspanse.Util, :list_entities_components)
   end
+
+  @doc false
+  def invalidate_query_cache do
+    Memoize.invalidate(Ecspanse.Query)
+  end
 end

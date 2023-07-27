@@ -24,6 +24,7 @@ defmodule Ecspanse.Query do
           for_entities: list(Ecspanse.Entity.t()),
           not_for_entities: list(Ecspanse.Entity.t()),
           for_children_of: list(Ecspanse.Entity.t()),
+          for_descendants_of: list(Ecspanse.Entity.t()),
           for_parents_of: list(Ecspanse.Entity.t())
         }
 
@@ -36,6 +37,7 @@ defmodule Ecspanse.Query do
     :for_entities,
     :not_for_entities,
     :for_children_of,
+    :for_descendants_of,
     :for_parents_of
   ]
 
@@ -85,7 +87,7 @@ defmodule Ecspanse.Query do
 
   """
   @spec select(component_modules :: tuple(), keyword()) :: t()
-  defmemo select(component_modules_tuple, filters \\ []), max_waiter: 1000, waiter_sleep_ms: 0 do
+  def select(component_modules_tuple, filters \\ []) do
     comp = Tuple.to_list(component_modules_tuple) |> List.flatten()
 
     # The order is essential here, because the result will be pattern_matched on the initial tuple
@@ -127,6 +129,7 @@ defmodule Ecspanse.Query do
     for_entities = Keyword.get(filters, :for, []) |> Enum.uniq()
     not_for_entities = Keyword.get(filters, :not_for, []) |> Enum.uniq()
     for_children_of = Keyword.get(filters, :for_children_of, []) |> Enum.uniq()
+    for_descendants_of = Keyword.get(filters, :for_descendants_of, []) |> Enum.uniq()
     for_parents_of = Keyword.get(filters, :for_parents_of, []) |> Enum.uniq()
 
     :ok = validate_entities(for_entities)
@@ -139,6 +142,7 @@ defmodule Ecspanse.Query do
       for_entities: for_entities,
       not_for_entities: not_for_entities,
       for_children_of: for_children_of,
+      for_descendants_of: for_descendants_of,
       for_parents_of: for_parents_of
     }
   end
@@ -226,6 +230,17 @@ defmodule Ecspanse.Query do
 
   @doc """
   TODO
+
+  Returns a list of entities that are descendants of the given entity.
+  That means the children of the entity and their children and so on.
+  """
+  @spec list_descendants(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
+  defmemo list_descendants(%Entity{} = entity), max_waiter: 1000, waiter_sleep_ms: 0 do
+    list_descendants_entities([entity], [])
+  end
+
+  @doc """
+  TODO
   Returns a list of entities that are parents of the given entity
   """
   @spec list_parents(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
@@ -239,6 +254,7 @@ defmodule Ecspanse.Query do
   @doc """
   TODO
   Fetches tagged components, for all entities.
+  The components need to be tagged with all the given tags to return.
   """
   @spec list_tagged_components(list(tag :: atom())) ::
           list(components_state :: struct())
@@ -305,6 +321,20 @@ defmodule Ecspanse.Query do
 
   @doc """
   TODO
+  Fetches tagged components, for the descendants of the given entity.
+  """
+  @spec list_tagged_components_for_descendants(Ecspanse.Entity.t(), list(tag :: atom())) ::
+          list(components_state :: struct())
+  def list_tagged_components_for_descendants(entity, tags) do
+    case list_descendants(entity) do
+      [] -> []
+      [descendant] -> list_tagged_components_for_entity(descendant, tags)
+      descendants -> list_tagged_components_for_entities(descendants, tags)
+    end
+  end
+
+  @doc """
+  TODO
   Fetches tagged components, for the parents of the given entity.
   """
   @spec list_tagged_components_for_parents(Ecspanse.Entity.t(), list(tag :: atom())) ::
@@ -358,10 +388,8 @@ defmodule Ecspanse.Query do
   TODO
   """
   @spec has_components?(Ecspanse.Entity.t(), list(module())) :: boolean()
-  defmemo has_components?(entity, component_module_list)
-          when is_list(component_module_list),
-          max_waiter: 1000,
-          waiter_sleep_ms: 0 do
+  def has_components?(entity, component_module_list)
+      when is_list(component_module_list) do
     entities_components = Ecspanse.Util.list_entities_components()
 
     component_module_list -- Map.get(entities_components, entity.id, []) == []
@@ -371,9 +399,7 @@ defmodule Ecspanse.Query do
   TODO
   """
   @spec is_child_of?(parent: Ecspanse.Entity.t(), child: Ecspanse.Entity.t()) :: boolean()
-  defmemo is_child_of?(parent: %Entity{} = parent, child: %Entity{} = child),
-    max_waiter: 1000,
-    waiter_sleep_ms: 0 do
+  def is_child_of?(parent: %Entity{} = parent, child: %Entity{} = child) do
     parents = list_parents(child)
     parent in parents
   end
@@ -382,9 +408,7 @@ defmodule Ecspanse.Query do
   TODO
   """
   @spec is_parent_of?(parent: Ecspanse.Entity.t(), child: Ecspanse.Entity.t()) :: boolean()
-  defmemo is_parent_of?(parent: %Entity{} = parent, child: %Entity{} = child),
-    max_waiter: 1000,
-    waiter_sleep_ms: 0 do
+  def is_parent_of?(parent: %Entity{} = parent, child: %Entity{} = child) do
     children = list_children(parent)
     child in children
   end
@@ -487,6 +511,9 @@ defmodule Ecspanse.Query do
       not Enum.empty?(query.for_children_of) ->
         entities_with_components_stream_for_children(query)
 
+      not Enum.empty?(query.for_descendants_of) ->
+        entities_with_components_stream_for_descendants(query)
+
       not Enum.empty?(query.for_parents_of) ->
         entities_with_components_stream_for_parents(query)
 
@@ -502,6 +529,13 @@ defmodule Ecspanse.Query do
     end
   end
 
+  defp entities_with_components_stream_for_descendants(query) do
+    case list_descendants_entities(query.for_descendants_of, []) do
+      [] -> []
+      entities -> filter_for_entities(entities)
+    end
+  end
+
   defp entities_with_components_stream_for_parents(query) do
     case list_parents_entities(query.for_parents_of) do
       [] -> []
@@ -509,15 +543,33 @@ defmodule Ecspanse.Query do
     end
   end
 
-  defp list_children_entities(for_children_entities) do
-    select({Component.Children}, for: for_children_entities)
+  defp list_children_entities(entities) do
+    select({Component.Children}, for: entities)
     |> stream()
     |> Stream.map(fn {children} -> children.entities end)
     |> Stream.concat()
   end
 
-  defp list_parents_entities(for_parent_entities) do
-    select({Component.Parents}, for: for_parent_entities)
+  defp list_descendants_entities([], acc) do
+    acc
+  end
+
+  defp list_descendants_entities(entities, acc) do
+    children =
+      select({Component.Children}, for: entities)
+      |> stream()
+      |> Stream.map(fn {%Component.Children{entities: children}} -> children end)
+      |> Enum.concat()
+
+    # avoid circular dependencies
+    children = Enum.uniq(children -- acc)
+    acc = Enum.uniq(acc ++ children)
+
+    list_descendants_entities(children, acc)
+  end
+
+  defp list_parents_entities(entities) do
+    select({Component.Parents}, for: entities)
     |> stream()
     |> Stream.map(fn {parents} -> parents.entities end)
     |> Stream.concat()
@@ -649,7 +701,7 @@ defmodule Ecspanse.Query do
 
     if length(res) > 1 do
       raise Error,
-            "Combining the following filters is not allowed: :for, :not_for, :for_children_of, :for_parents_of"
+            "Combining the following filters is not allowed: :for, :not_for, :for_children_of, :for_parents_of. Only one of them can be used at a time."
     else
       :ok
     end

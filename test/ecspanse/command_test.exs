@@ -76,7 +76,7 @@ defmodule Ecspanse.CommandTest do
     end
   end
 
-  describe "despawn_entities_and_children!/1" do
+  describe "despawn_entities_and_descendants!/1" do
     test "despawns entities and their children" do
       assert %Ecspanse.Entity{} =
                entity_1 =
@@ -96,7 +96,7 @@ defmodule Ecspanse.CommandTest do
                  {Ecspanse.Entity, children: [entity_1, entity_2, entity_3]}
                ])
 
-      Ecspanse.Command.despawn_entities_and_children!([entity_4, entity_5])
+      Ecspanse.Command.despawn_entities_and_descendants!([entity_4, entity_5])
 
       assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_1.id)
       assert {:error, :not_found} = Ecspanse.Query.fetch_entity(entity_2.id)

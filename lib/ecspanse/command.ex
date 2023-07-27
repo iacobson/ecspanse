@@ -1,15 +1,18 @@
 defmodule Ecspanse.Command do
   @moduledoc """
-  TODO
+  The `Ecspanse.Command` module provides a set of functions for managing entities, components and resources in the `Ecspanse` engine.
 
-  An entity children and parents will be unique. If the same entity is added twice, it will be ignored.
+  Commands are the only way to change the state of components and resources in `Ecspanse`. These commands can only be run from systems, otherwise an error will be thrown.
+  The `Ecspanse.Command` module includes functions for managing relationships between entities, such as adding and removing children and parents.
+  All entity and component related commands can run for batches (lists) for performance reasons.
 
-  When adding or removing children or parents, they are automatically added or removed also
-  from the corresponding parent or children entities.
-  The same when despawning entities.
+  All commands raise an error if the command fails.
 
+  ## Entity Relationships
 
-  For performance reasons all Entity and Component related commands run for batches (lists)
+  The `Ecspanse.Command` module provides functions for managing relationships between entities.
+  When adding or removing children or parents, they are automatically added or removed from the corresponding parent or children entities.
+  The same applies when despawning entities.
   """
 
   require Logger
@@ -39,7 +42,7 @@ defmodule Ecspanse.Command do
             :run
             | :spawn_entities
             | :despawn_entities
-            | :despawn_entities_and_children
+            | :despawn_entities_and_descendants
             | :add_components
             | :remove_components
             | :update_components
@@ -87,7 +90,32 @@ defmodule Ecspanse.Command do
             delete_components: []
 
   @doc """
-  TODO
+  The `spawn_entity/1` spawns a new entity with the given components and relations provided by the Ecspanse.Entity.entity_spec() type.
+  When creating a new entity, at least one of the `components:`, `children:` or `parents:`
+  must be provided in the entity spec, otherwise the entity cannot be persisted.
+
+  Due to the potentially large number of components that may be affected by this operation,
+  it is recommended to run this function in a synchronous system (such as a `frame_start` or `frame_end` system)
+  to avoid the need to lock all involved components.
+
+  ## Arguments
+  - entity spec: of type `Ecspanse.Entity.entity_spec()`
+
+  ## Returns
+  - the new entity of type `Ecspanse.Entity.t()`
+
+  ## Example
+  ```elixir
+  %Ecspanse.Entity{} = Ecspanse.Command.spawn_entity!(
+    {
+      Ecspanse.Entity,
+      id: "my_custom_id",
+      components: [MyComponent1, {MyComponent2, [val: :foo], [:tag1, :tag2]}],
+      children: [%Ecspanse.Entity{} = child1, %Ecspanse.Entity{} = child2],
+      parents: [%Ecspanse.Entity{} = parent1, %Ecspanse.Entity{} = parent2]
+    }
+  )
+  ```
   """
   @spec spawn_entity!(Entity.entity_spec()) :: Entity.t()
   def spawn_entity!(spec) do
@@ -96,7 +124,10 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  The same as `spawn_entity!/1` but spawns multiple entities at once.
+  It takes a list of entity specs as argument and returns a list of Ecspanse.Entity structs.
+
+  See `spawn_entity!/1` for more details.
   """
   @spec spawn_entities!(list(Entity.entity_spec())) :: list(Entity.t())
   def spawn_entities!([]), do: []
@@ -109,7 +140,25 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  The `despawn_entity!/1` function removes the specified entity and removes all of its components.
+  It also removes the despawned entity from its parent and child entities, if any.
+
+  Due to the potentially large number of components that may be affected by this operation,
+  it is recommended to run this function in a synchronous system (such as a `frame_start` or `frame_end` system)
+  to avoid the need to lock all involved components.
+
+  ## Parameters
+
+  - `entity` - the entity to despawn.
+
+  ## Returns
+
+  `:ok` if the entity was successfully despawned.
+
+  ## Example
+  ```elixir
+  :ok = Ecspanse.Command.despawn_entity!(%Ecspanse.Entity{} = entity)
+  ```
   """
   @spec despawn_entity!(Entity.t()) :: :ok
   def despawn_entity!(entity) do
@@ -117,13 +166,8 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
-  Removes the entity and all its components.
-      # when removing an entity, remove it from its parents and children
-
-
-  TIP: due to many components that are affected, it may make sense to run this
-  in a sync system (frame_start or frame_end system) to avoid the need to lock all involved components
+  The same as `despawn_entity!/1` but despawns multiple entities at once.
+  It takes a list of entities as argument and returns `:ok`.  See `despawn_entity!/1` for more details.
   """
   @spec despawn_entities!(list(Entity.t())) :: :ok
   def despawn_entities!([]), do: :ok
@@ -136,33 +180,36 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  The same as `despawn_entity!/1` but recursively despawns also all descendants tree of the entity.
+
+  This means that it will despawn the children of the entity, and their children, and so on.
+
+  It is an efficient way to remove an entire entity tree with just one operation.
+  Extra attention required for entities with shared children.
+
+  See `despawn_entity!/1` for more details.
   """
-  @spec despawn_entity_and_children!(Entity.t()) :: :ok
-  def despawn_entity_and_children!(entity) do
-    despawn_entities_and_children!([entity])
+  @spec despawn_entity_and_descendants!(Entity.t()) :: :ok
+  def despawn_entity_and_descendants!(entity) do
+    despawn_entities_and_descendants!([entity])
   end
 
   @doc """
-  The same as `despawn_entities!/1` but recursively despawns also all children of the entities.
-  Meaning it will despawn the children and theri children and so on.
+  The same as `despawn_entity_and_descendants!/1` but despawns multiple entities and their descendants at once.
+  It takes a list of entities as argument and returns `:ok`.
   """
-  @spec despawn_entities_and_children!(list(Entity.t())) :: :ok
-  def despawn_entities_and_children!([]), do: :ok
+  @spec despawn_entities_and_descendants!(list(Entity.t())) :: :ok
+  def despawn_entities_and_descendants!([]), do: :ok
 
-  def despawn_entities_and_children!(entities_list) do
-    operation = build_operation(:despawn_entities_and_children)
-    recursive_children_list = recursive_children_entities(operation, entities_list, [])
+  def despawn_entities_and_descendants!(entities_list) do
+    descendants_list = entities_descendants(entities_list)
 
-    (entities_list ++ recursive_children_list)
+    (entities_list ++ descendants_list)
     |> List.flatten()
     |> Enum.uniq()
     |> despawn_entities!()
   end
 
-  @doc """
-  # TODO
-  """
   @spec add_component!(Entity.t(), Component.component_spec()) :: :ok
   def add_component!(entity, component_spec) do
     add_components!([{entity, [component_spec]}])
@@ -464,6 +511,8 @@ defmodule Ecspanse.Command do
               entity: entity,
               component_specs: component_specs
             } <- entity_spec_list do
+          # Force the creation of the children and parents components on entity creation
+          component_specs = component_specs ++ [Component.Children, Component.Parents]
           upsert_components(operation, entity, component_specs, [])
         end
       end)
@@ -1630,32 +1679,22 @@ defmodule Ecspanse.Command do
   defp maybe_invalidate_cache_on_relation_update(components) do
     relation_updates =
       Enum.any?(components, fn {{_entity_id, module}, _tags, _component} ->
-        module in [Ecspanse.Component.Children, Ecspanse.Component.Parent]
+        module in [Ecspanse.Component.Children, Ecspanse.Component.Parents]
       end)
 
     if relation_updates do
       # invalidate the cache when updating Children or Parents
-      Util.invalidate_cache()
+      Util.invalidate_query_cache()
     end
   end
 
   # helper query functions
 
-  defp recursive_children_entities(_operation, [], acc) do
-    acc
-  end
-
-  defp recursive_children_entities(operation, entities, acc) do
-    children =
-      Query.select({Component.Children}, for: entities)
-      |> Query.stream()
-      |> Stream.map(fn {%Component.Children{entities: children}} -> children end)
-      |> Enum.concat()
-
-    # avoid circular dependencies
-    children = children -- acc
-
-    recursive_children_entities(operation, children, acc ++ children)
+  defp entities_descendants(entities) do
+    Query.select({Ecspanse.Entity}, for_descendants_of: entities)
+    |> Query.stream()
+    |> Stream.map(fn {entity} -> entity end)
+    |> Enum.to_list()
   end
 
   ### Special Events
