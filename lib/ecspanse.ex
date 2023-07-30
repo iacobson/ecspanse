@@ -19,7 +19,7 @@ defmodule Ecspanse do
 
   To use Ecspanse, a module needs to be created that `use Ecspanse`. This implements the `Ecspanse` behaviour, so the `setup/1` callback must be defined. All the systems and their execution order are defined in the `setup/1` callback.
 
-  ### Example
+  ### Examples
 
   ```elixir
   defmodule TestServer1 do
@@ -72,17 +72,9 @@ defmodule Ecspanse do
 
   @doc """
   The `setup/1` callback is called on Ecspanse startup and is the place to define the running systems.
+  It takes an `Ecspanse.Data` struct as an argument and returns an updated struct.
 
-
-  ## Arguments
-
-  - `data` - the current state of the Ecspanse initialization data.
-
-  ## Returns
-
-  The updated initialization data.
-
-  ## Example
+  ## Examples
 
   ```elixir
   defmodule MyProject do
@@ -91,8 +83,6 @@ defmodule Ecspanse do
     @impl Ecspanse
     def setup(%Ecspanse.Data{} = data) do
       data
-      |> Ecspanse.add_startup_event(MyStartupEvent)
-      |> Ecspanse.add_startup_event({MyOtherStartupEvent, value: :foo})
       |> Ecspanse.add_system(MySystem)
       |> Ecspanse.add_frame_end_system(MyFrameEndSystem)
       |> Ecspanse.add_frame_start_system(MyFrameStartSystem)
@@ -165,14 +155,11 @@ defmodule Ecspanse do
 
   A startup system runs only once during the Ecspanse startup process. Startup systems do not take any options.
 
-  ## Arguments
+  ## Examples
 
-  - `data` - the current state of the Ecspanse initialization data.
-  - `system_module` - the scheduled system module.
-
-  ## Returns
-
-  The updated state of the Ecspanse initialization data.
+    ```elixir
+    Ecspanse.add_startup_system(ecspanse_data, MyStartupSystemModule)
+    ```
   """
   @spec add_startup_system(Ecspanse.Data.t(), system_module :: module()) :: Ecspanse.Data.t()
   def add_startup_system(%Ecspanse.Data{operations: operations} = data, system_module) do
@@ -192,15 +179,15 @@ defmodule Ecspanse do
   A frame start system is executed synchronously at the beginning of each frame.
   Sync systems are executed in the order they were added.
 
-  ## Arguments
+  ## Options
 
-  - `data` - the current state of the Ecspanse initialization data.
-  - `system_module` - the scheduled system module.
-  - `opts` - optional - a keyword list of options to apply to the system. See the `add_system/3` function for more information about the options.
+  - See the `add_system/3` function for more information about the options.
 
-  ## Returns
+  ## Examples
 
-  The updated state of the Ecspanse initialization data.
+    ```elixir
+    Ecspanse.add_frame_start_system(ecspanse_data, MyFrameStartSystemModule)
+    ```
   """
 
   @spec add_frame_start_system(Ecspanse.Data.t(), system_module :: module(), opts :: keyword()) ::
@@ -226,32 +213,23 @@ defmodule Ecspanse do
   end
 
   @doc """
-  Schedules an async systen to be executed each frame during the game loop.
-
-  The `add_system/3` function takes the data as an argument and returns the updated data. Inside the function, a new system is created using the `System` struct and added to the data's operations list.
-
-  ## Arguments
-
-  - `data` - the current state of the data.
-  - `system_module` - the module that defines the system.
-  - `opts` - optional - a keyword list of options to apply to the system.
+  Schedules an async system to be executed each frame during the game loop.
 
   ## Options
 
   - `:run_in_state` - a list of states in which the system should run.
   - `:run_not_in_state` - a list of states in which the system should not run.
-  - `:run_if` - a list of tuples containing the module and function that define a condition for running the system. Eg. `[{Module, :function}]`. The function must return a boolean.
-  - `:run_after` - a system or list of systems that must run before this system.
-
-  ## Returns
-
-  The updated state of the Ecspanse initialization data.
+  - `:run_if` - a list of tuples containing the module and function that define a condition for running the system. Eg. `[{MyModule, :my_function}]`. The function must return a boolean.
+  - `:run_after` - only for async systems - a system or list of systems that must run before this system.
 
   ## Order of execution
 
   Systems are executed each frame during the game loop. Sync systems run in the order they were added to the data's operations list.
-  Async systems are grouped together depending on the componets they are locking.
-  The order in which systems run can pe specified using the `run_after` option. This option takes a system or list of systems that must be run before the current system.
+  Async systems are grouped in batches depending on the componets they are locking.
+  See the `Ecspanse.System` module for more information about component locking.
+
+  The order in which async systems run can pe specified using the `run_after` option.
+  This option takes a system or list of systems that must be run before the current system.
 
   When using the `run_after: SystemModule1` or `run_after: [SystemModule1, SystemModule2]` option, the following rules apply:
   - The system(s) specified in `run_after` must be already scheduled. This prevents circular dependencies.
@@ -261,6 +239,17 @@ defmodule Ecspanse do
   - System A
   - System B, run_before: System A
   - System C, run_after: System A, run_before: System B
+
+  ## Examples
+
+    ```elixir
+    Ecspanse.add_system(
+      ecspanse_data,
+      MyAsyncSystemModule,
+      run_in_state: [:play],
+      run_after: [MyOtherSystemModule]
+    )
+    ```
   """
   @spec add_system(Ecspanse.Data.t(), system_module :: module(), opts :: keyword()) ::
           Ecspanse.Data.t()
@@ -294,15 +283,15 @@ defmodule Ecspanse do
   A frame end system is executed synchronously at the end of each frame.
   Sync systems are executed in the order they were added.
 
-  ## Arguments
+  ## Options
 
-  - `data` - the current state of the Ecspanse initialization data.
-  - `system_module` - the scheduled system module.
-  - `opts` - optional - a keyword list of options to apply to the system. See the `add_system/3` function for more information about the options.
+  - See the `add_system/3` function for more information about the options.
 
-  ## Returns
+  ## Examples
 
-  The updated state of the Ecspanse initialization data.
+    ```elixir
+    Ecspanse.add_frame_end_system(ecspanse_data, MyFrameEndSystemModule)
+    ```
   """
   @spec add_frame_end_system(Ecspanse.Data.t(), system_module :: module(), opts :: keyword()) ::
           Ecspanse.Data.t()
@@ -332,14 +321,11 @@ defmodule Ecspanse do
   A shutdown system runs only once when the Ecspanse.Server terminates. Shutdown systems do not take any options.
   This is useful for cleaning up or saving the game state.
 
-  ## Arguments
+  ## Examples
 
-  - `data` - the current state of the Ecspanse initialization data.
-  - `system_module` - the scheduled system module.
-
-  ## Returns
-
-  The updated state of the Ecspanse initialization data.
+    ```elixir
+    Ecspanse.add_shutdown_system(ecspanse_data, MyShutdownSystemModule)
+    ```
   """
   @spec add_shutdown_system(Ecspanse.Data.t(), system_module :: module()) :: Ecspanse.Data.t()
   def add_shutdown_system(%Ecspanse.Data{operations: operations} = data, system_module) do
@@ -359,20 +345,13 @@ defmodule Ecspanse do
   New systems can be added to the set using the `add_system_*` functions.
   System sets can also be nested.
 
-  ## Arguments
 
-  - `data` - the current state of the data.
-  - `{module, function}` - the module and function that define the system set.
-  - `opts` - optional - a keyword list of options to apply to the system set.
+    ## Options
 
-  The `opts` parameter is a keyword list of options that are applied on top of each set systems options.
-  See the `add_system/3` function for more information about the options.
+  The set options that applied on top of each system options in the set.
+  - See the `add_system/3` function for more information about the options.
 
-  ## Returns
-
-  The updated state of the Ecspanse initialization data.
-
-  ## Example
+  ## Examples
 
   ```elixir
   defmodule MyProject do
@@ -426,9 +405,10 @@ defmodule Ecspanse do
 
   ## Examples
 
-      iex> Ecspanse.fetch_pid()
-      {:ok, %{name: data_name, pid: data_pid}}
-
+    ```elixir
+    Ecspanse.fetch_pid()
+    {:ok, %{name: data_name, pid: data_pid}}
+    ```
   """
   @spec fetch_pid() ::
           {:ok, pid()} | {:error, :not_found}
@@ -445,10 +425,6 @@ defmodule Ecspanse do
   @doc """
   Queues an event to be processed in the next frame.
 
-  ## Arguments
-  - `Ecspanse.Event.event_spec()`
-  - `opts` - optional - a keyword list of options to apply to the event.
-
   ## Options
 
   - `:batch_key` - A key for grouping multiple similar events in different batches within the same frame.
@@ -458,9 +434,9 @@ defmodule Ecspanse do
 
   ## Examples
 
-      iex> Ecspanse.event(MyEventModule,  batch_key: my_entity.id)
-      :ok
-
+    ```elixir
+      Ecspanse.event({MyEventModule, value: :foo},  batch_key: my_entity.id)
+    ```
   """
   @spec event(
           Ecspanse.Event.event_spec(),

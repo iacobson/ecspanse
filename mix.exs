@@ -1,15 +1,22 @@
 defmodule Ecspanse.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
+  @source_url "https://github.com/iacobson/ecspanse"
+
   def project do
     [
       app: :ecspanse,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       consolidate_protocols: Mix.env() != :test,
       elixirc_paths: elixirc_paths(Mix.env()),
-      deps: deps()
+      deps: deps(),
+
+      # docs
+      name: "ECSpanse",
+      docs: docs()
     ]
   end
 
@@ -30,7 +37,68 @@ defmodule Ecspanse.MixProject do
       {:plug_crypto, "~> 1.2"},
       {:ex2ms, "~> 1.6"},
       {:memoize, "~> 1.4"},
-      {:credo, "~> 1.6", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.30.0", only: :dev, runtime: false}
+    ]
+  end
+
+  defp docs do
+    [
+      main: "Ecspanse",
+      source_ref: "v#{@version}",
+      logo: "guides/images/logo.png",
+      extra_section: "GUIDES",
+      source_url: @source_url,
+      groups_for_docs: [
+        Generic: &(&1[:group] == :generic),
+        Entities: &(&1[:group] == :entities),
+        Relationships: &(&1[:group] == :relationships),
+        Components: &(&1[:group] == :components),
+        Resources: &(&1[:group] == :resources),
+        Tags: &(&1[:group] == :tags)
+      ],
+      nest_modules_by_prefix: [
+        Ecspanse.Entity,
+        Ecspanse.Component,
+        Ecspanse.System,
+        Ecspanse.Resource,
+        Ecspanse.Event,
+        Ecspanse.Query,
+        Ecspanse.Command,
+        Ecspanse.Server
+      ],
+      groups_for_modules: [
+        API: [Ecspanse, Ecspanse.Data, Ecspanse.Frame, Ecspanse.Server, Ecspanse.Server.State],
+        Entities: [Ecspanse.Entity],
+        Components: [
+          Ecspanse.Component,
+          Ecspanse.Component.Children,
+          Ecspanse.Component.Parents,
+          Ecspanse.Component.Timer
+        ],
+        Systems: [
+          Ecspanse.System,
+          Ecspanse.System.WithEventsSubscription,
+          Ecspanse.System.WithoutEventsSubscription,
+          Ecspanse.System.CreateDefaultResources,
+          Ecspanse.System.Timer,
+          Ecspanse.System.TrackFPS,
+          Ecspanse.System.Debug
+        ],
+        Resources: [Ecspanse.Resource, Ecspanse.Resource.State, Ecspanse.Resource.FPS],
+        Events: [
+          Ecspanse.Event,
+          Ecspanse.Event.ComponentCreated,
+          Ecspanse.Event.ComponentUpdated,
+          Ecspanse.Event.ComponentDeleted,
+          Ecspanse.Event.ResourceCreated,
+          Ecspanse.Event.ResourceUpdated,
+          Ecspanse.Event.ResourceDeleted,
+          Ecspanse.Event.Timer
+        ],
+        Queries: [Ecspanse.Query],
+        Commands: [Ecspanse.Command]
+      ]
     ]
   end
 end

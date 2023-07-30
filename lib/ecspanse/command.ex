@@ -77,11 +77,12 @@ defmodule Ecspanse.Command do
     end
   end
 
+  @typedoc false
   @type t :: %Command{
           return_result: any(),
-          insert_components: list(Component.t()),
-          update_components: list(Component.t()),
-          delete_components: list(Component.t())
+          insert_components: list(component :: struct()),
+          update_components: list(component :: struct()),
+          delete_components: list(component :: struct())
         }
 
   defstruct return_result: nil,
@@ -90,7 +91,7 @@ defmodule Ecspanse.Command do
             delete_components: []
 
   @doc """
-  The `spawn_entity/1` spawns a new entity with the given components and relations provided by the Ecspanse.Entity.entity_spec() type.
+  Spawns a new entity with the given components and relations provided by the Ecspanse.Entity.entity_spec() type.
   When creating a new entity, at least one of the `components:`, `children:` or `parents:`
   must be provided in the entity spec, otherwise the entity cannot be persisted.
 
@@ -98,25 +99,20 @@ defmodule Ecspanse.Command do
   it is recommended to run this function in a synchronous system (such as a `frame_start` or `frame_end` system)
   to avoid the need to lock all involved components.
 
-  ## Arguments
-  - entity spec: of type `Ecspanse.Entity.entity_spec()`
-
-  ## Returns
-  - the new entity of type `Ecspanse.Entity.t()`
-
-  ## Example
+  ## Examples
   ```elixir
-  %Ecspanse.Entity{} = Ecspanse.Command.spawn_entity!(
-    {
-      Ecspanse.Entity,
-      id: "my_custom_id",
-      components: [MyComponent1, {MyComponent2, [val: :foo], [:tag1, :tag2]}],
-      children: [%Ecspanse.Entity{} = child1, %Ecspanse.Entity{} = child2],
-      parents: [%Ecspanse.Entity{} = parent1, %Ecspanse.Entity{} = parent2]
-    }
-  )
+    %Ecspanse.Entity{} = Ecspanse.Command.spawn_entity!(
+      {
+        Ecspanse.Entity,
+        id: "my_custom_id",
+        components: [MyComponent1, {MyComponent2, [val: :foo], [:tag1, :tag2]}],
+        children: [child_entity_1, child_entity_2],
+        parents: [parent_entity_1, parent_entity_2]
+      }
+    )
   ```
   """
+  @doc group: :entities
   @spec spawn_entity!(Entity.entity_spec()) :: Entity.t()
   def spawn_entity!(spec) do
     [entity] = spawn_entities!([spec])
@@ -129,6 +125,7 @@ defmodule Ecspanse.Command do
 
   See `spawn_entity!/1` for more details.
   """
+  @doc group: :entities
   @spec spawn_entities!(list(Entity.entity_spec())) :: list(Entity.t())
   def spawn_entities!([]), do: []
 
@@ -140,26 +137,19 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  The `despawn_entity!/1` function removes the specified entity and removes all of its components.
+  Despawns the specified entity and removes all of its components.
   It also removes the despawned entity from its parent and child entities, if any.
 
   Due to the potentially large number of components that may be affected by this operation,
   it is recommended to run this function in a synchronous system (such as a `frame_start` or `frame_end` system)
   to avoid the need to lock all involved components.
 
-  ## Parameters
-
-  - `entity` - the entity to despawn.
-
-  ## Returns
-
-  `:ok` if the entity was successfully despawned.
-
-  ## Example
-  ```elixir
-  :ok = Ecspanse.Command.despawn_entity!(%Ecspanse.Entity{} = entity)
-  ```
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.despawn_entity!(entity)
+    ```
   """
+  @doc group: :entities
   @spec despawn_entity!(Entity.t()) :: :ok
   def despawn_entity!(entity) do
     despawn_entities!([entity])
@@ -169,6 +159,7 @@ defmodule Ecspanse.Command do
   The same as `despawn_entity!/1` but despawns multiple entities at once.
   It takes a list of entities as argument and returns `:ok`.  See `despawn_entity!/1` for more details.
   """
+  @doc group: :entities
   @spec despawn_entities!(list(Entity.t())) :: :ok
   def despawn_entities!([]), do: :ok
 
@@ -180,7 +171,7 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  The same as `despawn_entity!/1` but recursively despawns also all descendants tree of the entity.
+  The same as `despawn_entity!/1` but recursively despawns also all descendant tree of the entity.
 
   This means that it will despawn the children of the entity, and their children, and so on.
 
@@ -189,6 +180,7 @@ defmodule Ecspanse.Command do
 
   See `despawn_entity!/1` for more details.
   """
+  @doc group: :entities
   @spec despawn_entity_and_descendants!(Entity.t()) :: :ok
   def despawn_entity_and_descendants!(entity) do
     despawn_entities_and_descendants!([entity])
@@ -198,6 +190,7 @@ defmodule Ecspanse.Command do
   The same as `despawn_entity_and_descendants!/1` but despawns multiple entities and their descendants at once.
   It takes a list of entities as argument and returns `:ok`.
   """
+  @doc group: :entities
   @spec despawn_entities_and_descendants!(list(Entity.t())) :: :ok
   def despawn_entities_and_descendants!([]), do: :ok
 
@@ -210,16 +203,36 @@ defmodule Ecspanse.Command do
     |> despawn_entities!()
   end
 
+  @doc """
+  Adds a new component to the specified entity.
+
+  **Attention!** An entity can only have one component of a certain type.
+  Inserting a component of a type that already exists for the entity, will raise an error.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.add_component!(entity, MyComponent1)
+    :ok = Ecspanse.Command.add_component!(entity, {MyComponent2, [value: :foo], [:tag1, :tag2]})
+    ```
+  """
+  @doc group: :components
   @spec add_component!(Entity.t(), Component.component_spec()) :: :ok
   def add_component!(entity, component_spec) do
     add_components!([{entity, [component_spec]}])
   end
 
   @doc """
-  # TODO
-  An entity can have only one component of a given type.
-  Inserting components of a type that already exists will raise an error.
+  The same as `add_component!/2` but adds multiple components to moultiple entities at once.
+
+  It takes a list of two element tuples as argument, where the first element of the tuple is the entity
+  and the second element is a list of component specs.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.add_components!([{entity1, [MyComponent1]}, {entity2, [MyComponent1, MyComponent2]}])
+    ```
   """
+  @doc group: :components
   @spec add_components!(list({Entity.t(), list(Component.component_spec())})) :: :ok
   def add_components!([]), do: :ok
 
@@ -231,16 +244,33 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  Updates the state of an existing component.
+
+  The function takes two arguments: the component struct to update and a keyword list of changes to apply.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.update_component!(component, value: :foo)
+    ```
   """
+  @doc group: :components
   @spec update_component!(current_component :: struct(), state_changes :: keyword()) :: :ok
   def update_component!(component, changes_keyword) do
     update_components!([{component, changes_keyword}])
   end
 
   @doc """
-  TODO
+  The same as `update_component!/2` but updates multiple components at once.
+
+  It takes a list of two element tuples as argument, where the first element of the tuple is the component struct
+  and the second element is a keyword list of changes to apply.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.update_components!([{component_1, value: :foo}, {component_2, field_1: :bar, field_2: foo}])
+    ```
   """
+  @doc group: :components
   @spec update_components!(list({current_component :: struct(), state_changes :: keyword()})) ::
           :ok
   def update_components!([]), do: :ok
@@ -254,16 +284,23 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  Removes an existing component from its entity. The components is destroyed.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.remove_component!(component)
+    ```
   """
+  @doc group: :components
   @spec remove_component!(component :: struct()) :: :ok
   def remove_component!(component) do
     remove_components!([component])
   end
 
   @doc """
-  TODO
+  The same as `remove_component!/1` but removes multiple components at once.
   """
+  @doc group: :components
   @spec remove_components!(list(component :: struct())) :: :ok
   def remove_components!([]), do: :ok
 
@@ -275,8 +312,9 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  #TODO
   """
+  @doc group: :relationships
   @spec add_child!(Entity.t(), child :: Entity.t()) :: :ok
   def add_child!(entity, child) do
     add_children!([{entity, [child]}])
@@ -285,6 +323,7 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
+  @doc group: :relationships
   @spec add_children!(list({Entity.t(), children :: list(Entity.t())})) :: :ok
   def add_children!([]), do: :ok
 
@@ -298,6 +337,7 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
+  @doc group: :relationships
   @spec add_parent!(Entity.t(), parent :: Entity.t()) :: :ok
   def add_parent!(entity, parent) do
     add_parents!([{entity, [parent]}])
@@ -306,6 +346,7 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
+  @doc group: :relationships
   @spec add_parents!(list({Entity.t(), parents :: list(Entity.t())})) :: :ok
   def add_parents!([]), do: :ok
 
@@ -319,6 +360,7 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
+  @doc group: :relationships
   @spec remove_child!(Entity.t(), child :: Entity.t()) :: :ok
   def remove_child!(entity, child) do
     remove_children!([{entity, [child]}])
@@ -327,6 +369,7 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
+  @doc group: :relationships
   @spec remove_children!(list({Entity.t(), children :: list(Entity.t())})) :: :ok
   def remove_children!([]), do: :ok
 
@@ -340,6 +383,7 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
+  @doc group: :relationships
   @spec remove_parent!(Entity.t(), parent :: Entity.t()) :: :ok
   def remove_parent!(entity, parent) do
     remove_parents!([{entity, [parent]}])
@@ -348,6 +392,7 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
+  @doc group: :relationships
   @spec remove_parents!(list({Entity.t(), parents :: list(Entity.t())})) :: :ok
   def remove_parents!([]), do: :ok
 
@@ -361,6 +406,7 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
+  @doc group: :resources
   @spec insert_resource!(resource_spec :: Resource.resource_spec()) :: resource :: struct()
   def insert_resource!(resource_spec) do
     operation = build_operation(:insert_resource)
@@ -372,6 +418,7 @@ defmodule Ecspanse.Command do
   @doc """
   TODO
   """
+  @doc group: :resources
   @spec update_resource!(resource :: struct(), state_changes :: keyword()) ::
           updated_resource :: struct()
   def update_resource!(resource, state_changes) do
@@ -381,6 +428,10 @@ defmodule Ecspanse.Command do
     command.return_result
   end
 
+  @doc """
+  TODO
+  """
+  @doc group: :resources
   @spec delete_resource!(resource :: struct()) :: deleted_resource :: struct()
   def delete_resource!(resource) do
     operation = build_operation(:delete_resource)

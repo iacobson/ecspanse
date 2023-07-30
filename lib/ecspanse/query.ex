@@ -86,6 +86,7 @@ defmodule Ecspanse.Query do
   otherwise the result ordering witll be wrong.
 
   """
+  @doc group: :generic
   @spec select(component_modules :: tuple(), keyword()) :: t()
   def select(component_modules_tuple, filters \\ []) do
     comp = Tuple.to_list(component_modules_tuple) |> List.flatten()
@@ -150,6 +151,7 @@ defmodule Ecspanse.Query do
   @doc """
   Retrieve a stream of entities that match the query tuple
   """
+  @doc group: :generic
   @spec stream(t()) :: Enumerable.t()
   def stream(query) do
     components_state_ets_table =
@@ -175,6 +177,7 @@ defmodule Ecspanse.Query do
   @doc """
   TODO
   """
+  @doc group: :generic
   @spec one(t()) :: components_state :: tuple() | nil
   def one(query) do
     case stream(query) |> Enum.to_list() do
@@ -188,6 +191,7 @@ defmodule Ecspanse.Query do
     TODO
   Returns the Entity struct as long as it has at least one component.
   """
+  @doc group: :entities
   @spec fetch_entity(Ecspanse.Entity.id()) :: {:ok, t()} | {:error, :not_found}
   def fetch_entity(entity_id) do
     f =
@@ -209,6 +213,7 @@ defmodule Ecspanse.Query do
   @doc """
   TODO
   """
+  @doc group: :entities
   @spec get_component_entity(component_state :: struct()) ::
           Ecspanse.Entity.t()
   def get_component_entity(component) do
@@ -220,6 +225,7 @@ defmodule Ecspanse.Query do
   TODO
   Returns a list of entities that are children of the given entity
   """
+  @doc group: :relationships
   @spec list_children(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
   defmemo list_children(%Entity{id: entity_id}), max_waiter: 1000, waiter_sleep_ms: 0 do
     case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Children}) do
@@ -234,6 +240,7 @@ defmodule Ecspanse.Query do
   Returns a list of entities that are descendants of the given entity.
   That means the children of the entity and their children and so on.
   """
+  @doc group: :relationships
   @spec list_descendants(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
   defmemo list_descendants(%Entity{} = entity), max_waiter: 1000, waiter_sleep_ms: 0 do
     list_descendants_entities([entity], [])
@@ -243,6 +250,7 @@ defmodule Ecspanse.Query do
   TODO
   Returns a list of entities that are parents of the given entity
   """
+  @doc group: :relationships
   @spec list_parents(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
   defmemo list_parents(%Entity{id: entity_id}), max_waiter: 1000, waiter_sleep_ms: 0 do
     case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Parents}) do
@@ -256,6 +264,7 @@ defmodule Ecspanse.Query do
   Fetches tagged components, for all entities.
   The components need to be tagged with all the given tags to return.
   """
+  @doc group: :tags
   @spec list_tagged_components(list(tag :: atom())) ::
           list(components_state :: struct())
   def list_tagged_components(tags) do
@@ -272,6 +281,7 @@ defmodule Ecspanse.Query do
   TODO
   Fetches tagged components, for a single entity.
   """
+  @doc group: :tags
   @spec list_tagged_components_for_entity(Ecspanse.Entity.t(), list(tag :: atom())) ::
           list(components_state :: struct())
   def list_tagged_components_for_entity(entity, tags) do
@@ -289,6 +299,7 @@ defmodule Ecspanse.Query do
   TODO
   Fetches tagged components, for a list of entities.
   """
+  @doc group: :tags
   @spec list_tagged_components_for_entities(list(Ecspanse.Entity.t()), list(tag :: atom())) ::
           list(components_state :: struct())
   def list_tagged_components_for_entities(entities, tags) do
@@ -309,6 +320,7 @@ defmodule Ecspanse.Query do
   TODO
   Fetches tagged components, for the children of the given entity.
   """
+  @doc group: :tags
   @spec list_tagged_components_for_children(Ecspanse.Entity.t(), list(tag :: atom())) ::
           list(components_state :: struct())
   def list_tagged_components_for_children(entity, tags) do
@@ -323,6 +335,7 @@ defmodule Ecspanse.Query do
   TODO
   Fetches tagged components, for the descendants of the given entity.
   """
+  @doc group: :tags
   @spec list_tagged_components_for_descendants(Ecspanse.Entity.t(), list(tag :: atom())) ::
           list(components_state :: struct())
   def list_tagged_components_for_descendants(entity, tags) do
@@ -337,6 +350,7 @@ defmodule Ecspanse.Query do
   TODO
   Fetches tagged components, for the parents of the given entity.
   """
+  @doc group: :tags
   @spec list_tagged_components_for_parents(Ecspanse.Entity.t(), list(tag :: atom())) ::
           list(components_state :: struct())
   def list_tagged_components_for_parents(entity, tags) do
@@ -351,6 +365,7 @@ defmodule Ecspanse.Query do
   TODO
   Fetches the component state for the given entity.
   """
+  @doc group: :components
   @spec fetch_component(Ecspanse.Entity.t(), module()) ::
           {:ok, component_state :: struct()} | {:error, :not_found}
   def fetch_component(%Entity{id: entity_id}, component_module) do
@@ -365,6 +380,7 @@ defmodule Ecspanse.Query do
   Fetches the components state for the given entity.
   The components modules are passed as a tuple. And the result is a tuple with the components state.
   """
+  @doc group: :components
   @spec fetch_components(Ecspanse.Entity.t(), component_modules :: tuple()) ::
           {:ok, components_state :: tuple()} | {:error, :not_found}
   def fetch_components(%Entity{} = entity, component_modules_tuple) do
@@ -379,6 +395,7 @@ defmodule Ecspanse.Query do
   @doc """
   TODO
   """
+  @doc group: :components
   @spec has_component?(Ecspanse.Entity.t(), module()) :: boolean()
   def has_component?(entity, component_module) when is_atom(component_module) do
     has_components?(entity, [component_module])
@@ -387,6 +404,7 @@ defmodule Ecspanse.Query do
   @doc """
   TODO
   """
+  @doc group: :components
   @spec has_components?(Ecspanse.Entity.t(), list(module())) :: boolean()
   def has_components?(entity, component_module_list)
       when is_list(component_module_list) do
@@ -398,6 +416,7 @@ defmodule Ecspanse.Query do
   @doc """
   TODO
   """
+  @doc group: :relationships
   @spec is_child_of?(parent: Ecspanse.Entity.t(), child: Ecspanse.Entity.t()) :: boolean()
   def is_child_of?(parent: %Entity{} = parent, child: %Entity{} = child) do
     parents = list_parents(child)
@@ -407,12 +426,17 @@ defmodule Ecspanse.Query do
   @doc """
   TODO
   """
+  @doc group: :relationships
   @spec is_parent_of?(parent: Ecspanse.Entity.t(), child: Ecspanse.Entity.t()) :: boolean()
   def is_parent_of?(parent: %Entity{} = parent, child: %Entity{} = child) do
     children = list_children(parent)
     child in children
   end
 
+  @doc """
+  TODO
+  """
+  @doc group: :relationships
   @spec has_children_with_component?(Ecspanse.Entity.t(), module()) ::
           boolean()
   def has_children_with_component?(entity, component_module) do
@@ -422,6 +446,7 @@ defmodule Ecspanse.Query do
   @doc """
   TODO
   """
+  @doc group: :relationships
   @spec has_children_with_components?(Ecspanse.Entity.t(), list(module())) ::
           boolean()
   defmemo has_children_with_components?(entity, component_module_list)
@@ -437,6 +462,7 @@ defmodule Ecspanse.Query do
   @doc """
   TODO
   """
+  @doc group: :relationships
   @spec has_parents_with_component?(Ecspanse.Entity.t(), module()) ::
           boolean()
   def has_parents_with_component?(entity, component_module) do
@@ -446,6 +472,7 @@ defmodule Ecspanse.Query do
   @doc """
   TODO
   """
+  @doc group: :relationships
   @spec has_parents_with_components?(Ecspanse.Entity.t(), list(module())) ::
           boolean()
   defmemo has_parents_with_components?(entity, component_module_list)
@@ -462,6 +489,7 @@ defmodule Ecspanse.Query do
   TODO
   Fetches a resource state
   """
+  @doc group: :resources
   @spec fetch_resource(resource_module :: module()) ::
           {:ok, resource_state :: struct()} | {:error, :not_found}
   def fetch_resource(resource_module) do

@@ -8,7 +8,7 @@ defmodule Ecspanse.System do
   The `lock_components` is a list of Component modules.
 
 
-  The 'events_subscription` option is used to define a system that will be executed only when specific events are triggered.
+  The `events_subscription` option is used to define a system that will be executed only when specific events are triggered.
   The system runs for every event of the specified types. The evens run in paralled, but batched by event keys, to avoid race conditions.
   The event itself is passed to the system as the first argument in the `run/2` function
 

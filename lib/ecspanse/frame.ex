@@ -13,7 +13,7 @@ defmodule Ecspanse.Frame do
   """
 
   @type t :: %__MODULE__{
-          event_batches: list(list(Ecspanse.Event.t())),
+          event_batches: list(list(event :: struct())),
           delta: non_neg_integer()
         }
 
