@@ -49,6 +49,11 @@ defmodule Ecspanse.MixProject do
       logo: "guides/images/logo.png",
       extra_section: "GUIDES",
       source_url: @source_url,
+      extras: [
+        "guides/getting_started.md",
+        "guides/tutorial.md",
+        "CHANGELOG.md"
+      ],
       groups_for_docs: [
         Generic: &(&1[:group] == :generic),
         Entities: &(&1[:group] == :entities),
