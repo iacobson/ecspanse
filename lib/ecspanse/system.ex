@@ -8,7 +8,7 @@ defmodule Ecspanse.System do
   The `lock_components` is a list of Component modules.
 
 
-  The `events_subscription` option is used to define a system that will be executed only when specific events are triggered.
+  The `event_subscriptions` option is used to define a system that will be executed only when specific events are triggered.
   The system runs for every event of the specified types. The evens run in paralled, but batched by event keys, to avoid race conditions.
   The event itself is passed to the system as the first argument in the `run/2` function
 
@@ -136,7 +136,7 @@ defmodule Ecspanse.System do
     quote bind_quoted: [opts: opts], location: :keep do
       import Ecspanse.System, only: [execute_async: 3, execute_async: 2]
       locked_components = Keyword.get(opts, :lock_components, [])
-      event_modules = Keyword.get(opts, :events_subscription, [])
+      event_modules = Keyword.get(opts, :event_subscriptions, [])
 
       case event_modules do
         [] ->
@@ -148,7 +148,7 @@ defmodule Ecspanse.System do
 
         event_modules ->
           raise ArgumentError,
-                "#{inspect(__MODULE__)} :events_subscription option must be a list of event modules. Got: #{inspect(event_modules)}"
+                "#{inspect(__MODULE__)} :event_subscriptions option must be a list of event modules. Got: #{inspect(event_modules)}"
       end
 
       Enum.each(locked_components, fn

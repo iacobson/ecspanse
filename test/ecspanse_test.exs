@@ -14,7 +14,7 @@ defmodule EcspanseTest do
   defmodule TestStartupSystem do
     @moduledoc false
     use Ecspanse.System,
-      events_subscription: [TestStartupEvent]
+      event_subscriptions: [TestStartupEvent]
 
     @impl true
     def run(%TestStartupEvent{} = event, _frame) do
@@ -25,7 +25,7 @@ defmodule EcspanseTest do
   defmodule TestRunningSystem do
     @moduledoc false
     use Ecspanse.System,
-      events_subscription: [TestStartupEvent]
+      event_subscriptions: [TestStartupEvent]
 
     @impl true
     def run(%TestStartupEvent{} = event, _frame) do

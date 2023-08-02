@@ -30,7 +30,7 @@ defmodule Ecspanse.SystemTest do
     @moduledoc false
     use Ecspanse.System,
       lock_components: [TestComponent1, TestComponent2],
-      events_subscription: [TestEvent1]
+      event_subscriptions: [TestEvent1]
 
     def run(%TestEvent1{value: value, entity: entity}, _frame) do
       {:ok, test_component_1} =
@@ -48,7 +48,7 @@ defmodule Ecspanse.SystemTest do
   defmodule TestSystem2 do
     @moduledoc false
     use Ecspanse.System,
-      events_subscription: [
+      event_subscriptions: [
         Ecspanse.Event.ComponentCreated,
         Ecspanse.Event.ComponentDeleted,
         Ecspanse.Event.ComponentUpdated,
