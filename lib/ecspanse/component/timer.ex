@@ -6,7 +6,7 @@ defmodule Ecspanse.Component.Timer do
   This component should not be used as such, but as a builder of custom timer components.
 
 
-  The time is the Timer is automatically decremented by the framework each frame.
+  The time of the Timer is automatically decremented by the framework each frame.
   There is no need to update the component's time manually. Except when:
   - it requires custom reseting by the game logic
   - the timer mode is set to :once, and requires to be reset manually after reaching 0

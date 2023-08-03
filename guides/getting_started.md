@@ -37,7 +37,7 @@ defmodule Demo do
 end
 ```
 
-The `setup/1` callback is mandatory. It will be later on used to schedule the application systems.
+The `c:Ecspanse.setup/1` callback is mandatory. It will be later on used to schedule the application systems.
 
 ## Starting the Ecspanse server
 

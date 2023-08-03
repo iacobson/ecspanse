@@ -106,7 +106,7 @@ defmodule Ecspanse.System do
     |> Stream.run()
   end
 
-  defmodule WithoutEventsSubscription do
+  defmodule WithoutEventSubscriptions do
     @moduledoc """
     Systems that do not depend on any event.
     """
@@ -119,7 +119,7 @@ defmodule Ecspanse.System do
     @callback run(Ecspanse.Frame.t()) :: any()
   end
 
-  defmodule WithEventsSubscription do
+  defmodule WithEventSubscriptions do
     @moduledoc """
     Systems that need to be executed for a specific event.
     """
@@ -140,11 +140,11 @@ defmodule Ecspanse.System do
 
       case event_modules do
         [] ->
-          @behaviour Ecspanse.System.WithoutEventsSubscription
+          @behaviour Ecspanse.System.WithoutEventSubscriptions
 
         event_modules when is_list(event_modules) ->
           Ecspanse.Util.validate_events(event_modules)
-          @behaviour Ecspanse.System.WithEventsSubscription
+          @behaviour Ecspanse.System.WithEventSubscriptions
 
         event_modules ->
           raise ArgumentError,

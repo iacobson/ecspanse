@@ -83,8 +83,8 @@ defmodule Ecspanse.MixProject do
         ],
         Systems: [
           Ecspanse.System,
-          Ecspanse.System.WithEventsSubscription,
-          Ecspanse.System.WithoutEventsSubscription,
+          Ecspanse.System.WithEventSubscriptions,
+          Ecspanse.System.WithoutEventSubscriptions,
           Ecspanse.System.CreateDefaultResources,
           Ecspanse.System.Timer,
           Ecspanse.System.TrackFPS,

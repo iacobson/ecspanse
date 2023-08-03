@@ -84,7 +84,7 @@ defmodule Demo.Entities.Hero do
 end
 ```
 
-The `new/0` function does not have any effect. It just prepares the entity spec _(of type `Ecspanse.Entity.entity_spec()`)_ to be spawned.
+The `new/0` function does not have any effect. It just prepares the entity spec _(of type `t:Ecspanse.Entity.entity_spec/0`)_ to be spawned.
 
 ### The Spawn Hero System
 
@@ -101,11 +101,13 @@ defmodule Demo.Systems.SpawnHero do
 end
 ```
 
-The system must implement the `run/1` or `run/2` callback. In this case, it is a generic system, not subscribing to any events, so we will use `run/1`. The callback receives the `Ecspanse.Frame.t()` as argument.
+The system must implement the `c:Ecspanse.System.WithoutEventSubscriptions.run/1` or `c:Ecspanse.System.WithEventSubscriptions.run/2` callback. In this case, it is a generic system, not subscribing to any events, so we will use `run/1`. The callback receives the `t:Ecspanse.Frame.t/0` as argument.
+
+Operations that involve the creation of entities or components are done via the functions in the `Ecspanse.Command` module. The commands cannot be executed outside of a system.
 
 ### Scheduling Spawn Hero the System
 
-It is now time schedule the newly created system as a startup system. This is done by updating the `setup/1` function in the `Demo` module. We already created this function in the [Getting Started](./getting_started.md) guide.
+It is now time schedule the newly created system as a startup system. This is done by updating the `c:Ecspanse.setup/1` function in the `Demo` module. We already created this function in the [Getting Started](./getting_started.md) guide.
 
 ```elixir
 defmodule Demo do
@@ -144,11 +146,11 @@ defmodule Demo.Entities.Hero do
 end
 ```
 
-In the `Demo.Entities.Hero` module we added the `fetch/0` function. This function uses the `Ecspanse.Query` module to select the hero entity. The `select/2` function is the most flexible way to query for entities and components and it will be used many times in this tutorial. In the current context, the query can be interpreted as:
+In the `Demo.Entities.Hero` module we added the `fetch/0` function. This function uses the `Ecspanse.Query` module to select the hero entity. The `Ecspanse.Query.select/2` function is the most flexible way to query for entities and components and it will be used many times in this tutorial. In the current context, the query can be interpreted as:
 
 - select tuples with a single element, Entity -> this queries the `%Ecspanse.Entity{}` struct itself. When we want to return the entity as part of a more complex select query, it needs to be in the first position of the tuple.
 - that has the `Demo.Components.Hero` component attached to it.
-- return just one record -> this would return the selected entity tuple if found, or otherwise nil. It is important to note that, if many records match the query, it will raise an error. For such cases, the `stream/2` should be used and it will return a stream of results.
+- return just one record -> this would return the selected entity tuple if found, or otherwise nil. It is important to note that, if many records match the query, it will raise an error. For such cases, the `Ecspanse.Query.stream/1` should be used and it will return a stream of results.
 
 We can actually test the function in the `iex` console after starting the server:
 
@@ -277,7 +279,7 @@ end
 
 We said that the move system will run asynchronously. This means that it will run in parallel with the other systems. The `lock_components` option is used to specify the components that will be locked by the system. That means that no other systems that lock at least one of the locket components will run in the same parallel batch as the `MoveHero` system. In our case, we want to lock the `Demo.Components.Position` and `Demo.Components.Energy` components. This is because we want to update the hero position and energy, and we need to avoid race conditions.
 
-The component update commands will check if the system is async and will raise an error if we try to update, insert or delete components that are not locked. For extra safety we can also lock components for which we don't update the state, but we read and depend on it.
+The commands will check if the system is async and will raise an error if we try to update, insert or delete components that are not locked. For extra safety we can also lock components for which we don't update the state, but we read and depend on it.
 
 #### Event Subscriptions
 
@@ -322,3 +324,145 @@ iex(4)> Demo.API.fetch_hero_details()
 ---
 
 ## Energy Regeneration
+
+The goal of this chapter is to implement the energy regeneration. The hero will restore 1 point of energy every 3 seconds.
+
+> ### Ecspanse Concepts 3 {: .info}
+>
+> - use the timer to schedule events at precise intervals
+> - ordering async systems
+> - conditionally running systems
+> - new ways of querying entities and components
+
+### The Energy Timer Component
+
+Timer-based components are special in two ways:
+
+- they `use Ecspanse.Component.Timer` instead of `use Ecspanse.Component`
+- they have a predefined state structure with the following fields:
+  - `:duration` - the countdown duration in milliseconds
+  - `:event` - the event that will be triggered when the countdown reaches 0
+  - `:mode` - `:repeat | :once | :temporary` - decides the timer behavior after the countdown reaches 0.
+  - `:paused` - `boolean` - can be used to pause the timer
+
+```elixir
+defmodule Demo.Components.EnergyTimer do
+  use Ecspanse.Component.Timer,
+    state: [duration: 3000, event: Demo.Events.EnergyTimerFinished, mode: :repeat]
+end
+```
+
+We add the new component to the Hero entity:
+
+```elixir
+defmodule Demo.Entities.Hero do
+  #...
+  @spec new() :: Ecspanse.Entity.entity_spec()
+  def new do
+    {Ecspanse.Entity,
+    components: [
+      Components.Hero,
+      Components.Energy,
+      Components.Position,
+      Components.EnergyTimer
+    ]}
+  end
+  #...
+end
+```
+
+### The Energy Timer Finished Event
+
+The event is also a special one:
+
+- instead of `use Ecspanse.Event` we `use Ecspanse.Event.Timer`.
+- has a predefined field: `entity_id` - the id of the entity that owns the timer component
+
+```elixir
+defmodule Demo.Events.EnergyTimerFinished do
+  use Ecspanse.Event.Timer
+end
+```
+
+This event will be automatically triggered when the EnergyTimer component duration reaches 0.
+
+### The Energy Restore System
+
+```elixir
+defmodule Demo.Systems.RestoreEnergy do
+  use Ecspanse.System,
+    lock_components: [Demo.Components.Energy],
+    event_subscriptions: [Demo.Events.EnergyTimerFinished]
+
+  @impl true
+  def run(%Demo.Events.EnergyTimerFinished{entity_id: entity_id}, _frame) do
+    with {:ok, entity} <- Ecspanse.Query.fetch_entity(entity_id),
+         {:ok, energy} <- Ecspanse.Query.fetch_component(entity, Demo.Components.Energy) do
+      Ecspanse.Command.update_component!(energy, current: energy.current + 1)
+    end
+  end
+end
+```
+
+The system locks the `Energy` component to update its state. And subscribes to the `EnergyTimerFinished` event because it is interested only in that timer event.
+
+The system adds 1 point to the current energy. You are right to wonder why don't we first check the max energy cap. We will clarify this in the next section.
+
+This system introduces also new ways of querying entities and components: `Ecspanse.Query.fetch_entity/1` and `Ecspanse.Query.fetch_component/2`.
+
+**TIP**
+The following functions would produce the same results:
+
+```elixir
+Ecspanse.Query.fetch_component(entity, Demo.Components.Energy)
+#and
+Demo.Components.Energy.fetch(entity)
+```
+
+### Rescheduling the Systems Execution
+
+It is time to re-write the Demo module:
+
+```elixir
+defmodule Demo do
+  use Ecspanse
+
+  alias Demo.Systems
+
+  @impl Ecspanse
+  def setup(data) do
+    data
+    |> Ecspanse.add_startup_system(Systems.SpawnHero)
+    |> Ecspanse.add_system(Systems.RestoreEnergy, run_if: [{__MODULE__, :energy_not_max}])
+    |> Ecspanse.add_system(Systems.MoveHero, after: [Systems.RestoreEnergy])
+    |> Ecspanse.add_frame_end_system(Ecspanse.System.Timer)
+  end
+
+  def energy_not_max do
+    Ecspanse.Query.select({Demo.Components.Energy}, with: [Demo.Components.Hero])
+    |> Ecspanse.Query.one()
+    |> case do
+      {%Demo.Components.Energy{current: current, max: max}} ->
+        current < max
+
+      _ ->
+        false
+    end
+  end
+end
+
+```
+
+#### The Conditional System Execution
+
+By using the `:run_if` option, the `RestoreEnergy` system will run only if the current energy is below the max energy. The `energy_not_max/0` function must always return a boolean value. Please note, this is not an efficient implementation. The `energy_not_max/0` function will be called every frame. If the check would happen in the `RestoreEnergy` system, it would run only once every 3 seconds. But we took the opportunity to exemplify conditionally running systems.
+
+#### The System Execution Order
+
+By using the `:after` option, the `MoveHero` system will run after the `RestoreEnergy` system. Both are async systems, but even the async systems run in batches, not all at once. The batches are scheduled depending on the locked components and the specified order of execution of the systems.
+
+#### Scheduling the Built-in Timer System
+
+Once we start using timer-based components, the built-in `Ecspanse.System.Timer` system must be scheduled to run synchronously at the beginning or at the end of every frame. It will update all the timer-based components and trigger the timer events.
+
+---
