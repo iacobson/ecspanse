@@ -9,9 +9,9 @@ The story of the game is simple:
 - the game features a single character (Hero).
 - the hero has energy. It starts with 50 energy points and it can have a maximum of 100 energy points. The energy points are used to perform actions. Every 3 seconds the hero restores 1 energy point.
 - the hero can move in four directions in a tiles-like manner, without actually implementing a tile system. For example, if the hero moves right it will transition form (0,0) to (1,0) and so on. Each move costs 1 energy point.
-- on each move the hero has a chance to find resources: gold, gems, or food. Resources are not inventory items, but tradeable items. The hero can trade resources for inventory items.
-- the hero starts with some items in their inventory: 2 energy potions and one leather armor
-- the hero can purchase a sword with 5 gold, 3 gems and 4 food.
+- on each move the hero has a chance to find resources: gold or gems. Resources are not inventory items, but tradeable items. The hero can trade resources for inventory items.
+- the hero starts with some items in their inventory: 2 potions and one pair of boots.
+- the hero can purchase a map with 2 gold and a compass with 3 gold and 2 gems.
 
 This setup enables us to delve into fundamental concepts of ECS in general and Ecspanse in particular:
 
@@ -464,5 +464,352 @@ By using the `:after` option, the `MoveHero` system will run after the `RestoreE
 #### Scheduling the Built-in Timer System
 
 Once we start using timer-based components, the built-in `Ecspanse.System.Timer` system must be scheduled to run synchronously at the beginning or at the end of every frame. It will update all the timer-based components and trigger the timer events.
+
+---
+
+## Finding Resources
+
+The goal of this chapter is to implement the resource gathering. With each move, the hero has a chance to find gold or gems.
+
+> ### Ecspanse Concepts 4 {: .info}
+>
+> - using tags to manage collections of components
+> - using advanced component specs
+
+### Adding Resource Components
+
+```elixir
+defmodule Demo.Components.Gems do
+  use Ecspanse.Component, state: [id: :gems, name: "Gems", amount: 0], tags: [:resource]
+end
+
+defmodule Demo.Components.Gold do
+  use Ecspanse.Component, state: [id: :gems, name: "Gold", amount: 0], tags: [:resource]
+end
+```
+
+The new concept introduced here is the `:tags` option. It is a list of atoms that can be used to group and query components. The resource components can now be used as a resource store for the user, but they can also be used to represent the cost of various items. We will handle the second use case in the next chapters.
+
+For such cases, it is important to use a standardized approach. Eg. all the resource components should have the same state fields.
+
+### Adding the Resources Components to the Hero Entity
+
+```elixir
+defmodule Demo.Entities.Hero do
+  #...
+
+  def new do
+    {Ecspanse.Entity,
+     components: [
+        #...
+       {Components.Gold, [], [:available]},
+       {Components.Gems, [], [:available]}
+     ]}
+  end
+  #...
+end
+```
+
+We use the `t:Ecspanse.Component.component_spec/0` type to specify the component spec. The first element of the tuple is the component module, the second element is the initial state of the component, and the third element is a list of tags.
+
+The initial state of the component can be changed at runtime like `{Components.Gold, [amount: 5], [:available]}`. Also, new tags can be added at the time of the component creation. They will be appended to the list defined in the component module.
+
+Runtime tag setting enables the reusability of components in various scenarios. It's important to note that changing a component's tags after it has been created is not supported.
+
+### Storing Found Resources
+
+We will create a new event and the `MoveHero` system will schedule this event on every move.
+
+```elixir
+defmodule Demo.Events.MaybeFindResources do
+  use Ecspanse.Event
+end
+```
+
+```elixir
+defmodule Demo.Systems.MoveHero do
+  #...
+  def run(%Demo.Events.MoveHero{direction: direction}, _frame) do
+    #...
+    with {position, energy} <- components,
+         :ok <- validate_enough_energy_to_move(energy) do
+      Ecspanse.Command.update_components!([
+        {energy, current: energy.current - 1},
+        {position, update_coordinates(position, direction)}
+      ])
+
+      Ecspanse.event(Demo.Events.MaybeFindResources)
+    end
+  end
+  #...
+end
+```
+
+The corresponding system randomly decides if the current position contains resources, and the type of resource.
+
+```elixir
+defmodule Demo.Systems.MaybeFindResources do
+  use Ecspanse.System,
+    lock_components: [Demo.Components.Gems, Demo.Components.Gold],
+    event_subscriptions: [Demo.Events.MaybeFindResources]
+  alias Demo.Components
+
+  @impl true
+  def run(%Demo.Events.MaybeFindResources{}, _frame) do
+    with true <- found_resource?(),
+         resource_module <- pick_resource(),
+         {:ok, hero_entity} <- Demo.Entities.Hero.fetch(),
+         {:ok, resource} <- Ecspanse.Query.fetch_component(hero_entity, resource_module) do
+      Ecspanse.Command.update_component!(resource, amount: resource.amount + 1)
+    end
+  end
+
+  defp found_resource?, do: Enum.random([true, false])
+  defp pick_resource, do: Enum.random([Components.Gems, Components.Gold])
+end
+```
+
+Here we take advance of the standardized resource approach, and we the system would update the resource amount without caring about the actual resource type.
+
+Then we add the new system to the `setup`:
+
+```elixir
+defmodule Demo do
+  use Ecspanse
+  # ...
+  def setup(data) do
+    data
+    # ...
+    |> Ecspanse.add_system(Systems.MoveHero, after: [Systems.RestoreEnergy])
+    |> Ecspanse.add_system(Systems.MaybeFindResources)
+    |> Ecspanse.add_frame_end_system(Ecspanse.System.Timer)
+  end
+end
+```
+
+The last step of the current section is to expose the resources in the `fetch_hero_details/0` funciton in the `Demo.API` module.
+
+```elixir
+  defp list_hero_resources(hero_entity) do
+    hero_entity
+    |> Ecspanse.Query.list_tagged_components_for_entity([:resource, :available])
+    |> Enum.map(&%{name: &1.name, amount: &1.amount})
+  end
+```
+
+Here we use the `Ecspanse.Query.list_tagged_components_for_entity/2` function to get all the components tagged with `:resource` and `:available` for the hero entity.
+
+Starting the application and moving the hero around will now start to accumulate resources:
+
+```iex
+iex(14)> Demo.API.fetch_hero_details
+%{
+  name: "Hero",
+  resources: [%{name: "Gems", amount: 2}, %{name: "Gold", amount: 5}],
+  energy: 56,
+  max_energy: 100,
+  pos_x: -3,
+  pos_y: -5
+}
+```
+
+--
+
+## Market and Inventory Items
+
+The gloal of this chapter is to implement invetory items and a market. The hero can buy items from the market with resources and store them in the inventory.
+
+> ### Ecspanse Concepts 5 {: .info}
+>
+> - using relationships to manage collections of entities
+> - querying components within entities relationships
+
+### Inventory Items Components and Entities Specs
+
+We start by defining the inventory items and the market components:
+
+```elixir
+defmodule Demo.Components.Market do
+  use Ecspanse.Component
+end
+
+defmodule Demo.Components.Boots do
+  use Ecspanse.Component, state: [name: "Boots"], tags: [:inventory]
+end
+
+defmodule Demo.Components.Compass do
+  use Ecspanse.Component, state: [name: "Compass"], tags: [:inventory]
+end
+
+defmodule Demo.Components.Map do
+  use Ecspanse.Component, state: [name: "Map"], tags: [:inventory]
+end
+
+defmodule Demo.Components.Potion do
+  use Ecspanse.Component, state: [name: "Potion"], tags: [:inventory]
+end
+```
+
+The inventory items, however are more complex than this. They cost resources, and in the future they may have various attributes impacting the hero abilities. So the items will be entities of their own. We will create a new `Entities.Inventory` module to manage the inventory items specs.
+
+```elixir
+defmodule Demo.Entities.Inventory do
+  alias Demo.Components
+
+  @spec new_boots() :: Ecspanse.Entity.entity_spec()
+  def new_boots do
+    {Ecspanse.Entity, components: [Components.Boots, {Components.Gold, [amount: 3], [:cost]}]}
+  end
+
+  @spec new_compass() :: Ecspanse.Entity.entity_spec()
+  def new_compass do
+    {Ecspanse.Entity,
+     components: [
+       Components.Compass,
+       {Components.Gold, [amount: 3], [:cost]},
+       {Components.Gems, [amount: 2], [:cost]}
+     ]}
+  end
+
+  @spec new_map() :: Ecspanse.Entity.entity_spec()
+  def new_map do
+    {Ecspanse.Entity, components: [Components.Map, {Components.Gold, [amount: 2], [:cost]}]}
+  end
+
+  @spec new_potion() :: Ecspanse.Entity.entity_spec()
+  def new_potion do
+    {Ecspanse.Entity, components: [Components.Potion, {Components.Gold, [amount: 1], [:cost]}]}
+  end
+
+  @spec list_inventory_components(Ecspanse.Entity.t()) :: [component :: struct()]
+  def list_inventory_components(parent) do
+    Ecspanse.Query.list_tagged_components_for_children(parent, [:inventory])
+  end
+end
+```
+
+Each item is defined together with their cost in resources. Please note that now we are using the `:cost` tag to mark the cost resource components.
+
+The `list_inventory_components/1` function is used to list all the inventory items for a given parent entity. We will see what this means in the next section.
+
+### Inventory Items as Children Entities
+
+Let's start by updating the existing `SpawnHero` system.
+
+```elixir
+defmodule Demo.Systems.SpawnHero do
+  use Ecspanse.System
+
+  @impl true
+  def run(_frame) do
+    hero_entity = %Ecspanse.Entity{} = Ecspanse.Command.spawn_entity!(Demo.Entities.Hero.new())
+    potion_entity_1 = %Ecspanse.Entity{} = Ecspanse.Command.spawn_entity!(Demo.Entities.Inventory.new_potion())
+    potion_entity_2 = %Ecspanse.Entity{} = Ecspanse.Command.spawn_entity!(Demo.Entities.Inventory.new_potion())
+    boots_entity = %Ecspanse.Entity{} = Ecspanse.Command.spawn_entity!(Demo.Entities.Inventory.new_boots())
+
+    Ecspanse.Command.add_children!([ {hero_entity, [potion_entity_1, potion_entity_2, boots_entity]} ])
+  end
+end
+```
+
+The hero starts the journey with two potions and a pair of boots. We use the `Ecspanse.Command.add_children!/1` function to add the inventory items as children of the hero entity. This way we can build complex entities by composing smaller entities.
+
+The Ecspanse library provides many helper functions to query and change entities relations.
+
+The next step is to create a new system that spawns a market entity that holds more items.
+
+```elixir
+defmodule Demo.Systems.SpawnMarket do
+  use Ecspanse.System
+
+  @impl true
+  def run(_frame) do
+    compass_entity = %Ecspanse.Entity{} = Ecspanse.Command.spawn_entity!(Demo.Entities.Inventory.new_compass())
+    map_entity = %Ecspanse.Entity{} = Ecspanse.Command.spawn_entity!(Demo.Entities.Inventory.new_map())
+
+    Ecspanse.Command.spawn_entity!({ Ecspanse.Entity,
+      components: [Demo.Components.Market], children: [compass_entity, map_entity]
+    })
+  end
+end
+```
+
+This shows another way to spawn an entity with children already attached. The new system needs to be added to the `setup/1` as startup system:
+
+```elixir
+#...
+|> Ecspanse.add_startup_system(Systems.SpawnMarket)
+#...
+```
+
+One last thing we can do in this chapter is to add new funtions to our API:
+
+```elixir
+defmodule Demo.API do
+  #...
+  defp list_hero_inventory(hero_entity) do
+    hero_entity
+    |> Demo.Entities.Inventory.list_inventory_components()
+    |> Enum.map(&%{name: &1.name})
+  end
+
+  @spec fetch_market_items() :: {:ok, list(map())} | {:error, :not_found}
+  def fetch_market_items do
+    Ecspanse.Query.select({Ecspanse.Entity}, with: [Demo.Components.Market])
+    |> Ecspanse.Query.one()
+    |> case do
+      {market_entity} -> list_market_items(market_entity)
+      _ -> {:error, :not_found}
+    end
+  end
+
+  defp list_market_items(market_entity) do
+    market_entity
+    |> Demo.Entities.Inventory.list_inventory_components()
+    |> Enum.map(fn item_component ->
+      item_entity = Ecspanse.Query.get_component_entity(item_component)
+
+      %{entity_id: item_entity.id, name: item_component.name, cost: item_cost(item_entity)}
+    end)
+  end
+
+  defp item_cost(item_entity) do
+    item_entity
+    |> Ecspanse.Query.list_tagged_components_for_entity([:resource, :cost])
+    |> Enum.map(&%{name: &1.name, amount: &1.amount})
+  end
+end
+```
+
+We will now display the hero's inventory and the market items with their respective prices.
+
+We can test the new functions in the `iex` console:
+
+```iex
+iex(1)> Demo.API.fetch_hero_details()
+%{
+  name: "Hero",
+  resources: [%{name: "Gems", amount: 0}, %{name: "Gold", amount: 0}],
+  inventory: [%{name: "Boots"}, %{name: "Potion"}, %{name: "Potion"}],
+  energy: 60,
+  max_energy: 100,
+  pos_x: 0,
+  pos_y: 0
+}
+
+iex(1)> Demo.API.fetch_market_items()
+[
+  %{
+    name: "Map",
+    entity_id: "361c00ba-4dd3-4be8-b171-00e99c0b8ef7",
+    cost: [%{name: "Gold", amount: 2}]
+  },
+  %{
+    name: "Compass",
+    entity_id: "b027fd01-d4fe-4ac1-9736-6b6f8c58fbd1",
+    cost: [%{name: "Gold", amount: 3}, %{name: "Gems", amount: 2}]
+  }
+]
+```
 
 ---

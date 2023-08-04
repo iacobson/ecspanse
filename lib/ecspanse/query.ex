@@ -261,7 +261,7 @@ defmodule Ecspanse.Query do
 
   @doc """
   TODO
-  Fetches tagged components, for all entities.
+  Lists tagged components, for all entities.
   The components need to be tagged with all the given tags to return.
   """
   @doc group: :tags
