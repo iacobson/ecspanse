@@ -109,6 +109,7 @@ defmodule Ecspanse do
       Module.register_attribute(__MODULE__, :fps_limit, accumulate: false)
       Module.put_attribute(__MODULE__, :fps_limit, fps_limit)
 
+      # THIS WILL BE THE MIX ENV OF THE PROJECT USING ECSPANSE, NOT ECSPANSE ITSELF
       if Mix.env() == :test do
         # Do not start the "real" server in test mode
         @doc false

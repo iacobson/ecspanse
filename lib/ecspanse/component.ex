@@ -74,15 +74,16 @@ defmodule Ecspanse.Component do
 
   @optional_callbacks validate: 1
 
-  if Mix.env() in [:dev, :test] do
-    @doc """
-    Utility function used for developement.
-    Returns all their components and their state, toghether with their entity association.
-    """
-    @spec debug() :: list(component_key_tags_value())
-    def debug do
-      :ets.match_object(Ecspanse.Util.components_state_ets_table(), {:"$0", :"$1", :"$2"})
-    end
+  @doc """
+  TODO
+  WARNING: to be used only for development and testing.
+
+  Utility function used for developement.
+  Returns all their components and their state, toghether with their entity association.
+  """
+  @spec debug() :: list(component_key_tags_value())
+  def debug do
+    :ets.match_object(Ecspanse.Util.components_state_ets_table(), {:"$0", :"$1", :"$2"})
   end
 
   defmodule Meta do
