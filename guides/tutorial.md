@@ -813,3 +813,131 @@ iex(1)> Demo.API.fetch_market_items()
 ```
 
 ---
+
+## Purchasing Items from the Market
+
+The goal of this chapter is to allow the hero to purchase items from the market using resources.
+
+> ### Ecspanse Concepts 6 {: .info}
+>
+> - in-depth entity relationships
+
+### Purchasing Items Event
+
+The event that triggeres an item purchase is very simple:
+
+```elixir
+defmodule Demo.Events.PurchaseMarketItem do
+  use Ecspanse.Event, fields: [:item_entity_id]
+end
+```
+
+It stores only the ID of the entity of the item being purchased.
+On the other hand, the system is a bit more comlex.
+
+### Purchasing Items System
+
+Let's start with the code:
+
+```elixir
+defmodule Demo.Systems.PurchaseMarketItem do
+  use Ecspanse.System, event_subscriptions: [Demo.Events.PurchaseMarketItem]
+
+  @impl true
+  def run(%Demo.Events.PurchaseMarketItem{item_entity_id: item_entity_id}, _frame) do
+    with {:ok, item_entity} <- Ecspanse.Query.fetch_entity(item_entity_id),
+         {:ok, market_entity} <- fetch_market_entity(),
+         {:ok, hero_entity} <- Demo.Entities.Hero.fetch(),
+         true <- Ecspanse.Query.is_child_of?(parent: market_entity, child: item_entity),
+         hero_available_resources_components =
+           Ecspanse.Query.list_tagged_components_for_entity(hero_entity, [:resource, :available]),
+         item_cost_components =
+           Ecspanse.Query.list_tagged_components_for_entity(item_entity, [:resource, :cost]),
+         true <- has_enough_resources?(hero_available_resources_components, item_cost_components) do
+      spend_resources(hero_available_resources_components, item_cost_components)
+      Ecspanse.Command.remove_child!(market_entity, item_entity)
+      Ecspanse.Command.add_child!(hero_entity, item_entity)
+    end
+  end
+
+  defp fetch_market_entity do
+    Ecspanse.Query.select({Ecspanse.Entity}, with: [Demo.Components.Market])
+    |> Ecspanse.Query.one()
+    |> case do
+      {market_entity} -> {:ok, market_entity}
+      _ -> {:error, :not_found}
+    end
+  end
+
+  defp has_enough_resources?(available_resources, cost_resources) do
+    Enum.all?(cost_resources, fn cost_resource ->
+      Enum.any?(available_resources, fn available_resource ->
+        available_resource.id == cost_resource.id &&
+          available_resource.amount >= cost_resource.amount
+      end)
+    end)
+  end
+
+  defp spend_resources(available_resources, cost_resources) do
+    Enum.each(cost_resources, fn cost_resource ->
+      available_resource =
+        Enum.find(available_resources, fn available_resource ->
+          available_resource.id == cost_resource.id
+        end)
+
+      Ecspanse.Command.update_component!(available_resource,
+        amount: available_resource.amount - cost_resource.amount
+      )
+    end)
+  end
+end
+```
+
+This system modifies many components, so one option is to make it synchronous. This way we don't have to individually lock each modified component. Later on it can be refactored into async if needed.
+
+Before commiting any component state changes it is important to perform all the required validations.
+
+#### Validate Entities Exist
+
+First of all, we want to make sure that the affected entities still exist. We use the `Ecspanse.Query.fetch_entity/1` function to validate that the item entity exists. For the market entity we implement a custom query, while for the hero, we use the helper function we created earlier.
+
+#### Validate Relationships
+
+We need to make sure that the item we want to purchase is still available in the market. In a multiplayer game scenario this would avoid race conditions where two players purchase the same item in the same time. We use the `Ecspanse.Query.is_child_of?/2` function to validate that the item is still a child of the market.
+
+#### Vlaidate Resources
+
+Before the purchase is made, we need to make sure that the hero has enough resources to buy the item. Again, the tags prove useful. They allow us to query the same components from different entities and compare them.
+
+#### Spending the Resources
+
+Once all the validations are done, the resources can be spent. We iterate through the costs, then reduce the amount of the corresponding available resource.
+
+#### Changing the Item Entity Parent
+
+Finally, we remove the item from the market and add it to the hero's inventory. For this, we use the `Ecspanse.Command.remove_child!/2` and `Ecspanse.Command.add_child!/2` functions.
+
+### The Purchase API
+
+We first need to add the `PurchaseMarketItem` event to setup as sync system:
+
+```elixir
+#...
+|> Ecspanse.add_frame_end_system(Systems.PurchaseMarketItem)
+#...
+```
+
+Then expose the event in the API:
+
+```elixir
+@spec purchase_market_item(item_entity_id :: Ecspanse.Entity.id()) :: :ok
+def purchase_market_item(item_entity_id) do
+  Ecspanse.event({Demo.Events.PurchaseMarketItem, item_entity_id: item_entity_id})
+end
+```
+
+Now we can test it in the console. First make sure that the hero has enough resources by walking around and using the exposed `fetch_hero_details/0` function. Then check the market items with `fetch_market_items/0` and note down the desired item entity ID. Purchase the item with `purchase_market_item/1`. Finally, check the hero details again to see the item in the inventory.
+
+---
+
+## Testing the Systems
