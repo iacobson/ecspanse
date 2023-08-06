@@ -903,7 +903,7 @@ First of all, we want to make sure that the affected entities still exist. We us
 
 #### Validate Relationships
 
-We need to make sure that the item we want to purchase is still available in the market. In a multiplayer game scenario this would avoid race conditions where two players purchase the same item in the same time. We use the `Ecspanse.Query.is_child_of?/2` function to validate that the item is still a child of the market.
+We need to make sure that the item we want to purchase is still available in the market. In a multiplayer game scenario this would avoid race conditions where two players purchase the same item in the same time. We use the `Ecspanse.Query.is_child_of?/1` function to validate that the item is still a child of the market.
 
 #### Vlaidate Resources
 
@@ -941,3 +941,117 @@ Now we can test it in the console. First make sure that the hero has enough reso
 ---
 
 ## Testing the Systems
+
+The goal of this chapter is to learn how to test the systems. We will use the `MoveHero` system as an example.
+
+> ### Ecspanse Concepts 7 {: .info}
+>
+> - testing systems in isolation
+> - using a custom Ecspanse setup
+> - using the system debugger to run systems manually
+
+The game story is now ready. Time to see how we can test it.
+
+Before we start, it is important to note that in test mode, the `Ecspanse.Server` is not automatically started. This allows us to decide the moment when the server should start, and what systems to run.
+
+There are many ways to test systems. We will choose the most straightforward for this tutorial: testing the systems in isolation. That means that the systems scheduled under `Demo.setup/1` are not running. We will create a new setup function for testing, and call the systems manually.
+
+```elixir
+defmodule Demo.Systems.MoveHeroTest do
+  use ExUnit.Case, async: false
+
+  defmodule DemoTest do
+    use Ecspanse
+    @impl true
+    def setup(data) do
+      data
+    end
+  end
+
+  setup do
+    {:ok, _pid} = start_supervised({DemoTest, :test})
+    Ecspanse.System.debug()
+
+    hero_entity = %Ecspanse.Entity{} = Ecspanse.Command.spawn_entity!(Demo.Entities.Hero.new())
+    {:ok, position_component} = Demo.Components.Position.fetch(hero_entity)
+
+    assert position_component.x == 0
+    assert position_component.y == 0
+
+    {:ok, energy_component} = Demo.Components.Energy.fetch(hero_entity)
+    assert energy_component.current == 50
+
+    {:ok, hero_entity: hero_entity, energy_component: energy_component}
+  end
+
+  test "hero moves if enough energy", %{hero_entity: hero_entity} do
+    event = move(:up)
+    frame = frame(event)
+    Demo.Systems.MoveHero.run(event, frame)
+
+    {:ok, position_component} = Demo.Components.Position.fetch(hero_entity)
+    assert position_component.x == 0
+    assert position_component.y == 1
+
+    {:ok, energy_component} = Demo.Components.Energy.fetch(hero_entity)
+    assert energy_component.current == 49
+
+    #...
+  end
+
+  test "hero doesn not move if not enough energy", %{
+    hero_entity: hero_entity,
+    energy_component: energy_component
+  } do
+    Ecspanse.Command.update_component!(energy_component, current: 0)
+
+    event = move(:up)
+    frame = frame(event)
+    Demo.Systems.MoveHero.run(event, frame)
+
+    {:ok, position_component} = Demo.Components.Position.fetch(hero_entity)
+    assert position_component.x == 0
+    assert position_component.y == 0
+
+    {:ok, energy_component} = Demo.Components.Energy.fetch(hero_entity)
+    assert energy_component.current == 0
+  end
+
+  defp move(direction) do
+    %Demo.Events.MoveHero{direction: direction, inserted_at: System.os_time()}
+  end
+
+  defp frame(event) do
+    %Ecspanse.Frame{event_batches: [[event]], delta: 1}
+  end
+end
+```
+
+### Test Dependencies
+
+We start by creating a `DemoTest` module and implement a `setup/1` function that does not schedule any systems.
+
+### Test Setup
+
+There are 2 things happening at the top of the `setup` block:
+
+- we manually start the server by passing the `{DemoTest, :test}` tuple to the `start_supervised/1` function. Compared to the normal setup where we add `Demo` to the supervision tree, the `{MODULE, :test}` tuple allows us to start the server in test mode.
+- we run the `Ecspanse.System.debug/0` function. This function "upgrades" the current test PID to a system, which allows us to run systems manually. As mentioned previously, commands can be run only from inside a system. Making the test PID a system allows us to run commands directly in our tests.
+
+For the rest of the setup block we setup the test data. We spawn a hero entity and fetch its position and energy components. We assert that the hero is at the starting position and has the starting energy.
+
+### Test the Hero Can Move
+
+We create two helper functions that would create a `MoveHero` event and a `t:Ecspanse.Frame.t/0` with the event in it.
+
+Then we can run the `MoveHero` system manually by simply calling `Demo.Systems.MoveHero.run(event, frame)`.
+
+From there on, we can query any component and do any relevant assertion. In this case, we assert that the hero has moved and that the energy has been reduced.
+
+---
+
+## Running the Demo
+
+The code for this tutorial, together with instructions on how to run it in Livebook is available on [GitHub](https://github.com/iacobson/ecspanse_demo).
+
+Also, you can find a more complex example of a multiplayer game built with Ecspanse on [GitHub](https://github.com/iacobson/iveseenthings).
