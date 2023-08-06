@@ -27,11 +27,11 @@ defmodule Ecspanse do
 
     def setup(data) do
       world
-      |> Ecspanse.Server.add_system(TestSystem5)
-      |> Ecspanse.Server.add_frame_end_system(TestSystem3)
-      |> Ecspanse.Server.add_frame_start_system(TestSystem2)
-      |> Ecspanse.Server.add_startup_system(TestSystem1)
-      |> Ecspanse.Server.add_shutdown_system(TestSystem4)
+      |> Ecspanse.Server.add_startup_system(Demo.Systems.SpawnHero)
+      |> Ecspanse.Server.add_frame_start_system(Demo.Systems.PurchaseItem)
+      |> Ecspanse.Server.add_system(Demo.Systems.MoveHero)
+      |> Ecspanse.Server.add_frame_end_system(Ecspanse.System.Timer)
+      |> Ecspanse.Server.add_shutdown_system(Demo.Systems.Cleanup)
     end
   end
   ```
@@ -83,16 +83,11 @@ defmodule Ecspanse do
     @impl Ecspanse
     def setup(%Ecspanse.Data{} = data) do
       data
-      |> Ecspanse.add_system(MySystem)
-      |> Ecspanse.add_frame_end_system(MyFrameEndSystem)
-      |> Ecspanse.add_frame_start_system(MyFrameStartSystem)
-      |> Ecspanse.add_startup_system(MyStartupSystem)
-      |> Ecspanse.add_shutdown_system(MyShutdownSystem)
+      |> Ecspanse.Server.add_system(Demo.Systems.MoveHero)
     end
   end
   ```
   """
-
   @callback setup(Ecspanse.Data.Ecspanse.Data.t()) :: Ecspanse.Data.Ecspanse.Data.t()
 
   defmacro __using__(opts) do
@@ -159,7 +154,7 @@ defmodule Ecspanse do
   ## Examples
 
     ```elixir
-    Ecspanse.add_startup_system(ecspanse_data, MyStartupSystemModule)
+    Ecspanse.add_startup_system(ecspanse_data, Demo.Systems.SpawnHero)
     ```
   """
   @spec add_startup_system(Ecspanse.Data.t(), system_module :: module()) :: Ecspanse.Data.t()
@@ -187,7 +182,7 @@ defmodule Ecspanse do
   ## Examples
 
     ```elixir
-    Ecspanse.add_frame_start_system(ecspanse_data, MyFrameStartSystemModule)
+    Ecspanse.add_frame_start_system(ecspanse_data, Demo.Systems.PurchaseItem)
     ```
   """
 
@@ -246,9 +241,9 @@ defmodule Ecspanse do
     ```elixir
     Ecspanse.add_system(
       ecspanse_data,
-      MyAsyncSystemModule,
+      Demo.Systems.MoveHero,
       run_in_state: [:play],
-      run_after: [MyOtherSystemModule]
+      run_after: [Demo.Systems.RestoreEnergy]
     )
     ```
   """
@@ -291,7 +286,7 @@ defmodule Ecspanse do
   ## Examples
 
     ```elixir
-    Ecspanse.add_frame_end_system(ecspanse_data, MyFrameEndSystemModule)
+    Ecspanse.add_frame_end_system(ecspanse_data, Ecspanse.Systems.Timer)
     ```
   """
   @spec add_frame_end_system(Ecspanse.Data.t(), system_module :: module(), opts :: keyword()) ::
@@ -325,7 +320,7 @@ defmodule Ecspanse do
   ## Examples
 
     ```elixir
-    Ecspanse.add_shutdown_system(ecspanse_data, MyShutdownSystemModule)
+    Ecspanse.add_shutdown_system(ecspanse_data, Demo.Systems.Cleanup)
     ```
   """
   @spec add_shutdown_system(Ecspanse.Data.t(), system_module :: module()) :: Ecspanse.Data.t()
@@ -355,28 +350,28 @@ defmodule Ecspanse do
   ## Examples
 
   ```elixir
-  defmodule MyProject do
+  defmodule Demo do
     use Ecspanse
 
     @impl Ecspanse
     def setup(data) do
       data
-      |> Ecspanse.add_system_set({MySystemSet, :my_func}, [run_in_state: :my_state])
+      |> Ecspanse.add_system_set({Demo.HeroSystemSet, :setup}, [run_in_state: :play])
     end
-  end
 
-  defmodule MySystemSet do
-    def my_func(data) do
-      data
-      |> Ecspanse.add_system(MySystem, [option: "value"])
-      |> Ecspanse.add_system_set({MyNestedSystemSet, :my_func})
+    defmodule HeroSystemSet do
+      def setup(data) do
+        data
+        |> Ecspanse.add_system(Demo.Systems.MoveHero, [run_after: Demo.Systems.RestoreEnergy])
+        |> Ecspanse.add_system_set({Demo.ItemsSystemSet, :setup})
+      end
     end
-  end
 
-  defmodule MyNestedSystemSet do
-    def my_func(data) do
-      data
-      |> Ecspanse.add_system(MyNestedSystem)
+    defmodule ItemsSystemSet do
+      def setu(data) do
+        data
+        |> Ecspanse.add_system(Demo.Systems.PickupItem)
+      end
     end
   end
   ```
@@ -436,7 +431,7 @@ defmodule Ecspanse do
   ## Examples
 
     ```elixir
-      Ecspanse.event({MyEventModule, value: :foo},  batch_key: my_entity.id)
+      Ecspanse.event({Demo.Events.MoveHero, direction: :up},  batch_key: hero_entity.id)
     ```
   """
   @spec event(
