@@ -8,11 +8,16 @@ defmodule Ecspanse.Command do
 
   All commands raise an error if the command fails.
 
-  ## Entity Relationships
+  #### Entity Relationships
 
   The `Ecspanse.Command` module provides functions for managing relationships between entities.
-  When adding or removing children or parents, they are automatically added or removed from the corresponding parent or children entities.
-  The same applies when despawning entities.
+  This is aslo a powerful tool to manage different kind of collections.
+
+  > #### Ecspanse entities relationships are **bidirectional associations** {: .info}
+  > When adding or removing children or parents, they are automatically added or removed from the corresponding parent or children entities.
+  > The same applies when despawning entities.
+
+
   """
 
   require Logger
@@ -105,9 +110,9 @@ defmodule Ecspanse.Command do
       {
         Ecspanse.Entity,
         id: "my_custom_id",
-        components: [MyComponent1, {MyComponent2, [val: :foo], [:tag1, :tag2]}],
-        children: [child_entity_1, child_entity_2],
-        parents: [parent_entity_1, parent_entity_2]
+        components: [Demo.Components.Hero, {Demo.Components.Position, [x: 5, y: 3], [:hero, :map]}],
+        children: [potion_entity, sword_entity],
+        parents: [map_entity]
       }
     )
   ```
@@ -146,7 +151,7 @@ defmodule Ecspanse.Command do
 
   ## Examples
     ```elixir
-    :ok = Ecspanse.Command.despawn_entity!(entity)
+    :ok = Ecspanse.Command.despawn_entity!(hero_entity)
     ```
   """
   @doc group: :entities
@@ -206,13 +211,14 @@ defmodule Ecspanse.Command do
   @doc """
   Adds a new component to the specified entity.
 
-  **Attention!** An entity can only have one component of a certain type.
-  Inserting a component of a type that already exists for the entity, will raise an error.
+  > #### Info  {: .info}
+  > An entity cannot have multiple components of the same type.
+  > If an attempt is made to insert a component that already exists for the entity, an error will be raised.
 
   ## Examples
     ```elixir
-    :ok = Ecspanse.Command.add_component!(entity, MyComponent1)
-    :ok = Ecspanse.Command.add_component!(entity, {MyComponent2, [value: :foo], [:tag1, :tag2]})
+    :ok = Ecspanse.Command.add_component!(hero_entity, Demo.Components.Gold)
+    :ok = Ecspanse.Command.add_component!(hero_entity, {Demo.Components.Gold, [amount: 5], [:resource, :available]})
     ```
   """
   @doc group: :components
@@ -229,7 +235,10 @@ defmodule Ecspanse.Command do
 
   ## Examples
     ```elixir
-    :ok = Ecspanse.Command.add_components!([{entity1, [MyComponent1]}, {entity2, [MyComponent1, MyComponent2]}])
+    :ok = Ecspanse.Command.add_components!([
+      {inventory_item_entity, [Demo.Components.Sword]},
+      {hero_entity, [Demo.Components.Position, Demo.Components.Hero]}
+    ])
     ```
   """
   @doc group: :components
@@ -250,7 +259,7 @@ defmodule Ecspanse.Command do
 
   ## Examples
     ```elixir
-    :ok = Ecspanse.Command.update_component!(component, value: :foo)
+    :ok = Ecspanse.Command.update_component!(position_component, x: :12)
     ```
   """
   @doc group: :components
@@ -267,7 +276,10 @@ defmodule Ecspanse.Command do
 
   ## Examples
     ```elixir
-    :ok = Ecspanse.Command.update_components!([{component_1, value: :foo}, {component_2, field_1: :bar, field_2: foo}])
+    :ok = Ecspanse.Command.update_components!([
+      {position_component, x: 7, y: 9},
+      {gold_component, amount: 12}
+    ])
     ```
   """
   @doc group: :components
@@ -288,7 +300,7 @@ defmodule Ecspanse.Command do
 
   ## Examples
     ```elixir
-    :ok = Ecspanse.Command.remove_component!(component)
+    :ok = Ecspanse.Command.remove_component!(invisibility_component)
     ```
   """
   @doc group: :components
@@ -312,7 +324,12 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  #TODO
+  Adds an entity as child to a parent entity.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.add_child!(hero_entity, sword_entity)
+    ```
   """
   @doc group: :relationships
   @spec add_child!(Entity.t(), child :: Entity.t()) :: :ok
@@ -321,7 +338,19 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  The same as `add_child!/2` but can perform multiple operations at once.
+  For example, adding multiple children to multiple parents.
+
+  It takes a list of two element tuples as argument, where the first element of the tuple is the parent entity
+  and the second element is a list of children entities.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.add_children!([
+      {hero_entity, [sword_entity]},
+      {market_entity, [map_entity, potion_entity]}
+    ])
+    ```
   """
   @doc group: :relationships
   @spec add_children!(list({Entity.t(), children :: list(Entity.t())})) :: :ok
@@ -335,7 +364,12 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  Adds a parent entity to a child entity.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.add_parent!(sowrd_entity, hero_entity)
+    ```
   """
   @doc group: :relationships
   @spec add_parent!(Entity.t(), parent :: Entity.t()) :: :ok
@@ -344,7 +378,19 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  The same as `add_parent!/2` but can perform multiple operations at once.
+  For example, adding multiple parents to multiple children.
+
+  It takes a list of two element tuples as argument, where the first element of the tuple is the child entity
+  and the second element is a list of parent entities.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.add_parents!([
+      {sword_entity, [hero_entity]},
+      {map_entity, [market_entity, vendor_entity]}
+    ])
+    ```
   """
   @doc group: :relationships
   @spec add_parents!(list({Entity.t(), parents :: list(Entity.t())})) :: :ok
@@ -358,7 +404,12 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  Removes a child entity from a parent entity.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.remove_child!(hero_entity, sword_entity)
+    ```
   """
   @doc group: :relationships
   @spec remove_child!(Entity.t(), child :: Entity.t()) :: :ok
@@ -367,7 +418,19 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  The same as `remove_child!/2` but can perform multiple operations at once.
+  For example, removing multiple children from multiple parents.
+
+  It takes a list of two element tuples as argument, where the first element of the tuple is the parent entity
+  and the second element is a list of children entities.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.remove_children!([
+      {hero_entity, [sword_entity]},
+      {market_entity, [map_entity, potion_entity]}
+    ])
+    ```
   """
   @doc group: :relationships
   @spec remove_children!(list({Entity.t(), children :: list(Entity.t())})) :: :ok
@@ -381,7 +444,12 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  Removes a parent entity from a child entity.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.remove_parent!(sword_entity, hero_entity)
+    ```
   """
   @doc group: :relationships
   @spec remove_parent!(Entity.t(), parent :: Entity.t()) :: :ok
@@ -390,7 +458,19 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  The same as `remove_parent!/2` but can perform multiple operations at once.
+  For example, removing multiple parents from multiple children.
+
+  It takes a list of two element tuples as argument, where the first element of the tuple is the child entity
+  and the second element is a list of parent entities.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.remove_parents!([
+      {sword_entity, [hero_entity]},
+      {map_entity, [market_entity, vendor_entity]}
+    ])
+    ```
   """
   @doc group: :relationships
   @spec remove_parents!(list({Entity.t(), parents :: list(Entity.t())})) :: :ok
@@ -404,7 +484,16 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  Inserts a new global resource.
+
+  > #### Info  {: .info}
+  > An Ecspanse instance can only have one resource of each type.
+  > If an attempt is made to insert a resource that already exists, an error will be raised.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.insert_resource!({Demo.Resources.Lobby, player_count: 0})
+    ```
   """
   @doc group: :resources
   @spec insert_resource!(resource_spec :: Resource.resource_spec()) :: resource :: struct()
@@ -416,7 +505,12 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  Updates an existing global resource.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.update_resource!(lobby_resource, player_count: 1)
+    ```
   """
   @doc group: :resources
   @spec update_resource!(resource :: struct(), state_changes :: keyword()) ::
@@ -429,7 +523,12 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  TODO
+  Deletes an existing global resource.
+
+  ## Examples
+    ```elixir
+    :ok = Ecspanse.Command.delete_resource!(lobby_resource)
+    ```
   """
   @doc group: :resources
   @spec delete_resource!(resource :: struct()) :: deleted_resource :: struct()
