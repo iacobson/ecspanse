@@ -487,7 +487,7 @@ defmodule Ecspanse.Command do
   Inserts a new global resource.
 
   > #### Info  {: .info}
-  > An Ecspanse instance can only have one resource of each type.
+  > An Ecspanse instance can only hold one resource of each type at a time.
   > If an attempt is made to insert a resource that already exists, an error will be raised.
 
   ## Examples

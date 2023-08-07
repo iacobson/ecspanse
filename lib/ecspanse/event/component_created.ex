@@ -3,6 +3,8 @@ defmodule Ecspanse.Event.ComponentCreated do
   TODO
   Special framework event triggered when a new component is created.
   Contains the component state struct.
+
+  See example in the tutorial
   """
   use Ecspanse.Event, fields: [:component]
 

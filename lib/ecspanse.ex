@@ -56,6 +56,12 @@ defmodule Ecspanse do
   defmodule Data do
     @moduledoc """
     The `Data` module defines a struct that holds the state of the Ecspanse initialization process.
+    This struct is passed to the `setup/1` callback, which is used to define the running systems.
+    After the initialization process the `Data` struct is not relevant anymore.
+    """
+
+    @typedoc """
+    The data used for the Ecspanse initialization process.
     """
     @type t :: %__MODULE__{
             operations: operations(),
@@ -342,7 +348,7 @@ defmodule Ecspanse do
   System sets can also be nested.
 
 
-    ## Options
+  ## Options
 
   The set options that applied on top of each system options in the set.
   - See the `add_system/3` function for more information about the options.

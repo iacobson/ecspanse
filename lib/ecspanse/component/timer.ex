@@ -47,6 +47,8 @@ defmodule Ecspanse.Component.Timer do
       - :temporary - the timer will run only once. After reaching 0, the timer will be removed from the entity.
     - paused: a boolean value that indicates if the timer is paused or not. Defaults to false.
 
+    See example in the tutorial
+
   """
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
