@@ -475,6 +475,7 @@ The goal of this chapter is to implement the resource gathering. With each move,
 >
 > - using tags to manage collections of components
 > - using advanced component specs
+> - using the auto-emitted component updatd events
 
 ### Adding Resource Components
 
@@ -518,44 +519,20 @@ Runtime tag setting enables the reusability of components in various scenarios. 
 
 ### Storing Found Resources
 
-We will create a new event and the `MoveHero` system will schedule this event on every move.
+On each component creation, update or deletion, Ecspanse automatically emits an event: `Ecspanse.Event.ComponentCreated`, `Ecspanse.Event.ComponentUpdated` or `Ecspanse.Event.ComponentDeleted`. The event contains the current component.
 
-```elixir
-defmodule Demo.Events.MaybeFindResources do
-  use Ecspanse.Event
-end
-```
-
-```elixir
-defmodule Demo.Systems.MoveHero do
-  #...
-  def run(%Demo.Events.MoveHero{direction: direction}, _frame) do
-    #...
-    with {position, energy} <- components,
-         :ok <- validate_enough_energy_to_move(energy) do
-      Ecspanse.Command.update_components!([
-        {energy, current: energy.current - 1},
-        {position, update_coordinates(position, direction)}
-      ])
-
-      Ecspanse.event(Demo.Events.MaybeFindResources)
-    end
-  end
-  #...
-end
-```
-
-The corresponding system randomly decides if the current position contains resources, and the type of resource.
+We can listen to those events in our systems. Our new `MaybeFindResources` system subscribes to `ComponentUpdated` and matches just on the `Position` component struct. Then it randomly decides if the current position contains resources, and the type of resource.
 
 ```elixir
 defmodule Demo.Systems.MaybeFindResources do
   use Ecspanse.System,
     lock_components: [Demo.Components.Gems, Demo.Components.Gold],
-    event_subscriptions: [Demo.Events.MaybeFindResources]
+    event_subscriptions: [Ecspanse.Event.ComponentUpdated]
+
   alias Demo.Components
 
   @impl true
-  def run(%Demo.Events.MaybeFindResources{}, _frame) do
+  def run(%Ecspanse.Event.ComponentUpdated{component: %Demo.Components.Position{}}, _frame) do
     with true <- found_resource?(),
          resource_module <- pick_resource(),
          {:ok, hero_entity} <- Demo.Entities.Hero.fetch(),
@@ -564,12 +541,14 @@ defmodule Demo.Systems.MaybeFindResources do
     end
   end
 
+  def run(_event, _frame), do: :ok
+
   defp found_resource?, do: Enum.random([true, false])
   defp pick_resource, do: Enum.random([Components.Gems, Components.Gold])
 end
 ```
 
-Here we take advance of the standardized resource approach, and we the system would update the resource amount without caring about the actual resource type.
+Here we take advantage of the standardized resource approach, so the system would update the resource amount without caring about the actual resource type.
 
 Then we add the new system to the `setup`:
 
