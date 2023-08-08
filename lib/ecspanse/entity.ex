@@ -1,12 +1,20 @@
 defmodule Ecspanse.Entity do
   @moduledoc """
 
-  Entities are just IDs. An entity exists only as a holder of components.
+  Entities are simply identifiers. An entity exists only if it holds at least one component.
   The entities per se are not persisted.
+
+  Entities are represented as a struct with `id` as the only field.
+
+  ## Example
+    ```elixir
+    %Ecspanse.Entity{id: "cfa1ad89-44b6-4d1f-8590-186354be9158"}
+    ```
   """
 
   alias __MODULE__
 
+  @typedoc "The entity struct."
   @type t :: %Entity{
           id: id()
         }
@@ -28,12 +36,6 @@ defmodule Ecspanse.Entity do
   @enforce_keys [:id]
   defstruct [:id]
 
-  @doc """
-  Returns an Entity struct for a provided ID.
-  There is no guarantee that the returned Entity exists (has components)
-  """
-  @spec build(id()) :: t()
-  def build(id) do
-    __MODULE__ |> struct(id: id)
-  end
+  @spec fetch(Ecspanse.Entity.id()) :: {:ok, t()} | {:error, :not_found}
+  defdelegate fetch(id), to: Ecspanse.Query, as: :fetch_entity
 end

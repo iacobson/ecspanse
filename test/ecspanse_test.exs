@@ -424,8 +424,8 @@ defmodule EcspanseTest do
       start_supervised({TestServer0, :test})
       Ecspanse.Server.test_server(self())
 
-      entity_1 = Ecspanse.Entity.build(UUID.uuid4())
-      entity_2 = Ecspanse.Entity.build(UUID.uuid4())
+      entity_1 = Ecspanse.Util.build_entity(UUID.uuid4())
+      entity_2 = Ecspanse.Util.build_entity(UUID.uuid4())
 
       assert_receive {:next_frame, _state}
       assert_receive {:next_frame, state}

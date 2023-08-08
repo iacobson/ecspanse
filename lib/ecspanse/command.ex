@@ -619,7 +619,7 @@ defmodule Ecspanse.Command do
           validate_required_opts(operation, component_specs, children_entities, parents_entities)
 
         %{
-          entity: Entity.build(entity_id),
+          entity: Util.build_entity(entity_id),
           component_specs: component_specs,
           component_modules: component_modules ++ [Component.Children, Component.Parents],
           children_entities: children_entities,
@@ -1395,7 +1395,7 @@ defmodule Ecspanse.Command do
 
       {{entity_id, module}, values} ->
         list = Enum.map(values, fn value -> value.entities end) |> List.flatten() |> Enum.uniq()
-        entity = Entity.build(entity_id)
+        entity = Util.build_entity(entity_id)
 
         upsert_component(operation, entity, {module, entities: list})
     end)
@@ -1415,7 +1415,7 @@ defmodule Ecspanse.Command do
           |> Enum.uniq()
           |> select_entities_present_in_all_relations(values)
 
-        entity = Entity.build(entity_id)
+        entity = Util.build_entity(entity_id)
 
         upsert_component(operation, entity, {module, entities: list})
     end)

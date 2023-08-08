@@ -192,7 +192,7 @@ defmodule Ecspanse.Query do
   Returns the Entity struct as long as it has at least one component.
   """
   @doc group: :entities
-  @spec fetch_entity(Ecspanse.Entity.id()) :: {:ok, t()} | {:error, :not_found}
+  @spec fetch_entity(Ecspanse.Entity.id()) :: {:ok, Ecspanse.Entity.t()} | {:error, :not_found}
   def fetch_entity(entity_id) do
     f =
       Ex2ms.fun do
@@ -203,7 +203,7 @@ defmodule Ecspanse.Query do
 
     case result do
       {[^entity_id], _} ->
-        {:ok, Ecspanse.Entity.build(entity_id)}
+        {:ok, Ecspanse.Util.build_entity(entity_id)}
 
       _ ->
         {:error, :not_found}
@@ -682,7 +682,7 @@ defmodule Ecspanse.Query do
   # if the entity is part of the query, return the entity
   defp map_entity(select_tuple, return_entity, entity_id) do
     if return_entity do
-      Tuple.append(select_tuple, Entity.build(entity_id))
+      Tuple.append(select_tuple, Util.build_entity(entity_id))
     else
       select_tuple
     end

@@ -7,6 +7,11 @@ defmodule Ecspanse.Util do
   require Ex2ms
 
   @doc false
+  def build_entity(id) do
+    Ecspanse.Entity |> struct(id: id)
+  end
+
+  @doc false
   defmemo components_state_ets_table,
     permanent: true,
     max_waiter: 1000,
