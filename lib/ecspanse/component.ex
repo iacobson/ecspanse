@@ -81,55 +81,44 @@ defmodule Ecspanse.Component do
   @callback validate(component :: struct()) :: :ok | {:error, any()}
 
   @doc """
-  TODO
+  Fetches the component for an entity. It has the same functionality as `Ecspanse.Query.fetch_component/2`,
+  but it may be more convenient to use in some cases.
 
-  Fetches the component for an entity.
+  ## Example:
+    ``` elixir
+      {:ok, %Demo.Components.Position{} = position_comopnent} = Demo.Components.Position.fetch(hero_entity)
 
-  Example:
-  ```
-  defmodule MyComponent do
-    use Ecspanse.Component
-  end
+      # it's the same as:
 
-  {:ok, entity} = Ecspanse.spawn_entity!(Ecspanse.Entity, components: [MyComponent])
-  {:ok, component} = MyComponent.fetch(entity)
-  ```
-
-  Under the hood, it is just a shortcut for:
-  ```
-  {:ok, component} = Ecspanse.Query.fetch_component(entity, MyComponent)
-  ```
+      {:ok, %Demo.Components.Position{} = position_comopnent} = Ecspanse.Query.fetch_component(hero_entity, Demo.Components.Position)
+    ```
   """
   @callback fetch(entity :: Ecspanse.Entity.t()) ::
               {:ok, component :: struct()} | {:error, :not_found}
 
   @doc """
-  TODO
+  Lists all components of the current type for all entities.
 
-  Lists all components for the current component module, for all entities.
-
-  Example:
-  ```
-  defmodule MyComponent do
-    use Ecspanse.Component
-  end
-
-  {:ok, entity} = Ecspanse.spawn_entity!(Ecspanse.Entity, components: [MyComponent])
-  my_components = MyComponent.list()
-  ```
+  ## Example:
+    ```elixir
+    enemy_components = Demo.Components.Enemy.list()
+    ```
   """
   @callback list() :: list(component :: struct())
 
   @optional_callbacks validate: 1
 
   @doc """
-  TODO
-  WARNING: to be used only for development and testing.
+  Utility function. Returns all the components and their state, together with their entity association and tags.
 
-  Utility function used for developement.
-  Returns all their components and their state, toghether with their entity association.
+  > #### This function is intended for use only in testing and development environments.  {: .warning}
   """
-  @spec debug() :: list(component_key_tags_value())
+  @spec debug() ::
+          list({
+            {Ecspanse.Entity.id(), component_module :: module()},
+            tags :: list(atom()),
+            component_state :: struct()
+          })
   def debug do
     :ets.match_object(Ecspanse.Util.components_state_ets_table(), {:"$0", :"$1", :"$2"})
   end
@@ -203,12 +192,4 @@ defmodule Ecspanse.Component do
       end
     end
   end
-
-  #############################
-  #    INTERNAL STATE         #
-  #############################
-
-  @opaque component_key_tags_value ::
-            {{Ecspanse.Entity.id(), component_module :: module()}, tags :: list(atom()),
-             component_state :: struct()}
 end

@@ -51,11 +51,12 @@ defmodule Ecspanse.System do
 
   @doc """
 
-  WARNING: to be used only for development and testing.
 
   Gives any process Ecspanse.System abilities (eg. executing commands).
   This is a powerful tool for testing and debugging, as the promoted process
   can change the components and resources state without having to be scheduled like a regular system.
+
+  > #### This function is intended for use only in testing and development environments.  {: .warning}
   """
   @spec debug() :: :ok
   def debug do

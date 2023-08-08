@@ -14,7 +14,6 @@ defmodule Ecspanse.Server do
 
   @doc """
   TODO
-  WARNING: to be used only for development and testing.
   Utility function used for testing and development purposes.
 
   The `debug/0` function returns the internal state of the framework, which can be useful for debugging systems scheduling and batching.
@@ -24,6 +23,7 @@ defmodule Ecspanse.Server do
 
   The internal state of the framework.
 
+  > #### This function is intended for use only in testing and development environments.  {: .warning}
   """
   @spec debug() :: Ecspanse.Server.State.t()
   def debug do
@@ -120,7 +120,8 @@ defmodule Ecspanse.Server do
     # - keep under control the GenServer memory usage
     # - elimitate GenServer bottlenecks. Various Systems or Queries can read directly from the ETS tables.
 
-    # This is the main ETS table that holds the components state as a list of Ecspanse.Component.component_key_tags_value() tuples
+    # This is the main ETS table that holds the components state
+    # as a list of `{{Ecspanse.Entity.id(), component_module :: module()}, tags :: list(atom()),component_state :: struct()}`
     # All processes can read and write to this table. But writing should only be done through Commands.
     # The race condition is handled by the System Component locking.
     # Commands should validate that only Systems are writing to this table.

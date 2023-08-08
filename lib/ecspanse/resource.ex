@@ -30,9 +30,10 @@ defmodule Ecspanse.Resource do
 
   @doc """
   TODO
-  WARNING: to be used only for development and testing.
   Utility function used for developement.
   Returns all their resources and their state, toghether with their entity association.
+
+  > #### This function is intended for use only in testing and development environments.  {: .warning}
   """
   @spec debug() :: list(resource_key_value())
   def debug do
