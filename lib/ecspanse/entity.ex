@@ -6,7 +6,7 @@ defmodule Ecspanse.Entity do
 
   Entities are represented as a struct with `id` as the only field.
 
-  ## Example
+  ## Examples
     ```elixir
     %Ecspanse.Entity{id: "cfa1ad89-44b6-4d1f-8590-186354be9158"}
     ```
@@ -22,14 +22,16 @@ defmodule Ecspanse.Entity do
   @type id :: binary()
 
   @typedoc """
-  An entity_spec is the definition needed to create an entity.
-  ### Options
-  - `id:` A custom unique id for the entity - binary()
-  - `components:` A list of component_spec to be added to the entity
-  - `children:` A list of `Entity.t()` to be added as children to the entity. Children entities must already exist.
-  - `parents:` A list of `Entity.t()` to be added as parents to the entity. Parent entities must already exist.
+  An `entity_spec` is the definition required to create an entity.
+  ## Options
+  - `:id` - a custom unique ID for the entity (binary). If not provided, a random UUID will be generated.
+  - `:components` - a list of `t:Ecspanse.Component.component_spec/0` to be added to the entity.
+  - `:children` A list of `t:Ecspanse.Entity.t/0` to be added as children to the entity. Children entities should already exist.
+  - `:parents` A list of `t:Ecspanse.Entity.t/0` to be added as parents to the entity. Parent entities should already exist.
 
-  At least one of `components:`, `children:` or `parents:` must be provided, otherwise the entity cannot be persisted.
+  > #### Note  {: .info}
+  > At least one of the `:components`, `:children` or `:parents` options must be provided,
+  > otherwise the entity cannot be persisted.
   """
   @type entity_spec :: {Entity, opts :: keyword()}
 

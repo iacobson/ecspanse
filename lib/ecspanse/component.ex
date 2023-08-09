@@ -1,15 +1,21 @@
 defmodule Ecspanse.Component do
   @moduledoc """
-  The Component is the basic building block of the ECS architecture. An entity cannot exist without at least a component.
-  One or more component define the entity's state. The components hold their own state, and can also be tagged for easy grouping.
+  The component is the basic building block of the ECS architecture.
+  The components are defined by invoking `use Ecspanse.Component` in their module definition.
+
+  An entity cannot exist without at least a component.
+  And the other way around, a component cannot exitst without being allocated to an entity.
+  The components hold their own state, and can also be tagged for easy grouping.
 
   There are two ways of providing the components with their initial state and tags:
+
   1. At compile time, when invoking the `use Ecspanse.Component`, by providing the `:state` and `:tags` options.
     ```elixir
     defmodule Demo.Components.Position do
       use Ecspanse.Component, state: [x: 3, y: 5], tags: [:map]
     end
     ```
+
   2. At runtime when creating the components from specs: `t:Ecspanse.Component.component_spec()`:
     ```elixir
     Ecspanse.Command.spawn_entity!({Ecspanse.Entity,
@@ -43,7 +49,15 @@ defmodule Ecspanse.Component do
   """
 
   @typedoc """
-  Specs for component creation.
+  A `component_spec` is the definition required to create a component.
+
+  ## Examples
+    ```elixir
+    Demo.Components.Gold
+    {Demo.Components.Gold, [amount: 5]}
+    {Demo.Components.Gold, [amount: 5], [:resource, :available]}
+    {Demo.Components.Gold, [], [:resource, :available]}
+    ```
   """
   @type component_spec ::
           (component_module :: module())

@@ -1,34 +1,65 @@
 defmodule Ecspanse.Event do
   @moduledoc """
-  TODO
+  Events act as a one-way communication channel to Ecspanse,
+  enabling elements outside of the library to dispatch data asynchronously into Ecspanse Systems.
+  Events are also used internally to communicate between Systems.
+  The events are defined by invoking `use Ecspanse.Event` in their module definition.
 
+  Events are scheduled using the `Ecspanse.event/2` function.
+  Any events scheduled within the current frame will be batched and
+  then made accessible to the systems in the following `t:Ecspanse.Frame.t/0`.
+  The batched events from the current frame are cleared once that frame ends.
+  This implies each system has a single opportunity to process an event that has been scheduled.
 
-  Events are passed to the systems to be processed.
-  All systems have access to the events created for the current frame.
+  ## Options
+    - `:fields` - a list with all the event struct keys and their initial values (if any)
+    For example: `[:direction, type: :hero]`
 
-  Opts
-    - fields: must be a list with all the Event struct keys and their default values (if any)
-    Eg: [:foo, :bar, baz: 1]
+  An `inserted_at` field with the `Elixir.System` time of the creation is added to all events automatically.
 
-  The events are cleared at the end of the frame.
+  There are two ways of providing the events with their field values:
 
-  All events need to be defined with `use Ecspanse.Event`.
+  1. At compile time, when invoking the `use Ecspanse.Event`, by providing the `:fields` option.
+    ```elixir
+    defmodule Demo.Events.HeroMoved do
+      use Ecspanse.Event, fields: [:direction, type: :hero]
+    end
+    ```
 
-  A `inserted_at` field with the System time of the creation is added to all events automatically.
+  2. At runtime when creating the events from specs: `t:Ecspanse.Event.event_spec()`
+    ```elixir
+    Ecspanse.event({Demo.Events.HeroMoved, [direction: :left]})
+    ```
 
-  TODO: document the special type of events creted by entity updates, creation and deletion
+  There are some special events that are created and dispached by the framework:
+  - `Ecspanse.Event.ComponentCreated` - dispatched when new component is created
+  - `Ecspanse.Event.ComponentUpdated` - dispatched when a component is updated
+  - `Ecspanse.Event.ComponentDeleted` - dispatched when a component is deleted
+  - `Ecspanse.Event.ResourceCreated` - dispatched when new resource is created
+  - `Ecspanse.Event.ResourceUpdated` - dispatched when a resource is updated
+  - `Ecspanse.Event.ResourceDeleted` - dispatched when a resource is deleted
+  - `Ecspanse.Event.Timer` - dispatched when a timer countdown reaches 0
 
-
-  Tip: we can find Events in the Systems by their struct like this:
-  ```elixir
-  Enum.filter(events, &match?(%MyEvent{foo: :bar}, &1)) # this allows further pattern matching in the event struct
-  # or
-  Enum.filter(events, & &1.__struct__ == MyEvent)
-  # or
-  Enum.filter(events, & fn %event_module{}  -> event_module == MyEvent end)
-  ```
+  > #### Note  {: .info}
+  > There are many ways to filter events in the Systems by their struct like:
+  >  ```elixir
+  >  Enum.filter(events, &match?(%Demo.Events.MoveHero{direction: :right}, &1)) # this allows further pattern matching in the event struct
+  >  # or
+  >  Enum.filter(events, & &1.__struct__ == Demo.Events.MoveHero)
+  >  # or
+  >  Enum.filter(events, & fn %event_module{}  -> event_module == Demo.Events.MoveHero end)
+  >  ```
   """
 
+  @typedoc """
+  An `event_spec` is the definition required to create an event.
+
+  ## Examples
+    ```elixir
+    Demo.Events.MoveHero
+    {Demo.Events.MoveHero, [direction: :left]}
+    ```
+  """
   @type event_spec ::
           (event_module :: module())
           | {event_module :: module(), event_fields :: keyword()}
