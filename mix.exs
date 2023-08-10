@@ -69,11 +69,17 @@ defmodule Ecspanse.MixProject do
         Ecspanse.Resource,
         Ecspanse.Event,
         Ecspanse.Query,
-        Ecspanse.Command,
-        Ecspanse.Server
+        Ecspanse.Command
       ],
       groups_for_modules: [
-        API: [Ecspanse, Ecspanse.Data, Ecspanse.Frame, Ecspanse.Server, Ecspanse.Server.State],
+        API: [
+          Ecspanse,
+          Ecspanse.Data,
+          Ecspanse.Frame,
+          Ecspanse.Server,
+          Ecspanse.Server.State,
+          Ecspanse.TestServer
+        ],
         Entities: [Ecspanse.Entity],
         Components: [
           Ecspanse.Component,

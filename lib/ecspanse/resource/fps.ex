@@ -5,6 +5,10 @@ defmodule Ecspanse.Resource.FPS do
   The framework also provides a special system that updates the FPS resource.
   The TrackFPS system needs to be added to the Server, in order to calculate the FPS.
 
+  - value: the last second FPS value
+  - current: the current frames accumulated this second
+  - millisecond: the current millisecond of the second
+
   """
   use Ecspanse.Resource,
     state: [value: 0, current: 0, millisecond: 0]

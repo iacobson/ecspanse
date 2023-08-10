@@ -1,41 +1,64 @@
 defmodule Ecspanse.Resource do
   @moduledoc """
-  # TODO
-  Resources act like global resources, independent of entities.
-  Used for configuration, game state, etc.
-  Resources can be created, updated or deleted only from sysnchronous Systems.
+  Resources are global components that don't belong to any entity.
 
-  - opts
-    - state: must be a list with all the Rerource state struct keys and their initial values (if any)
-    Eg: [:foo, :bar, baz: 1]
+  They are best used for configuration, global state, statistics, etc.
+
+  Resources are defined by invoking `use Ecspanse.Resource` in their module definition.
+
+  ## Options
+  - `:state` - a list with all the resource state struct keys and their initial values (if any).
+  For example: `[:player_count, max_players: 100]`
+
+  There are two ways of providing the resources with their initial state:
+
+  1. At compile time, when invoking the `use Ecspanse.Resource`, by providing the `:state` option.
+    ```elixir
+    defmodule Demo.Resources.PlayerCount do
+      use Ecspanse.Resource, state: [player_count: 0, max_players: 100]
+    end
+    ```
+
+  2. At runtime when creating the resources from specs: `t:Ecspanse.Resource.resource_spec()`
+    ```elixir
+    Ecspanse.Command.insert_resource!({Demo.Resources.Lobby, [max_players: 50]})
+    ```
+  There are some special resources that are created automatically by the framework:
+  - `Ecspanse.Resource.FPS` - tracks the frames per second.
+  - `Ecspanse.Resource.State` - a high level state implementation.
+
+  > #### Note  {: .info}
+  > Resources can be created, updated or deleted only from sysnchronous systems.
 
   """
 
+  @typedoc """
+  A `resource_spec` is the definition required to create a resource.
+
+  ## Examples
+    ```elixir
+    Demo.Resources.Lobby
+    {Demo.Resources.Lobby, [max_players: 50]}
+    ```
+  """
   @type resource_spec ::
           (resource_module :: module())
           | {resource_module :: module(), initial_state :: keyword()}
 
   @doc """
-  Optional callback to validate the resource state.
-  Takes a map with the resource state and returns `:ok` or an error tuple.
-  In case an error is returned, it raises with the proviced error message.
+  **Optional** callback to validate the resource state.
 
-
-  Note: For more complex validations, Ecto schemaless changesets can be used
-  https://hexdocs.pm/ecto/Ecto.Changeset.html#module-schemaless-changesets
-  https://medium.com/very-big-things/towards-maintainable-elixir-the-core-and-the-interface-c267f0da43
+  See `c:Ecspanse.Component.validate/1` for more details.
   """
   @callback validate(resource :: struct()) :: :ok | {:error, any()}
   @optional_callbacks validate: 1
 
   @doc """
-  TODO
-  Utility function used for developement.
-  Returns all their resources and their state, toghether with their entity association.
+  Utility function. Returns all the resources and their state.
 
   > #### This function is intended for use only in testing and development environments.  {: .warning}
   """
-  @spec debug() :: list(resource_key_value())
+  @spec debug() :: list({resource_module :: module(), resource_state :: struct()})
   def debug do
     :ets.match_object(Ecspanse.Util.resources_state_ets_table(), {:"$0", :"$1", :"$2"})
   end
@@ -80,11 +103,4 @@ defmodule Ecspanse.Resource do
       end
     end
   end
-
-  #############################
-  #    INTERNAL STATE         #
-  #############################
-
-  @opaque resource_key_value ::
-            {resource_module :: module(), resource_state :: struct()}
 end

@@ -10,8 +10,6 @@ defmodule Ecspanse.Server do
   alias Ecspanse.System
   alias Ecspanse.Util
 
-  @type name :: atom() | {:global, term()} | {:via, module(), term()}
-
   @doc """
   TODO
   Utility function used for testing and development purposes.
@@ -52,31 +50,31 @@ defmodule Ecspanse.Server do
     The internal state of the framework.
     """
 
-    @opaque t :: %__MODULE__{
-              status:
-                :startup_systems
-                | :frame_start_systems
-                | :batch_systems
-                | :frame_end_systems
-                | :frame_ended,
-              frame_timer: :running | :finished,
-              ecspanse_module: module(),
-              system_run_conditions_map: map(),
-              startup_systems: list(Ecspanse.System.t()),
-              frame_start_systems: list(Ecspanse.System.t()),
-              batch_systems: list(list(Ecspanse.System.t())),
-              frame_end_systems: list(Ecspanse.System.t()),
-              shutdown_systems: list(Ecspanse.System.t()),
-              scheduled_systems: list(Ecspanse.System.t()),
-              await_systems: list(reference()),
-              system_modules: MapSet.t(module()),
-              last_frame_monotonic_time: integer(),
-              fps_limit: non_neg_integer(),
-              delta: non_neg_integer(),
-              frame_data: Frame.t(),
-              test: boolean(),
-              test_pid: pid()
-            }
+    @type t :: %__MODULE__{
+            status:
+              :startup_systems
+              | :frame_start_systems
+              | :batch_systems
+              | :frame_end_systems
+              | :frame_ended,
+            frame_timer: :running | :finished,
+            ecspanse_module: module(),
+            system_run_conditions_map: map(),
+            startup_systems: list(Ecspanse.System.t()),
+            frame_start_systems: list(Ecspanse.System.t()),
+            batch_systems: list(list(Ecspanse.System.t())),
+            frame_end_systems: list(Ecspanse.System.t()),
+            shutdown_systems: list(Ecspanse.System.t()),
+            scheduled_systems: list(Ecspanse.System.t()),
+            await_systems: list(reference()),
+            system_modules: MapSet.t(module()),
+            last_frame_monotonic_time: integer(),
+            fps_limit: non_neg_integer(),
+            delta: non_neg_integer(),
+            frame_data: Frame.t(),
+            test: boolean(),
+            test_pid: pid() | nil
+          }
 
     @enforce_keys [
       :ecspanse_module,
@@ -134,7 +132,7 @@ defmodule Ecspanse.Server do
         write_concurrency: :auto
       ])
 
-    # This is the ETS table that holds the resources state as a list of Ecspanse.Resource.resource_key_value() tuples
+    # This is the ETS table that holds the resources state as a list of `{resource_module :: module(), resource_state :: struct()}`
     # All processes can read and write to this table.
     # But writing should only be done through Commands.
     # Commands should validate that only Systems are writing to this table.

@@ -38,7 +38,7 @@ defmodule Ecspanse.Event do
   - `Ecspanse.Event.ResourceCreated` - dispatched when new resource is created
   - `Ecspanse.Event.ResourceUpdated` - dispatched when a resource is updated
   - `Ecspanse.Event.ResourceDeleted` - dispatched when a resource is deleted
-  - `Ecspanse.Event.Timer` - dispatched when a timer countdown reaches 0
+  - `Ecspanse.Event.Timer` - a special event implementation that is used to create timer events
 
   > #### Note  {: .info}
   > There are many ways to filter events in the Systems by their struct like:
