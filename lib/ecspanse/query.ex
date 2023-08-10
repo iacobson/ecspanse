@@ -1,6 +1,10 @@
 defmodule Ecspanse.Query do
   @moduledoc """
-  # TODO
+  The `Ecspanse.Query` module provides a set of functions for querying entities, components and resources.
+
+  The queries are read-only operations they do not modify the state of the components or resources.
+
+  Queries can be run both from within the Ecspanse systems and from outside of the library.
   """
 
   use Memoize
@@ -12,6 +16,7 @@ defmodule Ecspanse.Query do
   alias Ecspanse.Component
   alias Ecspanse.Util
 
+  @typedoc "The query preparation struct."
   @type t :: %Query{
           return_entity: boolean(),
           select: list(component_module :: module()),
@@ -73,18 +78,58 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  # TODO
-  document options and filters
+  `select/2` is the most versatile function for querying entities and components.
+  On its own, it will return an `Ecspanse.Query` struct that holds the query details.
+  The struct needs to be passed to `Ecspanse.Query.stream/1` or `Ecspanse.Query.one/1` to get the results.
 
+  ## Arguments
 
-  Clarification: select/2 first argument is a tuple, that would return the components in the same order
-  EVERY optional component should be marked as `opt: Component`
-  eg: `select({Comp1, Comp2, opt: Comp3, opt: Comp4})`
+  ### 1. component_modules
 
+  The first argument is a tuple of components to be selected. The query will return the components
+  only for the entities that have **all** the components in the tuple.
 
-  **VERY IMPORTANT** The optional components need to be added at the end of the tuple,
-  otherwise the result ordering witll be wrong.
+  The entity can be queried as well by adding `Ecspanse.Entity` as the first element in the tuple.
+  Also, optional components can be queries, by adding the `:opt` key.
+  The optional components should be placed at the end of the tuple.
 
+  The restults will be returned in the same order as the components in the tuple. This makes it easy to use pattern matching on the result.
+
+  ### 2. filters
+
+  The filters are optional. They can be used to further narrow down the results.
+
+  - `:with` - a list of components that the entity must have in addition to the ones specified in the `component_modules` tuple.
+  But those components will not be returned in the result. `:with` filter has one option: `:without` - a list of components that the entity must not have.
+  - `:or_with` - similar to `:with`. It allows to specify multiple filters for the same query. Multiple `or_with` filters can be used in the same query.
+  The results will be returned if the entity components match any of the filters.
+  - `:for` - a list of `t:Ecspanse.Entity.t/0` that the query should be run for. The components will be returned only for those entities.
+  - `:not_for` - a list of `t:Ecspanse.Entity.t/0` that the query should not be run for. The components will be returned for all entities except those.
+  - `:for_children_of` - a list of `t:Ecspanse.Entity.t/0`. The components will be returned only for the children of those entities.
+  - `:for_descendants_of` - a list of `t:Ecspanse.Entity.t/0`. The components will be returned only for all descendants of those entities.
+  - `:for_parents_of` - a list of `t:Ecspanse.Entity.t/0`. The components will be returned only for the parents of those entities.
+
+  > #### Info  {: .error}
+  > Combining the following filters is not supported: `:for, :not_for, :for_children_of, :for_descendants_of, :for_parents_of`.
+  > Only one of them can be used in a query. Otherwise it will rise an error.
+
+  ## Examples
+    ```elixir
+    Ecspanse.Query.select({Ecspanse.Entity, Demo.Components.Health, opt: Demo.Components.Mana},
+      with: [Demo.Components.Orc],
+      or_with: [[Demo.Components.Wizard], without: [Demo.Components.WhiteMagic]],
+      for_descendants_of: [enemy_clan_entity]
+    )
+    |> Ecspanse.Query.stream()
+    |> Enum.to_list()
+    ```
+    a potential result may be:
+    ```elixir
+    [
+      {orc_entity, %Demo.Components.Health{value: 100}, nil},
+      {wizard_entity, %Demo.Components.Health{value: 60}, %Demo.Components.Mana{value: 200}}
+    ]
+    ```
   """
   @doc group: :generic
   @spec select(component_modules :: tuple(), keyword()) :: t()
@@ -149,7 +194,9 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  Retrieve a stream of entities that match the query tuple
+  Returns a stream of components tuples for a `t:t/0` query.
+
+  See the `select/2` function for more info.
   """
   @doc group: :generic
   @spec stream(t()) :: Enumerable.t()
@@ -175,7 +222,9 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
+  Returns a single tuple wiht components for a `t:t/0` query. Returns `nil` if no result was found. Raises if more than one entry.
+
+  See the `select/2` function for more info.
   """
   @doc group: :generic
   @spec one(t()) :: components_state :: tuple() | nil
@@ -188,8 +237,15 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-    TODO
-  Returns the Entity struct as long as it has at least one component.
+  Fetches an `t:Ecspanse.Entity.t/0` by its ID.
+
+  An entity exists only if it has at least one component.
+
+    ## Examples
+
+    ```elixir
+    {:ok, %Ecspanse.Entity{}} = Ecspanse.Query.fetch_entity(hero_entity_id)
+    ```
   """
   @doc group: :entities
   @spec fetch_entity(Ecspanse.Entity.id()) :: {:ok, Ecspanse.Entity.t()} | {:error, :not_found}
@@ -211,7 +267,13 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
+  Returns a component's entity.
+
+  ## Examples
+
+    ```elixir
+    {:ok, %Ecspanse.Entity{}} = Ecspanse.Query.get_component_entity(hero_component)
+    ```
   """
   @doc group: :entities
   @spec get_component_entity(component_state :: struct()) ::
@@ -222,12 +284,22 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
-  Returns a list of entities that are children of the given entity
+  Returns the list of child entities for the given entity.
+
+  ## Examples
+
+    ```elixir
+    [sword_item_entity, magic_potion_entity] = Ecspanse.Query.list_children(hero_entity)
+    ```
   """
   @doc group: :relationships
   @spec list_children(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
-  defmemo list_children(%Entity{id: entity_id}), max_waiter: 1000, waiter_sleep_ms: 0 do
+  def list_children(%Entity{} = entity) do
+    memo_list_children(entity)
+  end
+
+  @doc false
+  defmemo memo_list_children(%Entity{id: entity_id}), max_waiter: 1000, waiter_sleep_ms: 0 do
     case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Children}) do
       [{_key, _tags, %Component.Children{entities: children_entities}}] -> children_entities
       [] -> []
@@ -235,24 +307,42 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
-
-  Returns a list of entities that are descendants of the given entity.
+  Returns the list of descendant entities for the given entity.
   That means the children of the entity and their children and so on.
+
+  ## Examples
+
+    ```elixir
+    [inventory_entity, map_entity] = Ecspanse.Query.list_descendants(hero_entity)
+    ```
   """
   @doc group: :relationships
   @spec list_descendants(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
-  defmemo list_descendants(%Entity{} = entity), max_waiter: 1000, waiter_sleep_ms: 0 do
+  def list_descendants(%Entity{} = entity) do
+    memo_list_descendants(entity)
+  end
+
+  @doc false
+  defmemo memo_list_descendants(%Entity{} = entity), max_waiter: 1000, waiter_sleep_ms: 0 do
     list_descendants_entities([entity], [])
   end
 
   @doc """
-  TODO
-  Returns a list of entities that are parents of the given entity
+  Returns the list of parent entities for the given entity.
+
+  ## Examples
+
+    ```elixir
+    [hero_entity] = Ecspanse.Query.list_parents(inventory_entity)
+    ```
   """
   @doc group: :relationships
   @spec list_parents(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
-  defmemo list_parents(%Entity{id: entity_id}), max_waiter: 1000, waiter_sleep_ms: 0 do
+  def list_parents(%Entity{} = entity) do
+    memo_list_parents(entity)
+  end
+
+  defmemo memo_list_parents(%Entity{id: entity_id}), max_waiter: 1000, waiter_sleep_ms: 0 do
     case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Parents}) do
       [{_key, _tags, %Component.Parents{entities: parents_entities}}] -> parents_entities
       [] -> []
@@ -260,9 +350,14 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
-  Lists tagged components, for all entities.
+  Returns a list of components tagged with a list of tags for all entities.
   The components need to be tagged with all the given tags to return.
+
+  ## Examples
+
+    ```elixir
+    [gold_component, gems_component] = Ecspanse.Query.list_tagged_components([:resource, :available])
+    ```
   """
   @doc group: :tags
   @spec list_tagged_components(list(tag :: atom())) ::
@@ -278,8 +373,13 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
-  Fetches tagged components, for a single entity.
+  Returns a list of components tagged with a list of tags for a given entity.
+
+  ## Examples
+
+    ```elixir
+    [gold_component, gems_component] = Ecspanse.Query.list_tagged_components_for_entity(hero_entity, [:resource, :available])
+    ```
   """
   @doc group: :tags
   @spec list_tagged_components_for_entity(Ecspanse.Entity.t(), list(tag :: atom())) ::
@@ -296,8 +396,14 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
-  Fetches tagged components, for a list of entities.
+  Returns a list of components tagged with a list of tags for a given list of entities.
+  The components are not grouped by entity, but returned as a flat list.
+
+  ## Examples
+
+    ```elixir
+    [gold_component, gems_component, gems_component] = Ecspanse.Query.list_tagged_components_for_entities([hero_entity, enemy_entity], [:resource, :available])
+    ```
   """
   @doc group: :tags
   @spec list_tagged_components_for_entities(list(Ecspanse.Entity.t()), list(tag :: atom())) ::
@@ -317,8 +423,13 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
-  Fetches tagged components, for the children of the given entity.
+  Returns a list of components tagged with a list of tags for the children of a given entity.
+
+  ## Examples
+
+    ```elixir
+    [boots_component, compass_component] = Ecspanse.Query.list_tagged_components_for_children(hero_entity, [:inventory])
+    ```
   """
   @doc group: :tags
   @spec list_tagged_components_for_children(Ecspanse.Entity.t(), list(tag :: atom())) ::
@@ -332,8 +443,13 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
-  Fetches tagged components, for the descendants of the given entity.
+  Returns a list of components tagged with a list of tags for the descendants of a given entity.
+
+  ## Examples
+
+    ```elixir
+    [orc_component, orc_component, wizard_component] = Ecspanse.Query.list_tagged_components_for_descendants(dungeon_entity, [:enemy])
+    ```
   """
   @doc group: :tags
   @spec list_tagged_components_for_descendants(Ecspanse.Entity.t(), list(tag :: atom())) ::
@@ -347,8 +463,13 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
-  Fetches tagged components, for the parents of the given entity.
+  Returns a list of components tagged with a list of tags for the parents of a given entity.
+
+  ## Examples
+
+    ```elixir
+    [hero_component] = Ecspanse.Query.list_tagged_components_for_parents(boots_entity, [:hero])
+    ```
   """
   @doc group: :tags
   @spec list_tagged_components_for_parents(Ecspanse.Entity.t(), list(tag :: atom())) ::
@@ -362,8 +483,13 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
-  Fetches the component state for the given entity.
+  Fetches the component by its module for a given entity.
+
+  ## Examples
+
+    ```elixir
+    {:ok, gold_component} = Ecspanse.Query.fetch_component(hero_entity, Demo.Components.Gold)
+    ```
   """
   @doc group: :components
   @spec fetch_component(Ecspanse.Entity.t(), module()) ::
@@ -376,9 +502,14 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
-  Fetches the components state for the given entity.
-  The components modules are passed as a tuple. And the result is a tuple with the components state.
+  Fetches a tuple of components by their modules for a given entity.
+  The entity must have all the components for the query to succeed.
+
+  ## Examples
+
+    ```elixir
+    {:ok, {gold_component, gems_component}} = Ecspanse.Query.fetch_components(hero_entity, {Demo.Components.Gold, Demo.Components.Gems})
+    ```
   """
   @doc group: :components
   @spec fetch_components(Ecspanse.Entity.t(), component_modules :: tuple()) ::
@@ -393,7 +524,13 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
+  Returns `true` if the entity has a component with the given module.
+
+  ## Examples
+
+    ```elixir
+    true = Ecspanse.Query.has_component?(hero_entity, Demo.Components.Gold)
+    ```
   """
   @doc group: :components
   @spec has_component?(Ecspanse.Entity.t(), module()) :: boolean()
@@ -402,7 +539,13 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
+  Returns `true` if the entity has all the components with the given modules.
+
+  ## Examples
+
+    ```elixir
+    true = Ecspanse.Query.has_components?(hero_entity, [Demo.Components.Gold, Demo.Components.Gems])
+    ```
   """
   @doc group: :components
   @spec has_components?(Ecspanse.Entity.t(), list(module())) :: boolean()
@@ -414,7 +557,12 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
+  Reurns `true` if a given entity is a child of another entity.
+  ## Examples
+
+    ```elixir
+    true = Ecspanse.Query.is_child_of?(parent: hero_entity, child: boots_entity)
+    ```
   """
   @doc group: :relationships
   @spec is_child_of?(parent: Ecspanse.Entity.t(), child: Ecspanse.Entity.t()) :: boolean()
@@ -424,7 +572,13 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
+  Reurns `true` if a given entity is a parent of another entity.
+
+  ## Examples
+
+    ```elixir
+    true = Ecspanse.Query.is_parent_of?(parent: hero_entity, child: boots_entity)
+    ```
   """
   @doc group: :relationships
   @spec is_parent_of?(parent: Ecspanse.Entity.t(), child: Ecspanse.Entity.t()) :: boolean()
@@ -434,23 +588,40 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
+  Returns true if the entity has at least a child with the given component module.
+
+  ## Examples
+
+    ```elixir
+    true = Ecspanse.Query.has_children_with_component?(hero_entity, Demo.Components.Boots)
+    ```
   """
   @doc group: :relationships
-  @spec has_children_with_component?(Ecspanse.Entity.t(), module()) ::
-          boolean()
+  @spec has_children_with_component?(Ecspanse.Entity.t(), module()) :: boolean()
   def has_children_with_component?(entity, component_module) do
     has_children_with_components?(entity, [component_module])
   end
 
   @doc """
-  TODO
+  Returns true if the entity has at least a child with all the given component modules.
+
+  ## Examples
+
+    ```elixir
+    true = Ecspanse.Query.has_children_with_components?(hero_entity, [Demo.Components.Boots, Demo.Components.Sword])
+    ```
   """
   @doc group: :relationships
-  @spec has_children_with_components?(Ecspanse.Entity.t(), list(module())) ::
-          boolean()
-  defmemo has_children_with_components?(entity, component_module_list)
-          when is_list(component_module_list) do
+  @spec has_children_with_components?(Ecspanse.Entity.t(), list(module())) :: boolean()
+  def has_children_with_components?(entity, component_module_list)
+      when is_list(component_module_list) do
+    memo_has_children_with_components?(entity, component_module_list)
+  end
+
+  @doc false
+  defmemo memo_has_children_with_components?(entity, component_module_list),
+    max_waiter: 1000,
+    waiter_sleep_ms: 0 do
     components =
       select(List.to_tuple(component_module_list), for_children_of: [entity])
       |> stream()
@@ -460,7 +631,13 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
+  Returns true if the entity has at least a parent with the given component module.
+
+  ## Examples
+
+    ```elixir
+    true = Ecspanse.Query.has_parents_with_component?(boots_entity, Demo.Components.Hero)
+    ```
   """
   @doc group: :relationships
   @spec has_parents_with_component?(Ecspanse.Entity.t(), module()) ::
@@ -470,13 +647,25 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
+  Returns true if the entity has at least a parent with all the given component modules.
+
+  ## Examples
+
+    ```elixir
+    true = Ecspanse.Query.has_parents_with_components?(boots_entity, [Demo.Components.Hero, Demo.Components.Gold])
+    ```
   """
   @doc group: :relationships
-  @spec has_parents_with_components?(Ecspanse.Entity.t(), list(module())) ::
-          boolean()
-  defmemo has_parents_with_components?(entity, component_module_list)
-          when is_list(component_module_list) do
+  @spec has_parents_with_components?(Ecspanse.Entity.t(), list(module())) :: boolean()
+  def has_parents_with_components?(entity, component_module_list)
+      when is_list(component_module_list) do
+    memo_has_parents_with_components?(entity, component_module_list)
+  end
+
+  @doc false
+  defmemo memo_has_parents_with_components?(entity, component_module_list),
+    max_waiter: 1000,
+    waiter_sleep_ms: 0 do
     components =
       select(List.to_tuple(component_module_list), for_parents_of: [entity])
       |> stream()
@@ -486,8 +675,13 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  TODO
-  Fetches a resource state
+  Fetches a resource by its module.
+
+  ## Examples
+
+    ```elixir
+    {:ok, lobby_resource} = Ecspanse.Query.fetch_resource(Demo.Resources.Lobby)
+    ```
   """
   @doc group: :resources
   @spec fetch_resource(resource_module :: module()) ::
@@ -723,6 +917,7 @@ defmodule Ecspanse.Query do
         Keyword.get(filters, :for),
         Keyword.get(filters, :not_for),
         Keyword.get(filters, :for_children_of),
+        Keyword.get(filters, :for_descendants_of),
         Keyword.get(filters, :for_parents_of)
       ]
       |> Enum.reject(&is_nil/1)
