@@ -23,6 +23,7 @@ defmodule Ecspanse.Resource do
     ```elixir
     Ecspanse.Command.insert_resource!({Demo.Resources.Lobby, [max_players: 50]})
     ```
+
   There are some special resources that are created automatically by the framework:
   - `Ecspanse.Resource.FPS` - tracks the frames per second.
   - `Ecspanse.Resource.State` - a high level state implementation.
