@@ -1,6 +1,6 @@
 # Ecspanse
 
-[![Ecspanse](./guides/images/logo_small.png)](https://github.com/iacobson/ecspanse_demo)
+[![Ecspanse](./guides/images/logo_small.png)](https://hexdocs.pm/ecspanse/tutorial.html)
 [![Hex Version](https://img.shields.io/hexpm/v/ecspanse.svg)](https://hex.pm/packages/ecspanse)
 [![License](https://img.shields.io/hexpm/l/ecspanse.svg)](https://github.com/iacobson/ecspanse/blob/main/LICENSE)
 [![Documentation](https://img.shields.io/badge/documentation-gray)](https://hexdocs.pm/ecspanse)
