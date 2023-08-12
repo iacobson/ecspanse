@@ -1,55 +1,58 @@
 # Ecspanse
 
-## About
+[![Hex Version](https://img.shields.io/hexpm/v/ecspanse.svg)](https://hex.pm/packages/ecspanse)
+[![License](https://img.shields.io/hexpm/l/ecspanse.svg)](https://github.com/iacobson/ecspanse/blob/main/LICENSE)
+[![Documentation](https://img.shields.io/badge/documentation-gray)](https://hexdocs.pm/ecspanse)
 
-- no persistance at the moment
+Ecspanse is an Entity Component System (ECS) framework for Elixir.
 
-## To Do
+Ecspanse is not a game engine, but a flexible foundation
+for managing state and building logic offering features like:
 
-- improve docs
-- more tests outside the happy path
+- flexible queries with multiple filters
+- dynamic bidirectional relationships
+- versatile tagging capabilities
+- system event subscriptions
+- asynchronous system execution
+
+The full documentation for the Ecspanse project is available on [HexDocs](https://hexdocs.pm/ecspanse).
+
+Ecspanse draws inspiration from the API of [bevy_ecs](https://docs.rs/bevy_ecs/latest/bevy_ecs/). However, while [Bevy](https://bevyengine.org/learn/book/getting-started/ecs/) is a comprehensive game engine, Ecspanse focuses on providing an Entity Component System (ECS) library in Elixir. The concepts described in [the unofficial cheat book](https://bevy-cheatbook.github.io/programming/ecs-intro.html) also served as valuable references during development.
+
+Please note that Ecspanse does not claim to be a Bevy equivalent in Elixir. If you're seeking a fully-featured ECS game library, please give [Bevy](https://bevyengine.org/) a try.
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `ecspanse` to your list of dependencies in `mix.exs`:
+Refer to the [Getting Started](https://hexdocs.pm/ecspanse/getting_started.html) guide for installation instructions.
 
-```elixir
-def deps do
-  [
-    {:ecspanse, "~> 0.1.0"}
-  ]
-end
-```
+## Getting Started
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/ecspanse](https://hexdocs.pm/ecspanse).
+The step-by-step [Tutorial](https//hexdocs.pm/ecspanse/tutorial.html) guides you through building a simple game, introducing key features of the framework along the way.
 
-# Testing
+## Demo Projects
 
-TODO
-The Ecspanse.Server is not automatically starting in the test environment.
-This allows testing different system configurations in isolation.
-But if the tests needs to run with the actual game behaviour, the server can be manually started in the test:
+### The Ecspanse Demo
 
-```elixir
-defmodule MyGame do
-  use Ecspanse
+This is the code used in the [Ecspanse Tutorial](https//hexdocs.pm/ecspanse/tutorial.html). You can find it on [GitHub](https://github.com/iacobson/ecspanse_demo).
 
-  def setup(data) do
-    data
-    |> Ecspanse.Server.add_system(TestSystem1)
-    |> Ecspanse.Server.add_system(TestSystem2)
-  end
-end
+### I've Seen Things
 
-# In the test file
+This multiplayer game was built with Ecspanse during the library's development. Check out its [GitHub repository](https://github.com/iacobson/iveseenthings). The game is currently hosted on [fly.io](https://fly.io/) and can be played [HERE](https://iveseenthings.fly.dev/).
 
-setup do
-  start_supervised({MyGame, :test})
-end
-```
+## To Do
 
-**Important** When starting the test server, the `:test` atom must be provided as value in the `start_supervised` function. Otherwise the Ecspanse.Server will not start.
-Example: `start_supervised({MyGame, :test})`
+- [ ] Implement persistence: Develop a flexible and selective method for saving and loading components and resources.
+- [ ] Expand testing beyond happy path scenarios.
+- [ ] Improve documentation.
+
+## License
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at [https://www.apache.org/licenses/LICENSE-2.0](https://www.apache.org/licenses/LICENSE-2.0)
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
