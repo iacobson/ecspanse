@@ -1,8 +1,8 @@
 defmodule Ecspanse.System.TrackFPS do
   @moduledoc """
-  # TODO
-  Special System provided by the framework to track the FPS.
-  The value is stored in the Ecspanse.Resource.FPS resource.
+  A special system provided by the framework to track the FPS.
+
+  The value is stored in the `Ecspanse.Resource.FPS` resource.
   """
   use Ecspanse.System
 

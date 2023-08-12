@@ -1,13 +1,12 @@
 defmodule Ecspanse.System.Timer do
   @moduledoc """
-  TODO
-  Counts down the time for the Timer component.
-  When the time reaches 0, the event is dispatched.
-  If the mode is :repeat, the time is reset to the original duration.
-  If the mode is :temporary, the Timer component is removed from the entity.
+  A special system provided by the framework that
+  counts down the time for all the custom timer components.
 
+  If the `timer` functionality is used, this system
+  needs to be manually added in the `c:Ecspanse.setup/1`
+  callback as a sync system.
 
-  This system needs to be manually added in the `c:Ecspanse.setup/1` callback as a sync system.
   See `Ecspanse.Component.Timer` for details.
   """
 
