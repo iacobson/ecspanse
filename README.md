@@ -1,5 +1,6 @@
 # Ecspanse
 
+[![Ecspanse](./guides/images/logo_small.png)](https://github.com/iacobson/ecspanse_demo)
 [![Hex Version](https://img.shields.io/hexpm/v/ecspanse.svg)](https://hex.pm/packages/ecspanse)
 [![License](https://img.shields.io/hexpm/l/ecspanse.svg)](https://github.com/iacobson/ecspanse/blob/main/LICENSE)
 [![Documentation](https://img.shields.io/badge/documentation-gray)](https://hexdocs.pm/ecspanse)
@@ -27,13 +28,13 @@ Refer to the [Getting Started](https://hexdocs.pm/ecspanse/getting_started.html)
 
 ## Getting Started
 
-The step-by-step [Tutorial](https//hexdocs.pm/ecspanse/tutorial.html) guides you through building a simple game, introducing key features of the framework along the way.
+The step-by-step [Tutorial](https://hexdocs.pm/ecspanse/tutorial.html) guides you through building a simple game, introducing key features of the framework along the way.
 
 ## Demo Projects
 
 ### The Ecspanse Demo
 
-This is the code used in the [Ecspanse Tutorial](https//hexdocs.pm/ecspanse/tutorial.html). You can find it on [GitHub](https://github.com/iacobson/ecspanse_demo).
+This is the code used in the [Ecspanse Tutorial](https://hexdocs.pm/ecspanse/tutorial.html). You can find it on [GitHub](https://github.com/iacobson/ecspanse_demo).
 
 ### I've Seen Things
 
