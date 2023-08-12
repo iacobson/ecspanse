@@ -4,7 +4,7 @@ defmodule Ecspanse do
 
   > #### note {: .info}
   > Ecspanse is not a game engine, but a flexible foundation
-  > for managing state and building logic offering features like:
+  > for managing state and building logic, offering features like:
   > - flexible queries with multiple filters
   > - dynamic bidirectional relationships
   > - versatile tagging capabilities
@@ -20,7 +20,7 @@ defmodule Ecspanse do
   - `Ecspanse.System`: Holds the application core logic. Systems run every frame, either synchronously or asynchronously.
   - `Ecspanse.Resource`: Global state storage, similar to components but not tied to a specific entity. Resources can only be created, updated, and deleted by synchronously executed systems.
   - `Ecspanse.Query`: A tool for retrieving entities, components, or resources.
-  - `Ecspanse.Command`: A mechanism for changing component and resource state. They can only be triggered from a system.
+  - `Ecspanse.Command`: A mechanism for changing components and resources state. They can only be triggered from a system.
   - `Ecspanse.Event`: A mechanism for triggering events, which can be listened to by systems. It is the way to communicate externally with the systems.
 
   ## Usage
@@ -34,7 +34,7 @@ defmodule Ecspanse do
     use Ecspanse, fps_limit: 60
 
     def setup(data) do
-      world
+      data
       |> Ecspanse.Server.add_startup_system(Demo.Systems.SpawnHero)
       |> Ecspanse.Server.add_frame_start_system(Demo.Systems.PurchaseItem)
       |> Ecspanse.Server.add_system(Demo.Systems.MoveHero)
@@ -382,7 +382,7 @@ defmodule Ecspanse do
     end
 
     defmodule ItemsSystemSet do
-      def setu(data) do
+      def setup(data) do
         data
         |> Ecspanse.add_system(Demo.Systems.PickupItem)
       end

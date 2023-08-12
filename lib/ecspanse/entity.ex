@@ -1,7 +1,7 @@
 defmodule Ecspanse.Entity do
   @moduledoc """
 
-  Entities are simply identifiers. An entity exists only if it holds at least one component.
+  Entities are only identifiers. An entity exists only if it holds at least one component.
   The entities per se are not persisted.
 
   Entities are represented as a struct with `id` as the only field.
