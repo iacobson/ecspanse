@@ -31,7 +31,7 @@ defmodule Ecspanse.Component.Timer do
   - `:event` - the event module dispatched when timer reaches 0.
     - create special timer events using `Ecspanse.Event.Timer`.
     - these events require no options.
-    - their state is predefined to `%CustomEventModule{entity_id: entity_id}`
+    - their state is predefined to `%CustomEventModule{entity_id: entity_id}`,
     where entity refers to owner of the custom timer component.
     - event batch key corresponds to the component's owner entity's id.
   - `:mode` - defines how timer operates and can be one of:

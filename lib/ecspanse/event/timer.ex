@@ -1,20 +1,26 @@
 defmodule Ecspanse.Event.Timer do
   @moduledoc """
-  TODO
-  A special event provided by the framework to handle Timer events.
+  The `Timer` is a **Utility Event** designed to facilitate the creation
+  of custom timer (countdown) events.
 
-  This is a **Utility Event**.
+  Instead of using this event directly, it serves as a foundation
+  for building custom timer events with `use Ecspanse.Event.Timer`.
+  It takes no options.
 
-  The event that will be dispatched when the timer reaches 0.
-    - it takes no options
-    - the state is %MyTimerEvent{entity_id: entity_id}. The entity is the owner of the Timer compoenent.
-    - the event key is set to the id of the owner entity.
+  The event that will be dispatched by `Event.System.Timer` system when
+  the timer component reaches 0.
 
+  Their state is predefined to `%CustomEventModule{entity_id: entity_id}`,
+  where entity refers to owner of the custom timer component.
 
-  Example:
+  ## Example:
+    ```elixir
     defmodule MyTimerEvent do
       use Ecspanse.Event.Timer
     end
+    ```
+
+  See `Ecspanse.Component.Timer` for more details.
   """
   defmacro __using__(_opts) do
     quote do
