@@ -1,7 +1,14 @@
 defmodule Ecspanse.Server do
   @moduledoc """
-  The Server is responsible for managing the internal state of the framework, scheduling and running the Systems and batching the Events.
+  The server is responsible for managing the internal state of the framework,
+  scheduling and running the Systems, and batching the Events.
 
+  The server is started by adding the module that invokes `use Ecspanse` to the supervision tree.
+
+  > #### Info  {: .info}
+  > There is only one server instance running per otp app.
+  > Trying to create another setup module that `use Ecspanse` and
+  > adding it to the supervision tree will result in an error.
   """
   require Ex2ms
   require Logger
@@ -10,16 +17,13 @@ defmodule Ecspanse.Server do
   alias Ecspanse.System
   alias Ecspanse.Util
 
+  @typedoc "Debug server state"
+  @type debug_next_frame :: {:next_frame, Ecspanse.Server.State.t()}
+
   @doc """
-  TODO
-  Utility function used for testing and development purposes.
+  Utility function. Returns all the internal state of the framework: `t:Ecspanse.Server.State.t/0`.
 
-  The `debug/0` function returns the internal state of the framework, which can be useful for debugging systems scheduling and batching.
-  This function is only available in the `:dev` and `:test` environments.
-
-  ## Returns
-
-  The internal state of the framework.
+  This can be useful for debugging systems scheduling and events batching.
 
   > #### This function is intended for use only in testing and development environments.  {: .warning}
   """
@@ -29,14 +33,14 @@ defmodule Ecspanse.Server do
   end
 
   @doc """
-  TODO
-  WARNING: to be used only for development and testing.
+  Utility function. The server switches to test mode.
 
-  Utility function for testing and development purposes.
-  The server is turned to test mode.
-  A `{:next_frame, %Ecspanse.Server.State{}}` tupple message will be sent to the process running this function at the beginning of each frame.
-  This is useful for tests or debugging
+  At the beginning of each frame, a `t:debug_next_frame/0` tupple message will be sent
+  to the process passed as function argument.
+
+  > #### This function is intended for use only in testing and development environments.  {: .warning}
   """
+  @spec test_server(pid()) :: :ok
   def test_server(test_pid) do
     GenServer.cast(__MODULE__, {:test_server, test_pid})
   end
@@ -50,6 +54,7 @@ defmodule Ecspanse.Server do
     The internal state of the framework.
     """
 
+    @typedoc "The internal state of the framework."
     @type t :: %__MODULE__{
             status:
               :startup_systems
