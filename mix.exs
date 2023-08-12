@@ -37,7 +37,6 @@ defmodule Ecspanse.MixProject do
   defp deps do
     [
       {:elixir_uuid, "~> 1.2"},
-      {:plug_crypto, "~> 1.2"},
       {:ex2ms, "~> 1.6"},
       {:memoize, "~> 1.4"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
