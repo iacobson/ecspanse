@@ -1,6 +1,6 @@
 # Getting Started
 
-There are a few steps needed to get started with the Ecspanse library. This guide covers the process of setting up the environment and creating a working application.
+There are a few steps needed to get started with the Ecspanse ECS framework. This guide covers the process of setting up the environment and creating a working application.
 
 ## Create a new Elixir/Phoenix project
 

@@ -1,6 +1,6 @@
 # Tutorial
 
-The objective of this tutorial is to develop a basic game utilizing the Ecspanse library. The game is the initial stage of an RPG game with minimal features. The implementation focuses on the on the game logic and it does not have a UI. All the user interactions and minimal display will be done via Livebook integration.
+The objective of this tutorial is to develop a basic game utilizing the Ecspanse framework. The game is the initial stage of an RPG game with minimal features. The implementation focuses on the on the game logic and it does not have a UI. All the user interactions and minimal display will be done via Livebook integration.
 
 ## Story
 

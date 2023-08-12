@@ -1,7 +1,7 @@
 defmodule Ecspanse.Event do
   @moduledoc """
   Events act as a one-way communication channel to Ecspanse,
-  enabling elements outside of the library to dispatch data asynchronously into Ecspanse Systems.
+  enabling elements outside of the framework to dispatch data asynchronously into Ecspanse Systems.
   Events are also used internally to communicate between Systems.
   The events are defined by invoking `use Ecspanse.Event` in their module definition.
 

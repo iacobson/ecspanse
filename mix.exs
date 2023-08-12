@@ -13,6 +13,8 @@ defmodule Ecspanse.MixProject do
       consolidate_protocols: Mix.env() != :test,
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
+      # hex
+      description: description(),
 
       # docs
       name: "ECSpanse",
@@ -111,5 +113,25 @@ defmodule Ecspanse.MixProject do
         Commands: [Ecspanse.Command]
       ]
     ]
+  end
+
+  defp package() do
+    [
+      maintainers: ["Dorian Iacobescu"],
+      licenses: ["Apache-2.0"],
+      links: %{"GitHub" => @source_url}
+    ]
+  end
+
+  def description do
+    """
+    Ecspanse is an Entity Component System (ECS) library for Elixir,
+    offering a suite of features including:
+    flexible queries with multiple filters,
+    dynamic bidirectional relationships,
+    versatile tagging capabilities,
+    system event subscriptions,
+    or asynchronous system execution.
+    """
   end
 end

@@ -4,7 +4,7 @@ defmodule Ecspanse.Query do
 
   The queries are read-only operations they do not modify the state of the components or resources.
 
-  Queries can be run both from within the Ecspanse systems and from outside of the library.
+  Queries can be run both from within the Ecspanse systems and from outside of the framework.
   """
 
   use Memoize

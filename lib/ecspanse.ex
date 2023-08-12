@@ -1,7 +1,15 @@
 defmodule Ecspanse do
   @moduledoc """
-  Ecspanse is an Entity Component System (ECS) library for Elixir, designed to manage game state and provide tools for measuring time and frame duration.
-  It is not a game engine, but a flexible foundation for managing state and building game logic.
+  Ecspanse is an Entity Component System (ECS) framework for Elixir.
+
+  > #### note {: .info}
+  > Ecspanse is not a game engine, but a flexible foundation
+  > for managing state and building logic offering features like:
+  > - flexible queries with multiple filters
+  > - dynamic bidirectional relationships
+  > - versatile tagging capabilities
+  > - system event subscriptions
+  > - asynchronous system execution
 
   The core structure of the Ecspanse library is:
 
@@ -17,7 +25,7 @@ defmodule Ecspanse do
 
   ## Usage
 
-  To use Ecspanse, a module needs to be created that `use Ecspanse`. This implements the `Ecspanse` behaviour, so the `setup/1` callback must be defined. All the systems and their execution order are defined in the `setup/1` callback.
+  To use Ecspanse, a module needs to be created, invoking `use Ecspanse`. This implements the `Ecspanse` behaviour, so the `setup/1` callback must be defined. All the systems and their execution order are defined in the `setup/1` callback.
 
   ### Examples
 
