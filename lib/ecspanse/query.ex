@@ -12,8 +12,8 @@ defmodule Ecspanse.Query do
   require Ex2ms
 
   alias __MODULE__
-  alias Ecspanse.Entity
   alias Ecspanse.Component
+  alias Ecspanse.Entity
   alias Ecspanse.Util
 
   @typedoc "The query preparation struct."

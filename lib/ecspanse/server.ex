@@ -137,7 +137,8 @@ defmodule Ecspanse.Server do
         write_concurrency: :auto
       ])
 
-    # This is the ETS table that holds the resources state as a list of `{resource_module :: module(), resource_state :: struct()}`
+    # This is the ETS table that holds the resources state
+    # as a list of `{resource_module :: module(), resource_state :: struct()}`
     # All processes can read and write to this table.
     # But writing should only be done through Commands.
     # Commands should validate that only Systems are writing to this table.
@@ -150,7 +151,8 @@ defmodule Ecspanse.Server do
         write_concurrency: false
       ])
 
-    # This ETS table stores Events as a list of event structs wraped in a tuple {{MyEventModule, key :: any()}, %MyEvent{}}.
+    # This ETS table stores Events as a list of event structs wraped
+    # in a tuple {{MyEventModule, key :: any()}, %MyEvent{}}.
     # Every frame, the objects in this table are deleted.
     # Any process can read and write to this table.
     # But the logic responsible to write to this table should check the stored values are actually event structs.
