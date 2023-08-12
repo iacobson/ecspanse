@@ -39,7 +39,7 @@ defmodule Ecspanse.MixProject do
       {:elixir_uuid, "~> 1.2"},
       {:ex2ms, "~> 1.6"},
       {:memoize, "~> 1.4"},
-      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.30.0", only: :dev, runtime: false}
     ]
   end
