@@ -1,6 +1,6 @@
 defmodule Ecspanse.Component do
   @moduledoc """
-  The component is the basic building block of the ECS architecture.
+  The component is the basic building block of the ECS architecture, holding the entity state.
   The components are defined by invoking `use Ecspanse.Component` in their module definition.
 
   An entity cannot exist without at least a component.

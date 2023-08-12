@@ -7,8 +7,8 @@ defmodule Ecspanse.System.Timer do
   If the mode is :temporary, the Timer component is removed from the entity.
 
 
-  This system needs to be manually added in the Ecspanse setup callback as sync system.
-  For more details check Ecspanse.Component.Timer.
+  This system needs to be manually added in the `c:Ecspanse.setup/1` callback as a sync system.
+  See `Ecspanse.Component.Timer` for details.
   """
 
   use Ecspanse.System

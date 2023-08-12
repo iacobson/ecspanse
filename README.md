@@ -1,6 +1,13 @@
-# WORK IN PROGRESS
-
 # Ecspanse
+
+## About
+
+- no persistance at the moment
+
+## To Do
+
+- improve docs
+- more tests outside the happy path
 
 ## Installation
 

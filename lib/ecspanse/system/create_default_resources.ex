@@ -1,7 +1,9 @@
 defmodule Ecspanse.System.CreateDefaultResources do
-  @moduledoc false
+  @moduledoc """
   # Special framework system that creates default resources.
   # Runs only once, when the system is started.
+  """
+
   use Ecspanse.System
 
   @impl true

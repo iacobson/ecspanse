@@ -1,24 +1,81 @@
 defmodule Ecspanse.System do
   @moduledoc """
-  TODO
+  The system implements the logic and behaviors of the application
+  by manipulating the state of the components.
+  The systems are defined by invoking `use Ecspanse.System` in their module definition.
 
-  All components that are to be modified, created or deleted, must be defined in the `lock_components` option.
-  Some systems may not need to lock any components, in which case the option can be omitted.
+  The system modules must implement the
+  `c:Ecspanse.System.WithoutEventSubscriptions.run/1` or
+  `c:Ecspanse.System.WithEventSubscriptions.run/2` callbacks,
+  depending if the system subscribes to certain events or not.
+  The return value of the `run` function is ignored.
 
-  The `lock_components` is a list of Component modules.
+  The Ecspanse systems run either synchronously or asynchronously,
+  as scheduled in the `c:Ecspanse.setup/1` callback.
+
+  Systems are the sole mechanism through which the state of components can be altered.
+  Running commands outside of a system is not allowed.
+
+  Resources can be created, updated, and deleted only by systems that are executed synchronously.
+
+  There are some special systems that are created automatically by the framework:
+  - `Ecspanse.System.CreateDefaultResources` - startup system that creates the default framework resources.
+  - `Ecspanse.System.Debug` - used by the `debug/0` function.
+  - `Ecspanse.System.Timer` - tracks and updates all `Ecspanse.Component.Timer` components.
+  - `Ecspanse.System.TrackFPS` - tracks and updates the `Ecspanse.Resource.FPS` resource.
+
+  ## Options
+
+  - `:lock_components` - a list of component modules
+  that will be locked for the duration of the system execution.
+  - `:event_subscriptions` - a list of event modules that the system subscribes to.
 
 
-  The `event_subscriptions` option is used to define a system that will be executed only when specific events are triggered.
-  The system runs for every event of the specified types. The evens run in paralled, but batched by event keys, to avoid race conditions.
-  The event itself is passed to the system as the first argument in the `run/2` function
+  ## Component locking
 
+  Component locking is required only for async systems to avoid race conditions.
 
-  For systems that are executed synchronously, the `lock_components` option is not necessary.
-  If provided, it is ignored and a warning is logged.
+  For async systems, any components that are to be modified, created, or deleted,
+  must be locked in the `lock_components` option. Otherwise, the operation will fail.
+  Wherever it makes sense, it is recommended to lock also components that are queried but not modified,
+  as they could be modified by other systems.
 
+  Not all async systems run concurrently. The systems are grouped in batches,
+  based on the components they lock.
 
-  Resources can be created, updated and deleted only by systems that are executed synchronously.
+  ## Event subscriptions
 
+  The event subscriptions enables a system to execute solely in response to certain specified events.
+
+  The `c:Ecspanse.System.WithEventSubscriptions.run/2` callback is triggered
+  for every occurrence of an event type to which the system has subscribed.
+  These callbacks execute concurrently to enhance performance.
+  However, they are grouped based on their batch keys (see `Ecspanse.event/2` options)
+  as a safeguard against potential race conditions.
+
+  ## Examples
+
+    ```elixir
+    defmodule Demo.Systems.Move do
+      @moduledoc "An async system locking components, that subscribes to an event"
+      use Ecspanse.System,
+        lock_components: [Demo.Components.Position],
+        event_subscriptions: [Demo.Events.Move]
+
+      def run(%Demo.Events.Move{entity_id: entity_id, direction: direction}, frame) do
+        # move logic
+      end
+    end
+
+    defmodule Demo.Systems.SpawnEnemy do
+      @moduledoc "A sync system that does not need to lock components, and it is not subscribed to any events"
+      use Ecspanse.System
+
+      def run(frame) do
+        # spawn logic
+      end
+    end
+    ```
   """
 
   # The System process stores several keys to be used by the Commands and Queries.
@@ -50,11 +107,13 @@ defmodule Ecspanse.System do
             run_conditions: []
 
   @doc """
+  Utility function. Gives any process `Ecspanse.System` abilities to execute commands.
 
+  This is a powerful tool for testing and debugging,
+  as the promoted process can change the components and resources state
+  without having to be scheduled like a regular system.
 
-  Gives any process Ecspanse.System abilities (eg. executing commands).
-  This is a powerful tool for testing and debugging, as the promoted process
-  can change the components and resources state without having to be scheduled like a regular system.
+  See `Ecspanse.TestServer` for more details.
 
   > #### This function is intended for use only in testing and development environments.  {: .warning}
   """
@@ -69,23 +128,43 @@ defmodule Ecspanse.System do
   end
 
   @doc """
-  TODO - Add description and usage
+  Allows running async code inside a system.
 
-  Use when the result of the processing is not important. Eg update components for a list of entities.
+  Because commands can run only from inside a system,
+  running commands in a Task, for example, is not possible.
+  The `execute_async/3` is a wrapper around `Elixir.Task.async_stream/3`
+  and is built exactly for this purpose. It allows running commands in parallel.
 
-  The function is already imported in the System modules that `use Ecspanse.System`
+  The result of the processing is ignored. So the function is suitable for cases
+  when the result is not important. For example, updating components for a list of entities.
 
-  Options
-  - concurrent :: integer() - The number of concurrent tasks to run. Defaults to the number of schedulers online.
-  This is using the Elixir `Task.async_stream/3 |> Stream.run/1` functions.
-  More details about concurrency: https://hexdocs.pm/elixir/1.12/Task.html#async_stream/3
+  > #### Info  {: .info}
+  > This function is already imported for all modules that `use Ecspanse.System`
 
-  **Tip** use with care. While the locked components ensure that no other system is modifying the same components at the same time,
-  the `execute_async/3` does not offer any guarantees inside the system.
-  For example, trying to update the same components in multiple async functions may result in race conditions and unexpected state.
-  On the other hand, it can improve a lot the speed of the system execution.
-  For example, a large list of components that belong to different entities and are not interdependent, can be updated in parallel.
+  ## Options
+  - `:concurrent` - the number of concurrent tasks to run.
+  Defaults to the number of schedulers online.
+  See `Elixir.Task.async_stream/5` options for more details.
 
+  > #### use with care  {: .error}
+  > While the locked components ensure that no other system is modifying
+  > the same components at the same time, the `execute_async/3` does not offer
+  > any such guarantees inside the same system.
+  >
+  > For example, the same component can be modified concurrently, leading to
+  > race conditions and inconsistent state.
+
+  ## Examples
+
+    ```elixir
+      Ecspanse.System.execute_async(
+        enemy_entities,
+        fn enemy_entity ->
+          # update the enemy components
+        end,
+        concurrent: length(enemy_entities) + 1
+      )
+    ```
   """
   @spec execute_async(Enumerable.t(), (term() -> term()), keyword()) :: :ok
   def execute_async(enumerable, fun, opts \\ [])
@@ -110,26 +189,29 @@ defmodule Ecspanse.System do
 
   defmodule WithoutEventSubscriptions do
     @moduledoc """
-    Systems that do not depend on any event.
+    Systems that run every frame and do not depend on any event.
     """
 
     @doc """
-    TODO
-    The function may return any value. The value is ignored.
-    Recives the current Frame struct as argument.
+    Runs every frame for the current system.
+    The return value is ignored.
+
+    It recives the current `t:Ecspanse.Frame.t/0` struct as the only argument.
     """
     @callback run(Ecspanse.Frame.t()) :: any()
   end
 
   defmodule WithEventSubscriptions do
     @moduledoc """
-    Systems that need to be executed for a specific event.
+    Systems that run only if specific events are triggered.
     """
 
     @doc """
-    TODO
-    The function may return any value. The value is ignored.
-    Recives the triggering Event and the current Frame struct as arguments.
+    Runs only if the system is subscribed to the triggering event.
+    The return value is ignored.
+
+    It recives the triggering event struct as the first argument
+    and the current `t:Ecspanse.Frame.t/0` struct as the second argument.
     """
     @callback run(event :: struct(), Ecspanse.Frame.t()) :: any()
   end
