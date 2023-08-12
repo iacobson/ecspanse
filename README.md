@@ -18,7 +18,7 @@ for managing state and building logic offering features like:
 
 The full documentation for the Ecspanse project is available on [HexDocs](https://hexdocs.pm/ecspanse).
 
-Ecspanse draws inspiration from the API of [bevy_ecs](https://docs.rs/bevy_ecs/latest/bevy_ecs/). However, while [Bevy](https://bevyengine.org/learn/book/getting-started/ecs/) is a comprehensive game engine, Ecspanse focuses on providing an Entity Component System (ECS) library in Elixir. The concepts described in [the unofficial cheat book](https://bevy-cheatbook.github.io/programming/ecs-intro.html) also served as valuable references during development.
+Ecspanse draws inspiration from the API of [bevy_ecs](https://docs.rs/bevy_ecs/latest/bevy_ecs/). However, while [Bevy](https://bevyengine.org/learn/book/getting-started/ecs/) is a comprehensive game engine, Ecspanse focuses on providing an Entity Component System (ECS) library in Elixir. The concepts described in [the unofficial cheatbook](https://bevy-cheatbook.github.io/programming/ecs-intro.html) also served as valuable references during development.
 
 Please note that Ecspanse does not claim to be a Bevy equivalent in Elixir. If you're seeking a fully-featured ECS game library, please give [Bevy](https://bevyengine.org/) a try.
 
