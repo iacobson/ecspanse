@@ -1,10 +1,10 @@
 defmodule Ecspanse.Event.ComponentCreated do
   @moduledoc """
-  TODO
-  Special framework event triggered when a new component is created.
+  Special framework event triggered automatically
+  when a new component is created.
   Contains the component state struct.
 
-  See example in the tutorial
+  See [a working example](./tutorial.md#finding-resources) in the tutorial
   """
   use Ecspanse.Event, fields: [:component]
 

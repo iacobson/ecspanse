@@ -1,8 +1,10 @@
 defmodule Ecspanse.Event.ComponentDeleted do
   @moduledoc """
-  TODO
-  Special framework event triggered when a new component is deleted.
+  Special framework event triggered automatically
+  when a new component is deleted.
   Contains the deleted component state struct.
+
+  See [a working example](./tutorial.md#finding-resources) in the tutorial
   """
   use Ecspanse.Event, fields: [:component]
 
