@@ -1,11 +1,12 @@
 defmodule Ecspanse.Resource.State do
   @moduledoc """
-  # TODO
   A special resource provided by the framework to store a generic state.
   This is a high level state, with an atom type value.
-  It is very useful in controlling the Systems execution.
 
-  The initial state can be set in a startup system
+  It is useful in controlling the systems execution. But its use
+  is not mandatory.
+
+  The initial state can be set, for example, in a startup system.
   """
   use Ecspanse.Resource,
     state: [value: nil]
