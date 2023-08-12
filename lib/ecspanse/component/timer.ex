@@ -1,27 +1,51 @@
 defmodule Ecspanse.Component.Timer do
   @moduledoc """
-  TODO
-  Utility Component to create custom timer (countdown) components.
+  The `Timer` is a **Utility Component** designed to facilitate the creation
+  of custom timer (countdown) components.
 
-  This component should not be used as such, but as a builder of custom timer components.
+  Instead of using this component directly, it serves as a foundation
+  for building custom timer components with `use Ecspanse.Component.Timer`.
+
+  The framework automatically decrements the Timer's time each frame,
+  eliminating the need for manual updates.
+  However, manual resetting may be necessary under certain circumstances such as:
+  - When game logic requires custom resetting.
+  - When the timer mode is set to `:once`, necessitating manual reset after reaching 0.
+
+  A dedicated `Ecspanse.System.Timer` system is provided by the framework.
+  This system auto-decrements the Timer component's time
+  and dispatches an event when time reaches 0.
+  To ensure functionality, this System must be manually included in the `c:Ecspanse.setup/1`.
+  Note that it should be added as a sync system, either at frame start or end.
+  This design choice allows developers control over timer operation
+  based on specific states or conditions.
+  For instance, pausing the timers when the game is in a pause state or other game states.
+
+  Pause control at a granular level can be achieved by setting the `paused` field to true.
+
+  The Timer component comes with a **predefined state** comprising of:
+  - `:duration` - the timer's duration in milliseconds which also serves
+  as the reset value.
+  - `:time` - the current time of the timer in milliseconds,
+  auto-decremented by the framework each frame.
+  - `:event` - the event module dispatched when timer reaches 0.
+    - create special timer events using `Ecspanse.Event.Timer`.
+    - these events require no options.
+    - their state is predefined to `%CustomEventModule{entity_id: entity_id}`
+    where entity refers to owner of the custom timer component.
+    - event batch key corresponds to the component's owner entity's id.
+  - `:mode` - defines how timer operates and can be one of:
+    - `:repeat` (default) - timer resets to original duration
+    after reaching 0 and repeats indefinitely.
+    - `:once` - timer runs once and pauses after reaching 0.
+    Time value needs manual reset.
+    - `:temporary`: Timer runs once and removes itself from entity after reaching 0.
+  - `paused`: A boolean indicating if timer is paused (defaults to false).
 
 
-  The time of the Timer is automatically decremented by the framework each frame.
-  There is no need to update the component's time manually. Except when:
-  - it requires custom reseting by the game logic
-  - the timer mode is set to :once, and requires to be reset manually after reaching 0
+  ## Example:
 
-  There is a special Ecspanse.System.Timer system provided by the framework that
-  automatically decrements the time of the Timer component and dispatches the event when the time reaches 0.
-  This System needs to be manually added in the systems setup, otherwise the timer will not work.
-  Attention! the System meeds to be added as sync, as frame start system of frame end system.
-  This is a deliberate decision, to allow the developer to decide if the timers shuld run only in
-  cetain states or certain conditions. For example, the developer might want to pause the timers
-  when the game is paused, or when the game is in a certain state.
-
-  Granular pause control can be achieved by setting the paused field to true.
-
-  Example:
+    ```elixir
     defmodule MyTimerComponent do
       use Ecspanse.Component.Timer,
         state: [duration: 3000, event: MyTimerEvent, mode: :repeat, paused: false]
@@ -31,23 +55,9 @@ defmodule Ecspanse.Component.Timer do
       use Ecspanse.Event.Timer
     end
   end
+  ```
 
-
-  The Timer component has a predefined state with the following fields:
-    - duration: the duration of the timer in milliseconds. This is the value that will be used to reset the timer.
-    - time: the current time of the timer in milliseconds. This value is automatically decremented by the framework each frame.
-    - event: the event module that will be dispatched when the timer reaches 0.
-      - special Timer events should be created using the Ecspanse.Event.Timer module
-      - they take no options
-      - the state of those events is %MyTimerEvent{entity_id: entity_id}. The entity is the owner of the Timer compoenent.
-      - the event batch key is set to the id of the owner entity.
-    - mode: the mode of the timer. Can be one of the following:
-      - :repeat (default) - the timer will repeat itself indefinitely. After reaching 0, the timer will be reset to its original duration.
-      - :once - the timer will run only once. After reaching 0, the timer will be paused. Its time value needs to be reset manually.
-      - :temporary - the timer will run only once. After reaching 0, the timer will be removed from the entity.
-    - paused: a boolean value that indicates if the timer is paused or not. Defaults to false.
-
-    See example in the tutorial
+  See [a working example](./tutorial.md#energy-regeneration) in the tutorial
 
   """
   defmacro __using__(opts) do
