@@ -107,7 +107,7 @@ defmodule Ecspanse.System do
             run_conditions: []
 
   @doc """
-  Utility function. Gives any process `Ecspanse.System` abilities to execute commands.
+  Utility function. Gives the current process `Ecspanse.System` abilities to execute commands.
 
   This is a powerful tool for testing and debugging,
   as the promoted process can change the components and resources state
