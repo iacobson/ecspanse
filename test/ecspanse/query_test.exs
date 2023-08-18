@@ -426,6 +426,24 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
+  describe "fetch_tagged_component" do
+    test "fetches one entity's component by its tags" do
+      entity =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity,
+           components: [
+             TestComponent1,
+             TestComponent2,
+             {TestComponent4, [], [:unique]},
+             TestComponent5
+           ]}
+        )
+
+      assert {:ok, %TestComponent4{}} =
+               Ecspanse.Query.fetch_tagged_component(entity, [:unique])
+    end
+  end
+
   describe "list_tagged_components/1" do
     test "returns the components for a list of tags" do
       Ecspanse.Command.spawn_entity!(

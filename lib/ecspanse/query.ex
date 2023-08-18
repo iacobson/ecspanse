@@ -350,6 +350,34 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
+  Fetches an entity's component by a list of tags.
+  Raises if more than one entry is found.
+
+  > #### Note  {: .info}
+  >
+  > The project logic must ensure that only one component per entity is tagged with the given tags.
+
+  ## Examples
+
+    ```elixir
+    {:ok, %Demo.Components.Paladin{} = hero_class_component} =
+      Ecspanse.Query.fetch_tagged_component(hero_entity, [:class])
+    ```
+  """
+  @doc group: :tags
+  @spec fetch_tagged_component(Ecspanse.Entity.t(), list(tag :: atom())) ::
+          {:ok, components_state :: struct()} | {:error, :not_found}
+  def fetch_tagged_component(entity, tags) do
+    components = list_tagged_components_for_entity(entity, tags)
+
+    case components do
+      [component] -> {:ok, component}
+      [] -> {:error, :not_found}
+      results -> raise Error, "Expected to return one result, got: `#{inspect(results)}`"
+    end
+  end
+
+  @doc """
   Returns a list of components tagged with a list of tags for all entities.
   The components need to be tagged with all the given tags to return.
 
