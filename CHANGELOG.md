@@ -10,7 +10,7 @@
 ### Features
 
 - introducing `Ecspanse.Template.Component` and `Ecspanse.Template.Event` to simplify the creation of related components and events.
-- add new function `Ecspanse.Query.fetch_component/2` to fetch a system's component by a list of tags.
+- add a new function `Ecspanse.Query.fetch_component/2` to fetch a system's component by a list of tags.
 
 ## v0.1.2 (2023-08-14)
 
