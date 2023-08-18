@@ -36,16 +36,15 @@ defmodule Ecspanse.Component do
   After being created, components become structs with the provided fields, along with some metadata added by the framework.
   Components can also be used as an entity label, without state.
 
+  There are some special components that are created automatically by the framework:
+  - `Ecspanse.Component.Children` - holds the list of child entities.
+  - `Ecspanse.Component.Parents` - holds the parent entities.
+
   ## Options
 
   - `:state` - a list with all the component state struct keys and their initial values (if any).
   For example: `[:amount, max_amount: 100]`
   - `:tags` - list of atoms that act as tags for the current component. Defaults to [].
-
-  There are some special components that are created automatically by the framework:
-  - `Ecspanse.Component.Children` - holds the list of child entities.
-  - `Ecspanse.Component.Parents` - holds the parent entities.
-  - `Ecspanse.Component.Timer` - a special component implementation that is used to create timer components.
 
   > #### Tags  {: .info}
   > Tags can be added at compile time, and at runtime **only** when creating a new component.

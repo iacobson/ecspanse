@@ -71,7 +71,8 @@ defmodule Ecspanse.MixProject do
         Ecspanse.Resource,
         Ecspanse.Event,
         Ecspanse.Query,
-        Ecspanse.Command
+        Ecspanse.Command,
+        Ecspanse.Template
       ],
       groups_for_modules: [
         API: [
@@ -86,8 +87,7 @@ defmodule Ecspanse.MixProject do
         Components: [
           Ecspanse.Component,
           Ecspanse.Component.Children,
-          Ecspanse.Component.Parents,
-          Ecspanse.Component.Timer
+          Ecspanse.Component.Parents
         ],
         Systems: [
           Ecspanse.System,
@@ -106,11 +106,16 @@ defmodule Ecspanse.MixProject do
           Ecspanse.Event.ComponentDeleted,
           Ecspanse.Event.ResourceCreated,
           Ecspanse.Event.ResourceUpdated,
-          Ecspanse.Event.ResourceDeleted,
-          Ecspanse.Event.Timer
+          Ecspanse.Event.ResourceDeleted
         ],
         Queries: [Ecspanse.Query],
-        Commands: [Ecspanse.Command]
+        Commands: [Ecspanse.Command],
+        Templates: [
+          Ecspanse.Template.Component,
+          Ecspanse.Template.Component.Timer,
+          Ecspanse.Template.Event,
+          Ecspanse.Template.Event.Timer
+        ]
       ]
     ]
   end

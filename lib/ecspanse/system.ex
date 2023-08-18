@@ -21,7 +21,7 @@ defmodule Ecspanse.System do
   There are some special systems that are created automatically by the framework:
   - `Ecspanse.System.CreateDefaultResources` - startup system that creates the default framework resources.
   - `Ecspanse.System.Debug` - used by the `debug/0` function.
-  - `Ecspanse.System.Timer` - tracks and updates all `Ecspanse.Component.Timer` components.
+  - `Ecspanse.System.Timer` - tracks and updates all components using the `Ecspanse.Template.Component.Timer` template.
   - `Ecspanse.System.TrackFPS` - tracks and updates the `Ecspanse.Resource.FPS` resource.
 
   ## Options
@@ -260,16 +260,12 @@ defmodule Ecspanse.System do
       case event_modules do
         [] ->
           @doc false
-          # at this point, the events for entities that do not exist
-          # have already been filtered out in the Server batching
           def schedule_run(frame) do
             run(frame)
           end
 
         event_modules ->
           @doc false
-          # at this point, the events for entities that do not exist
-          # have already been filtered out in the Server batching
           def schedule_run(frame) do
             Enum.each(frame.event_batches, fn events ->
               events

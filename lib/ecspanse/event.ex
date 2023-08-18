@@ -11,6 +11,14 @@ defmodule Ecspanse.Event do
   The batched events from the current frame are cleared once that frame ends.
   This implies each system has a single opportunity to process an event that has been scheduled.
 
+  There are some special events that are created and dispached by the framework:
+  - `Ecspanse.Event.ComponentCreated` - dispatched when new component is created
+  - `Ecspanse.Event.ComponentUpdated` - dispatched when a component is updated
+  - `Ecspanse.Event.ComponentDeleted` - dispatched when a component is deleted
+  - `Ecspanse.Event.ResourceCreated` - dispatched when new resource is created
+  - `Ecspanse.Event.ResourceUpdated` - dispatched when a resource is updated
+  - `Ecspanse.Event.ResourceDeleted` - dispatched when a resource is deleted
+
   ## Options
     - `:fields` - a list with all the event struct keys and their initial values (if any)
     For example: `[:direction, type: :hero]`
@@ -30,15 +38,6 @@ defmodule Ecspanse.Event do
     ```elixir
     Ecspanse.event({Demo.Events.HeroMoved, [direction: :left]})
     ```
-
-  There are some special events that are created and dispached by the framework:
-  - `Ecspanse.Event.ComponentCreated` - dispatched when new component is created
-  - `Ecspanse.Event.ComponentUpdated` - dispatched when a component is updated
-  - `Ecspanse.Event.ComponentDeleted` - dispatched when a component is deleted
-  - `Ecspanse.Event.ResourceCreated` - dispatched when new resource is created
-  - `Ecspanse.Event.ResourceUpdated` - dispatched when a resource is updated
-  - `Ecspanse.Event.ResourceDeleted` - dispatched when a resource is deleted
-  - `Ecspanse.Event.Timer` - a special event implementation that is used to create timer events
 
   > #### Note  {: .info}
   > There are many ways to filter events in the Systems by their struct like:
@@ -76,7 +75,7 @@ defmodule Ecspanse.Event do
               "Invalid fields for Event: #{inspect(__MODULE__)}. The `:fields` option must be a list with all the Event struct keys and their default values (if any). Eg: [:foo, :bar, baz: 1]"
       end
 
-      fields = Keyword.put(fields, :inserted_at, nil)
+      fields = Keyword.put_new(fields, :inserted_at, nil)
 
       @enforce_keys [:inserted_at]
       defstruct fields

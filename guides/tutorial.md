@@ -329,26 +329,28 @@ The goal of this chapter is to implement the energy regeneration. The hero will 
 
 > ### Ecspanse Concepts 3 {: .info}
 >
-> - use the timer to schedule events at precise intervals
+> - using the timer to schedule events at precise intervals
+> - using built-in component and event templates
 > - ordering async systems
 > - conditionally running systems
 > - new ways of querying entities and components
 
 ### The Energy Timer Component
 
-Timer-based components are special in two ways:
+Timer-based components use the provided `Ecspanse.Template.Component.Timer` component template. The timer component is a special component that is used to schedule events at precise intervals. The timer component template exposes the following fields:
 
-- they `use Ecspanse.Component.Timer` instead of `use Ecspanse.Component`
-- they have a predefined state structure with the following fields:
-  - `:duration` - the countdown duration in milliseconds
-  - `:event` - the event that will be triggered when the countdown reaches 0
-  - `:mode` - `:repeat | :once | :temporary` - decides the timer behavior after the countdown reaches 0.
-  - `:paused` - `boolean` - can be used to pause the timer
+- `:duration` - the countdown duration in milliseconds
+- `:time` - the current countdown time in milliseconds
+- `:event` - the event that will be triggered when the countdown reaches 0
+- `:mode` - `:repeat | :once | :temporary` - decides the timer behavior after the countdown reaches 0.
+- `:paused` - `boolean` - can be used to pause the timer
+
+We will discuss more about template components in the next chapter.
 
 ```elixir
 defmodule Demo.Components.EnergyTimer do
-  use Ecspanse.Component.Timer,
-    state: [duration: 3000, event: Demo.Events.EnergyTimerFinished, mode: :repeat]
+  use Ecspanse.Template.Component.Timer,
+    state: [duration: 3000, time: 3000, event: Demo.Events.EnergyTimerFinished, mode: :repeat]
 end
 ```
 
@@ -373,14 +375,13 @@ end
 
 ### The Energy Timer Finished Event
 
-The event is also a special one:
+Timer-based events use the provided `Ecspanse.Template.Event.Timer` event template. The timer event template exposes the following fields:
 
-- instead of `use Ecspanse.Event` we `use Ecspanse.Event.Timer`.
-- has a predefined field: `entity_id` - the id of the entity that owns the timer component
+- `entity_id` - the id of the entity that owns the timer component
 
 ```elixir
 defmodule Demo.Events.EnergyTimerFinished do
-  use Ecspanse.Event.Timer
+  use Ecspanse.Template.Event.Timer
 end
 ```
 
@@ -475,23 +476,66 @@ The goal of this chapter is to implement the resource gathering. With each move,
 >
 > - using tags to manage collections of components
 > - using advanced component specs
+> - using component templates
 > - using the auto-emitted component updatd events
 
-### Adding Resource Components
+### Creating the Resource Template Component
+
+Template components are used to define the structure for related components. It is a guarantee that certain componets will have certain fields in their state.
+
+Together with tags, this is a powerful way to achieve polymorphism in components.
 
 ```elixir
-defmodule Demo.Components.Gems do
-  use Ecspanse.Component, state: [id: :gems, name: "Gems", amount: 0], tags: [:resource]
-end
+defmodule Demo.Components.Resource do
+  use Ecspanse.Template.Component, state: [:id, :name, amount: 0], tags: [:resource]
 
-defmodule Demo.Components.Gold do
-  use Ecspanse.Component, state: [id: :gems, name: "Gold", amount: 0], tags: [:resource]
+  @impl true
+  def validate(state) do
+    with :ok <- validate_integer_amount(state[:amount]),
+         :ok <- validate_positive_amount(state[:amount]) do
+      :ok
+    end
+  end
+
+  defp validate_integer_amount(amount) do
+    if is_integer(amount) do
+      :ok
+    else
+      {:error, "#{inspect(amount)} must be an integer"}
+    end
+  end
+
+  defp validate_positive_amount(amount) do
+    if amount >= 0 do
+      :ok
+    else
+      {:error, "#{inspect(amount)} must be positive"}
+    end
+  end
 end
 ```
 
-The new concept introduced here is the `:tags` option. It is a list of atoms that can be used to group and query components. The resource components can now be used as a resource store for the user, but they can also be used to represent the cost of various items. We will handle the second use case in the next chapters.
+Please note that the template `c:Ecspanse.Template.Component.validate/1` callback is optional. It runs only at compile time and it takes the list of state fields as argument.
 
-For such cases, it is important to use a standardized approach. Eg. all the resource components should have the same state fields.
+### Creating the Resource Components
+
+```elixir
+defmodule Demo.Components.Gems do
+  use Demo.Components.Resource,
+    state: [id: :gems, name: "Gems", amount: 0], tags: [:resource]
+end
+
+defmodule Demo.Components.Gold do
+  use Demo.Components.Resource,
+    state: [id: :gems, name: "Gold", amount: 0], tags: [:resource]
+end
+```
+
+As you can observe, the two components are invoking the newly defined template with `use Demo.Components.Resource` instead of `use Ecspanse.Component`.
+
+Another new concept introduced both here and in the templat definition is the `:tags` option. It is a list of atoms that can be used to group and query components. The resource components can now be used as a resource store for the user, but they can also be used to represent the cost of various items. We will handle the second use case in the next chapters.
+
+For such cases, it is important to use a standardized approach, a perfect use-case for templates. Eg. all the resource components should have the same state fields.
 
 ### Adding the Resources Components to the Hero Entity
 

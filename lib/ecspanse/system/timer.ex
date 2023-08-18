@@ -7,7 +7,7 @@ defmodule Ecspanse.System.Timer do
   needs to be manually added in the `c:Ecspanse.setup/1`
   callback as a sync system.
 
-  See `Ecspanse.Component.Timer` for details.
+  See `Ecspanse.Template.Component.Timer` for details.
   """
 
   use Ecspanse.System

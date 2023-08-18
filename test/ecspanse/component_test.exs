@@ -20,7 +20,7 @@ defmodule Ecspanse.ComponentTest do
   setup do
     start_supervised({TestServer1, :test})
     Ecspanse.Server.test_server(self())
-    # # simulate commands are run from a System
+    # simulate commands are run from a System
     Ecspanse.System.debug()
 
     :ok
