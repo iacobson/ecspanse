@@ -6,7 +6,12 @@ defmodule EcspanseTest do
     use Ecspanse.Event, fields: [:data, :pid]
   end
 
-  defmodule TestCustomEvent do
+  defmodule TetsEvent1 do
+    @moduledoc false
+    use Ecspanse.Event
+  end
+
+  defmodule TetsEvent2 do
     @moduledoc false
     use Ecspanse.Event
   end
@@ -400,9 +405,9 @@ defmodule EcspanseTest do
       assert_receive {:next_frame, _state}
       assert_receive {:next_frame, state}
       assert state.frame_data.event_batches == []
-      Ecspanse.event(TestCustomEvent)
+      Ecspanse.event(TetsEvent1)
       assert_receive {:next_frame, state}
-      assert [[%EcspanseTest.TestCustomEvent{}]] = state.frame_data.event_batches
+      assert [[%EcspanseTest.TetsEvent1{}]] = state.frame_data.event_batches
     end
 
     test "groups in individual batches an event without a batch key, queued multiple times in the same frame" do
@@ -412,11 +417,11 @@ defmodule EcspanseTest do
       assert_receive {:next_frame, _state}
       assert_receive {:next_frame, state}
       assert state.frame_data.event_batches == []
-      Ecspanse.event(TestCustomEvent)
-      Ecspanse.event(TestCustomEvent)
+      Ecspanse.event(TetsEvent1)
+      Ecspanse.event(TetsEvent1)
       assert_receive {:next_frame, state}
 
-      assert [[%EcspanseTest.TestCustomEvent{}], [%EcspanseTest.TestCustomEvent{}]] =
+      assert [[%EcspanseTest.TetsEvent1{}], [%EcspanseTest.TetsEvent1{}]] =
                state.frame_data.event_batches
     end
 
@@ -431,14 +436,37 @@ defmodule EcspanseTest do
       assert_receive {:next_frame, state}
       assert state.frame_data.event_batches == []
 
-      Ecspanse.event(TestCustomEvent, batch_key: entity_1.id)
-      Ecspanse.event(TestCustomEvent, batch_key: entity_2.id)
-      Ecspanse.event(TestCustomEvent, batch_key: entity_1.id)
+      Ecspanse.event(TetsEvent1, batch_key: entity_1.id)
+      Ecspanse.event(TetsEvent1, batch_key: entity_2.id)
+      Ecspanse.event(TetsEvent1, batch_key: entity_1.id)
       assert_receive {:next_frame, state}
 
       assert [
-               [%EcspanseTest.TestCustomEvent{}, %EcspanseTest.TestCustomEvent{}],
-               [%EcspanseTest.TestCustomEvent{}]
+               [%EcspanseTest.TetsEvent1{}, %EcspanseTest.TetsEvent1{}],
+               [%EcspanseTest.TetsEvent1{}]
+             ] = state.frame_data.event_batches
+    end
+
+    test "events with the same key are grouped in separate batches" do
+      start_supervised({TestServer0, :test})
+      Ecspanse.Server.test_server(self())
+
+      batch_key = UUID.uuid4()
+
+      assert_receive {:next_frame, _state}
+      assert_receive {:next_frame, state}
+      assert state.frame_data.event_batches == []
+
+      Ecspanse.event(TetsEvent1, batch_key: batch_key)
+      Ecspanse.event(TetsEvent1, batch_key: batch_key)
+      Ecspanse.event(TetsEvent2, batch_key: batch_key)
+
+      assert_receive {:next_frame, state}
+
+      assert [
+               [%EcspanseTest.TetsEvent1{}],
+               [%EcspanseTest.TetsEvent1{}],
+               [%EcspanseTest.TetsEvent2{}]
              ] = state.frame_data.event_batches
     end
   end

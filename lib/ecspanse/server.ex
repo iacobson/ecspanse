@@ -622,7 +622,7 @@ defmodule Ecspanse.Server do
   defp do_event_batches([], batches), do: batches
 
   defp do_event_batches(events, batches) do
-    current_events = Enum.uniq_by(events, fn {k, _v} -> k end)
+    current_events = Enum.uniq_by(events, fn {{_module, batch_key}, _v} -> batch_key end)
 
     batch =
       Enum.map(current_events, fn {_, v} -> v end)

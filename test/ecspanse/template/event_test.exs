@@ -39,6 +39,6 @@ defmodule Ecspanse.Template.EventTest do
     Ecspanse.event({TestEvent1, [foo: 1]})
     Ecspanse.event({TestEvent2, [foo: 2, bar: 3]})
     assert_receive {:next_frame, state}
-    assert [[%TestEvent1{foo: 1}, %TestEvent2{foo: 2, bar: 3}]] = state.frame_data.event_batches
+    assert [[%TestEvent1{foo: 1}], [%TestEvent2{foo: 2, bar: 3}]] = state.frame_data.event_batches
   end
 end
