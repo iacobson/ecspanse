@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.1 (2023-08-20)
+
+### Fixes
+
+- batch all events only by `batch_key` to avoid race conditions for different events processed by the same system.
+
 ## v0.2.0 (2023-08-18)
 
 ### Breaking
