@@ -6,8 +6,8 @@
 
 - add a new query `Ecspanse.Query.list_tags/1` to list a component's tags.
 - add a new query `Ecspanse.Query.list_components/1` to list all components of an entity.
-- add a new command `Ecspanse.Command.clone_entity/1` to clone an entity without its relationships.
-- add a new command `Ecspanse.Command.deep_clone_entity/1` to clone an entity with its descendants.
+- add a new command `Ecspanse.Command.clone_entity!/1` to clone an entity without its relationships.
+- add a new command `Ecspanse.Command.deep_clone_entity!/1` to clone an entity with its descendants.
 
 ## v0.2.1 (2023-08-20)
 
