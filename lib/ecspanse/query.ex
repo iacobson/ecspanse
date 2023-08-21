@@ -378,6 +378,22 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
+  Lists a component's tags.
+
+  ## Examples
+
+    ```elixir
+    [:resource, :available] = Ecspanse.Query.list_tags(gold_component)
+    ```
+  """
+  @doc group: :tags
+  @spec list_tags(components_state :: struct()) :: list(tag :: atom())
+  def list_tags(component) do
+    :ok = validate_components([component])
+    component.__meta__.tags
+  end
+
+  @doc """
   Returns a list of components tagged with a list of tags for all entities.
   The components need to be tagged with all the given tags to return.
 
@@ -549,6 +565,43 @@ defmodule Ecspanse.Query do
       result when is_tuple(result) -> {:ok, result}
       nil -> {:error, :not_found}
     end
+  end
+
+  @doc """
+  Lists all the components for a given entity.
+
+  The output is an unordered list of all the entity's components.
+
+  > #### Note  {: .info}
+  >
+  > The `Ecspanse.Component.Children` and `Ecspanse.Component.Parents`
+  > components are **excluded** from the output.
+  >
+  > Use the provided `list_children/1` and `list_parents/1` functions to
+  > query the entity's relations.
+
+  ## Examples
+
+    ```elixir
+    [gold_component, gems_component, position_component, energy_component] =
+      Ecspanse.Query.list_components(hero_entity)
+    ```
+  """
+  @doc group: :components
+  @spec list_components(Ecspanse.Entity.t()) :: list(components_state :: struct())
+  def list_components(%Entity{id: id}) do
+    table = Util.components_state_ets_table()
+
+    f =
+      Ex2ms.fun do
+        {{entity_id, component_module}, _component_tags, component_state}
+        when entity_id == ^id and
+               component_module != Ecspanse.Component.Children and
+               component_module != Ecspanse.Component.Parents ->
+          component_state
+      end
+
+    :ets.select(table, f)
   end
 
   @doc """

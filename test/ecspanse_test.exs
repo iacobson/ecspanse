@@ -460,6 +460,7 @@ defmodule EcspanseTest do
       Ecspanse.event(TetsEvent1, batch_key: batch_key)
       Ecspanse.event(TetsEvent1, batch_key: batch_key)
       Ecspanse.event(TetsEvent2, batch_key: batch_key)
+      :timer.sleep(100)
 
       assert_receive {:next_frame, state}
 

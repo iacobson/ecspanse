@@ -444,6 +444,22 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
+  describe "list_tags" do
+    test "returns the tags for a component" do
+      entity =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity,
+           components: [
+             {TestComponent4, [], [:baz]}
+           ]}
+        )
+
+      {:ok, component} = TestComponent4.fetch(entity)
+
+      assert [:foo, :bar, :baz] == Ecspanse.Query.list_tags(component)
+    end
+  end
+
   describe "list_tagged_components/1" do
     test "returns the components for a list of tags" do
       Ecspanse.Command.spawn_entity!(
@@ -712,6 +728,23 @@ defmodule Ecspanse.QueryTest do
 
       entity = Ecspanse.Query.get_component_entity(component_2)
       assert entity == entity_1
+    end
+  end
+
+  describe "list_components/1" do
+    test "returns a list with all entity's components" do
+      component_modules = [TestComponent1, TestComponent2, TestComponent4, TestComponent5]
+
+      entity =
+        Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: component_modules})
+
+      components = Ecspanse.Query.list_components(entity)
+
+      assert length(components) == length(component_modules)
+
+      for component <- components do
+        assert component.__struct__ in component_modules
+      end
     end
   end
 

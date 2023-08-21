@@ -209,6 +209,65 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
+  Clones the specified entity and returns a new entity with the same components.
+
+  Due to the potentially large number of components that may be affected by this operation,
+  it is recommended to run this function in a synchronous system (such as a `frame_start` or `frame_end` system)
+  to avoid the need to lock all involved components.
+
+  > #### Note  {: .info}
+  >
+  > The entity's `Ecspanse.Component.Children` and `Ecspanse.Component.Parents` components are not cloned.
+  > Use `deep_clone_entity!/1` to clone the entity and all of its descendants.
+
+  ## Examples
+    ```elixir
+    %Ecspanse.Entity{} = entity = Ecspanse.Command.clone_entity!(compass_entity)
+    ```
+  """
+  @doc group: :entities
+  @spec clone_entity!(Entity.t()) :: Entity.t()
+  def clone_entity!(entity) do
+    components = Ecspanse.Query.list_components(entity)
+
+    component_specs =
+      Enum.map(components, fn component ->
+        state = component |> Map.from_struct() |> Map.delete(:__meta__) |> Map.to_list()
+        {component.__struct__, state, Ecspanse.Query.list_tags(component)}
+      end)
+
+    spawn_entity!({Ecspanse.Entity, components: component_specs, children: [], parents: []})
+  end
+
+  @doc """
+  Clones the specified entity and all of its descendants and returns the newly cloned entity.
+
+  Due to the potentially large number of components that may be affected by this operation,
+  it is recommended to run this function in a synchronous system (such as a `frame_start` or `frame_end` system)
+  to avoid the need to lock all involved components.
+
+  ## Examples
+    ```elixir
+    %Ecspanse.Entity{} = entity = Ecspanse.Command.deep_clone_entity!(enemy_entity)
+    ```
+  """
+  @doc group: :entities
+  @spec deep_clone_entity!(Entity.t()) :: Entity.t()
+  def deep_clone_entity!(entity) do
+    cloned_entity = clone_entity!(entity)
+    children = Ecspanse.Query.list_children(entity)
+
+    case children do
+      [] ->
+        cloned_entity
+
+      children ->
+        add_children!([{cloned_entity, Enum.map(children, &deep_clone_entity!/1)}])
+        cloned_entity
+    end
+  end
+
+  @doc """
   Adds a new component to the specified entity.
 
   > #### Info  {: .info}
@@ -612,11 +671,15 @@ defmodule Ecspanse.Command do
             {module, _, _} when is_atom(module) -> module
           end)
 
-        children_entities = Keyword.get(opts, :children, [])
-        parents_entities = Keyword.get(opts, :parents, [])
+        # allow creation of entities only with empty children and parents
+        children_entities = Keyword.get(opts, :children)
+        parents_entities = Keyword.get(opts, :parents)
 
         :ok =
           validate_required_opts(operation, component_specs, children_entities, parents_entities)
+
+        children_entities = Keyword.get(opts, :children, [])
+        parents_entities = Keyword.get(opts, :parents, [])
 
         %{
           entity: Util.build_entity(entity_id),
@@ -1435,7 +1498,7 @@ defmodule Ecspanse.Command do
 
   # Component CRUD Validations
 
-  defp validate_required_opts(operation, [], [], []) do
+  defp validate_required_opts(operation, [], nil, nil) do
     raise Error,
           {operation,
            "Expected at least one of the following options in the entity_spec when creating an entity: `components`, `children`, `parents`"}

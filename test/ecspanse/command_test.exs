@@ -109,6 +109,69 @@ defmodule Ecspanse.CommandTest do
     end
   end
 
+  describe "clone_entity!/1" do
+    test "create a clone of the entity" do
+      entity =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity,
+           components: [
+             {TestComponent1, [value: :bar], [:tag_1, :tag_2]},
+             TestComponent2,
+             TestComponent3
+           ]}
+        )
+
+      parent_entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, children: [entity]})
+
+      clone = Ecspanse.Command.clone_entity!(entity)
+
+      entity_components = Ecspanse.Query.list_components(entity)
+      clone_components = Ecspanse.Query.list_components(clone)
+
+      assert [parent_entity] == Ecspanse.Query.list_parents(entity)
+      # relationships are not cloned
+      assert [] = Ecspanse.Query.list_parents(clone)
+
+      entity_component_modules = entity_components |> Enum.map(& &1.__struct__)
+      cloned_entity_component_modules = clone_components |> Enum.map(& &1.__struct__)
+
+      assert [] == entity_component_modules -- cloned_entity_component_modules
+
+      {:ok, entity_component_1} = TestComponent1.fetch(entity)
+      {:ok, cloned_entity_component_1} = TestComponent1.fetch(clone)
+
+      assert entity_component_1.value == cloned_entity_component_1.value
+
+      assert Ecspanse.Query.list_tags(entity_component_1) ==
+               Ecspanse.Query.list_tags(cloned_entity_component_1)
+    end
+  end
+
+  describe "deep_clone_entity/1" do
+    test "create a clone of the entity and all its descendants" do
+      assert %Ecspanse.Entity{} =
+               root_entity =
+               Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
+
+      entity_1 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [root_entity]})
+      entity_2 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [entity_1]})
+      _entity_3 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [entity_2]})
+      _entity_4 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [root_entity]})
+
+      cloned_entity = Ecspanse.Command.deep_clone_entity!(root_entity)
+
+      root_entity_children = Ecspanse.Query.list_children(root_entity)
+      cloned_entity_children = Ecspanse.Query.list_children(cloned_entity)
+
+      assert length(root_entity_children) == length(cloned_entity_children)
+
+      root_entity_descendants = Ecspanse.Query.list_descendants(root_entity)
+      cloned_entity_descendants = Ecspanse.Query.list_descendants(cloned_entity)
+
+      assert length(root_entity_descendants) == length(cloned_entity_descendants)
+    end
+  end
+
   describe "add_components!/1" do
     test "adds components to an existing entity" do
       assert %Ecspanse.Entity{} =
