@@ -403,6 +403,7 @@ defmodule EcspanseTest do
       Ecspanse.Server.test_server(self())
 
       assert_receive {:next_frame, _state}
+      assert_receive {:next_frame, _state}
       assert_receive {:next_frame, state}
       assert state.frame_data.event_batches == []
       Ecspanse.event(TetsEvent1)
@@ -414,6 +415,7 @@ defmodule EcspanseTest do
       start_supervised({TestServer0, :test})
       Ecspanse.Server.test_server(self())
 
+      assert_receive {:next_frame, _state}
       assert_receive {:next_frame, _state}
       assert_receive {:next_frame, state}
       assert state.frame_data.event_batches == []
@@ -432,6 +434,7 @@ defmodule EcspanseTest do
       entity_1 = Ecspanse.Util.build_entity(UUID.uuid4())
       entity_2 = Ecspanse.Util.build_entity(UUID.uuid4())
 
+      assert_receive {:next_frame, _state}
       assert_receive {:next_frame, _state}
       assert_receive {:next_frame, state}
       assert state.frame_data.event_batches == []
@@ -453,6 +456,7 @@ defmodule EcspanseTest do
 
       batch_key = UUID.uuid4()
 
+      assert_receive {:next_frame, _state}
       assert_receive {:next_frame, _state}
       assert_receive {:next_frame, state}
       assert state.frame_data.event_batches == []

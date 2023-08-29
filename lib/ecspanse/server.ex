@@ -77,6 +77,7 @@ defmodule Ecspanse.Server do
             fps_limit: non_neg_integer(),
             delta: non_neg_integer(),
             frame_data: Frame.t(),
+            events_ets_table: atom(),
             test: boolean(),
             test_pid: pid() | nil
           }
@@ -104,6 +105,7 @@ defmodule Ecspanse.Server do
               fps_limit: :unlimited,
               delta: 0,
               frame_data: %Frame{},
+              events_ets_table: nil,
               test: false,
               test_pid: nil
   end
@@ -128,63 +130,71 @@ defmodule Ecspanse.Server do
     # All processes can read and write to this table. But writing should only be done through Commands.
     # The race condition is handled by the System Component locking.
     # Commands should validate that only Systems are writing to this table.
-    components_state_ets_table =
-      :ets.new(:ets_ecspanse_components_state, [
-        :set,
-        :public,
-        :named_table,
-        read_concurrency: true,
-        write_concurrency: :auto
-      ])
+    :ets.new(Util.components_state_ets_table(), [
+      :set,
+      :public,
+      :named_table,
+      read_concurrency: true,
+      write_concurrency: :auto
+    ])
 
     # This is the ETS table that holds the resources state
     # as a list of `{resource_module :: module(), resource_state :: struct()}`
     # All processes can read and write to this table.
     # But writing should only be done through Commands.
     # Commands should validate that only Systems are writing to this table.
-    resources_state_ets_table =
-      :ets.new(:ets_ecspanse_resources_state, [
-        :set,
-        :public,
-        :named_table,
-        read_concurrency: true,
-        write_concurrency: false
-      ])
+    :ets.new(Util.resources_state_ets_table(), [
+      :set,
+      :public,
+      :named_table,
+      read_concurrency: true,
+      write_concurrency: false
+    ])
 
-    # This ETS table stores Events as a list of event structs wraped
+    # These ETS tables stores Events as a list of event structs wraped
     # in a tuple {{MyEventModule, key :: any()}, %MyEvent{}}.
-    # Every frame, the objects in this table are deleted.
+    # There are 2 event tables that alternate every frame.
+    # While the events in one are being processed, the other is being filled.
+    # Every frame, the objects in the processed table are deleted.
     # Any process can read and write to this table.
     # But the logic responsible to write to this table should check the stored values are actually event structs.
     # Before being sent to the Systems, the events are sorted by their inserted_at timestamp, and group in batches.
     # The batches are determined by the unicity of the event {EventModule, key} per batch.
 
-    events_ets_table =
-      :ets.new(:ets_ecspanse_events, [
+    Enum.each(Util.events_ets_tables(), fn table ->
+      :ets.new(table, [
         :duplicate_bag,
         :public,
         :named_table,
         read_concurrency: true,
         write_concurrency: true
       ])
+    end)
 
-    # Store the ETS tables in an Agent so they can be accessed independently from this GenServer
-    Agent.start_link(
-      fn ->
-        %{
-          components_state_ets_table: components_state_ets_table,
-          resources_state_ets_table: resources_state_ets_table,
-          events_ets_table: events_ets_table
-        }
-      end,
-      name: :ecspanse_ets_tables
+    # This ETS table holds the value of the currently used events table.
+    # See the above comment for more details.
+    # It is optimized for multiple reads
+    :ets.new(Util.dual_events_ets_table(), [
+      :set,
+      :public,
+      :named_table,
+      read_concurrency: true,
+      write_concurrency: false
+    ])
+
+    events_ets_table = Util.events_ets_tables() |> List.first()
+
+    :ets.insert(
+      Util.dual_events_ets_table(),
+      {:current, events_ets_table}
     )
 
     state = %State{
       ecspanse_module: payload.ecspanse_module,
       last_frame_monotonic_time: Elixir.System.monotonic_time(:millisecond),
       delta: 0,
-      fps_limit: payload.fps_limit
+      fps_limit: payload.fps_limit,
+      events_ets_table: events_ets_table
     }
 
     # Special system that creates the default resources
@@ -234,7 +244,8 @@ defmodule Ecspanse.Server do
         frame_data: %Frame{event_batches: event_batches}
     }
 
-    :ets.delete_all_objects(Util.events_ets_table())
+    :ets.delete_all_objects(state.events_ets_table)
+    Util.swithch_events_ets_table()
 
     send(self(), :run_next_system)
     {:noreply, state}
@@ -247,9 +258,12 @@ defmodule Ecspanse.Server do
     delta = frame_monotonic_time - state.last_frame_monotonic_time
 
     event_batches =
-      Util.events_ets_table()
+      state.events_ets_table
       |> :ets.tab2list()
       |> batch_events()
+
+    # Delete all events from the ETS table
+    :ets.delete_all_objects(state.events_ets_table)
 
     # Frame limit
     # in order to finish a frame, two conditions must be met:
@@ -279,9 +293,6 @@ defmodule Ecspanse.Server do
           event_batches: event_batches
         }
     }
-
-    # Delete all events from the ETS table
-    :ets.delete_all_objects(Util.events_ets_table())
 
     Process.send_after(self(), :finish_frame_timer, round(limit))
     send(self(), :run_next_system)
@@ -400,20 +411,32 @@ defmodule Ecspanse.Server do
     state = %State{state | status: :frame_ended}
 
     if state.frame_timer == :finished do
-      send(self(), :start_frame)
-    end
+      events_ets_table = Util.events_ets_table()
+      Util.swithch_events_ets_table()
+      state = %State{state | events_ets_table: events_ets_table}
 
-    {:noreply, state}
+      send(self(), :start_frame)
+
+      {:noreply, state}
+    else
+      {:noreply, state}
+    end
   end
 
   def handle_info(:finish_frame_timer, state) do
     state = %State{state | frame_timer: :finished}
 
     if state.status == :frame_ended do
-      send(self(), :start_frame)
-    end
+      events_ets_table = Util.events_ets_table()
+      Util.swithch_events_ets_table()
+      state = %State{state | events_ets_table: events_ets_table}
 
-    {:noreply, state}
+      send(self(), :start_frame)
+
+      {:noreply, state}
+    else
+      {:noreply, state}
+    end
   end
 
   @impl true

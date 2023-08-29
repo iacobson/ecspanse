@@ -12,33 +12,40 @@ defmodule Ecspanse.Util do
   end
 
   @doc false
-  defmemo components_state_ets_table,
-    permanent: true,
-    max_waiter: 1000,
-    waiter_sleep_ms: 0 do
-    Agent.get(:ecspanse_ets_tables, fn state ->
-      state.components_state_ets_table
-    end)
+  def components_state_ets_table do
+    :ets_ecspanse_components_state
   end
 
   @doc false
-  defmemo resources_state_ets_table,
-    permanent: true,
-    max_waiter: 1000,
-    waiter_sleep_ms: 0 do
-    Agent.get(:ecspanse_ets_tables, fn state ->
-      state.resources_state_ets_table
-    end)
+  def resources_state_ets_table do
+    :ets_ecspanse_resources_state
   end
 
   @doc false
-  defmemo events_ets_table,
-    permanent: true,
-    max_waiter: 1000,
-    waiter_sleep_ms: 0 do
-    Agent.get(:ecspanse_ets_tables, fn state ->
-      state.events_ets_table
-    end)
+  def events_ets_table do
+    [{:current, current_table}] = :ets.lookup(dual_events_ets_table(), :current)
+    current_table
+  end
+
+  @doc false
+  def events_ets_tables do
+    [:ets_ecspanse_events_1, :ets_ecspanse_events_2]
+  end
+
+  @doc false
+  def dual_events_ets_table do
+    :ets_dual_events_ets_table
+  end
+
+  @doc false
+  def swithch_events_ets_table do
+    [{:current, current_table}] = :ets.lookup(dual_events_ets_table(), :current)
+    [new_table] = events_ets_tables() -- [current_table]
+
+    :ets.insert(
+      dual_events_ets_table(),
+      {:current, new_table}
+    )
   end
 
   @doc false
