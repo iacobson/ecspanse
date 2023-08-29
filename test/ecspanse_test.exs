@@ -47,8 +47,8 @@ defmodule EcspanseTest do
     @impl true
     def setup(data) do
       data
-      |> Ecspanse.add_startup_system(TestStartupSystem)
-      |> Ecspanse.add_frame_start_system(TestRunningSystem)
+      |> add_startup_system(TestStartupSystem)
+      |> add_frame_start_system(TestRunningSystem)
     end
   end
 
@@ -95,11 +95,11 @@ defmodule EcspanseTest do
 
     def setup(data) do
       data
-      |> Ecspanse.add_system(TestSystem5)
-      |> Ecspanse.add_frame_end_system(TestSystem3)
-      |> Ecspanse.add_frame_start_system(TestSystem2)
-      |> Ecspanse.add_startup_system(TestSystem1)
-      |> Ecspanse.add_shutdown_system(TestSystem4)
+      |> add_system(TestSystem5)
+      |> add_frame_end_system(TestSystem3)
+      |> add_frame_start_system(TestSystem2)
+      |> add_startup_system(TestSystem1)
+      |> add_shutdown_system(TestSystem4)
     end
   end
 
@@ -137,9 +137,9 @@ defmodule EcspanseTest do
 
     def setup(data) do
       data
-      |> Ecspanse.add_system(TestSystem6)
-      |> Ecspanse.add_system(TestSystem7)
-      |> Ecspanse.add_system(TestSystem8)
+      |> add_system(TestSystem6)
+      |> add_system(TestSystem7)
+      |> add_system(TestSystem8)
     end
   end
 
@@ -156,8 +156,8 @@ defmodule EcspanseTest do
 
     def test_system_set(data) do
       data
-      |> Ecspanse.add_system(TestSystem1)
-      |> Ecspanse.add_system(TestSystem2)
+      |> add_system(TestSystem1)
+      |> add_system(TestSystem2)
     end
   end
 
@@ -169,9 +169,9 @@ defmodule EcspanseTest do
 
     def setup(data) do
       data
-      |> Ecspanse.add_system(TestSystem6)
-      |> Ecspanse.add_system(TestSystem8, run_after: [TestSystem6])
-      |> Ecspanse.add_system(TestSystem7)
+      |> add_system(TestSystem6)
+      |> add_system(TestSystem8, run_after: [TestSystem6])
+      |> add_system(TestSystem7)
     end
   end
 
@@ -187,7 +187,7 @@ defmodule EcspanseTest do
     use Ecspanse.System
 
     def run(_frame) do
-      Ecspanse.Command.insert_resource!(TestResource1)
+      insert_resource!(TestResource1)
     end
   end
 
@@ -196,7 +196,7 @@ defmodule EcspanseTest do
     use Ecspanse.System
 
     def run(_frame) do
-      {:ok, resource} = Ecspanse.Query.fetch_resource(TestResource1)
+      {:ok, resource} = fetch_resource(TestResource1)
       send(resource.pid, :foo)
     end
   end
@@ -206,7 +206,7 @@ defmodule EcspanseTest do
     use Ecspanse.System
 
     def run(_frame) do
-      {:ok, resource} = Ecspanse.Query.fetch_resource(TestResource1)
+      {:ok, resource} = fetch_resource(TestResource1)
       send(resource.pid, :bar)
     end
   end
@@ -217,9 +217,9 @@ defmodule EcspanseTest do
 
     def setup(data) do
       data
-      |> Ecspanse.add_startup_system(TestSystem9)
-      |> Ecspanse.add_system(TestSystem10, run_in_state: [:foo])
-      |> Ecspanse.add_system(TestSystem11, run_in_state: [:bar])
+      |> add_startup_system(TestSystem9)
+      |> add_system(TestSystem10, run_in_state: [:foo])
+      |> add_system(TestSystem11, run_in_state: [:bar])
     end
   end
 

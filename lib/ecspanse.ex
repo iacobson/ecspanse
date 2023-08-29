@@ -106,6 +106,20 @@ defmodule Ecspanse do
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
+      import Ecspanse,
+        only: [
+          add_startup_system: 2,
+          add_frame_start_system: 2,
+          add_frame_start_system: 3,
+          add_system: 2,
+          add_system: 3,
+          add_frame_end_system: 2,
+          add_frame_end_system: 3,
+          add_shutdown_system: 2,
+          add_system_set: 2,
+          add_system_set: 3
+        ]
+
       @behaviour Ecspanse
 
       fps_limit = Keyword.get(opts, :fps_limit, :unlimited)

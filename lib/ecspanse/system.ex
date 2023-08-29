@@ -219,6 +219,8 @@ defmodule Ecspanse.System do
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
       import Ecspanse.System, only: [execute_async: 3, execute_async: 2]
+      import Ecspanse.Query
+      import Ecspanse.Command
       locked_components = Keyword.get(opts, :lock_components, [])
       event_modules = Keyword.get(opts, :event_subscriptions, [])
 
