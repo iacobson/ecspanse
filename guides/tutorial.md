@@ -435,7 +435,7 @@ defmodule Demo do
     data
     |> Ecspanse.add_startup_system(Systems.SpawnHero)
     |> Ecspanse.add_system(Systems.RestoreEnergy, run_if: [{__MODULE__, :energy_not_max}])
-    |> Ecspanse.add_system(Systems.MoveHero, after: [Systems.RestoreEnergy])
+    |> Ecspanse.add_system(Systems.MoveHero, run_after: [Systems.RestoreEnergy])
     |> Ecspanse.add_frame_end_system(Ecspanse.System.Timer)
   end
 
@@ -461,6 +461,13 @@ By using the `:run_if` option, the `RestoreEnergy` system will run only if the c
 #### The System Execution Order
 
 By using the `:after` option, the `MoveHero` system will run after the `RestoreEnergy` system. Both are async systems, but even the async systems run in batches, not all at once. The batches are scheduled depending on the locked components and the specified order of execution of the systems.
+
+> #### Note {: .info}
+>
+> It does not matter if the `RestoreEnergy` system actually runs this turn.
+> The `MoveHero` will still run if receiving the `MoveHero` event.
+> The `:run_after` option, just guarantees that if both systems are running,
+> the `MoveHero` will run after the `RestoreEnergy`.
 
 #### Scheduling the Built-in Timer System
 
@@ -603,7 +610,7 @@ defmodule Demo do
   def setup(data) do
     data
     # ...
-    |> Ecspanse.add_system(Systems.MoveHero, after: [Systems.RestoreEnergy])
+    |> Ecspanse.add_system(Systems.MoveHero, run_after: [Systems.RestoreEnergy])
     |> Ecspanse.add_system(Systems.MaybeFindResources)
     |> Ecspanse.add_frame_end_system(Ecspanse.System.Timer)
   end

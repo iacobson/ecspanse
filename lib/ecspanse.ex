@@ -27,7 +27,7 @@ defmodule Ecspanse do
 
   To use Ecspanse, a module needs to be created, invoking `use Ecspanse`. This implements the `Ecspanse` behaviour, so the `setup/1` callback must be defined. All the systems and their execution order are defined in the `setup/1` callback.
 
-  ### Examples
+  ## Examples
 
   ```elixir
   defmodule TestServer1 do
@@ -35,14 +35,18 @@ defmodule Ecspanse do
 
     def setup(data) do
       data
-      |> Ecspanse.Server.add_startup_system(Demo.Systems.SpawnHero)
-      |> Ecspanse.Server.add_frame_start_system(Demo.Systems.PurchaseItem)
-      |> Ecspanse.Server.add_system(Demo.Systems.MoveHero)
-      |> Ecspanse.Server.add_frame_end_system(Ecspanse.System.Timer)
-      |> Ecspanse.Server.add_shutdown_system(Demo.Systems.Cleanup)
+      |> add_startup_system(Demo.Systems.SpawnHero)
+      |> add_frame_start_system(Demo.Systems.PurchaseItem)
+      |> add_system(Demo.Systems.MoveHero)
+      |> add_frame_end_system(Ecspanse.System.Timer)
+      |> add_shutdown_system(Demo.Systems.Cleanup)
     end
   end
   ```
+
+  > #### Info  {: .info}
+  > The `Ecspanse` system scheduling functions are imported by default
+  > for the setup module that `use Ecspanse`
 
   ## Configuration
 
@@ -263,6 +267,14 @@ defmodule Ecspanse do
   - System A
   - System B, run_before: System A
   - System C, run_after: System A, run_before: System B
+
+  > #### Info  {: .info}
+  > The 'run_after' option does not depend on the "before" system being executed or not
+  > (eg. when the "before" system subscribes to an event that is not triggered this frame).
+  > The system will be executed anyway, even if the "before" system is not executed this frame.
+  > The `:run_after` option is evaluated only once, at server start-up,
+  > when the async systems are grouped together into batches.
+  > Then the scheduler tries to execute every system in every batch.
 
   ## Examples
 

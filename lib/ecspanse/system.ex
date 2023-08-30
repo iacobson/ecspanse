@@ -24,6 +24,10 @@ defmodule Ecspanse.System do
   - `Ecspanse.System.Timer` - tracks and updates all components using the `Ecspanse.Template.Component.Timer` template.
   - `Ecspanse.System.TrackFPS` - tracks and updates the `Ecspanse.Resource.FPS` resource.
 
+  > #### Info  {: .info}
+  > The `Ecspanse.Query` and `Ecspanse.Command` functions are imported by default
+  > for all modules that `use Ecspanse.System`
+
   ## Options
 
   - `:lock_components` - a list of component modules
