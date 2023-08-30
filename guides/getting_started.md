@@ -17,7 +17,7 @@ The first step is adding the `:ecspanse` library to the project dependencies. Th
 ```elixir
 def deps do
   [
-    {:ecspanse, "~> 0.1.0"}
+    {:ecspanse, "~> 0.3.0"}
   ]
 end
 ```

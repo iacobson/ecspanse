@@ -4,8 +4,7 @@
 
 ### Fixes
 
-- fixes a bug where evetns could be scheduled after they were batched for the current frame, and before the current events are cleared.
-  That was causing some events to be lost. Thanks to [@andzdroid](https://github.com/andzdroid) for identifying and documenting the issue.
+- fixes a bug where events could be scheduled after they were batched for the current frame, and before the current events are cleared. Causing some events to be lost. Thanks to [@andzdroid](https://github.com/andzdroid) for identifying and documenting the issue.
 - fixes a bug where temporary timers would crash. Thanks to [@holykol](https://github.com/holykol) for finding and fixing the issue.
 
 ### Features
