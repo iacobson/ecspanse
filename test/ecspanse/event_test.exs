@@ -95,7 +95,7 @@ defmodule Ecspanse.EventTest do
     assert {:ok, %Counter{value: 1000}} = Counter.fetch(entity)
   end
 
-  @tag timeout: :infinity
+  @tag timeout: 60 * 60 * 1000
   test "processes many events in many frames" do
     start_supervised({TestServer2, :test})
     Ecspanse.Server.test_server(self())
@@ -110,6 +110,34 @@ defmodule Ecspanse.EventTest do
     for _ <- 1..1000 do
       Ecspanse.event({IncrementEvent, entity_id: entity.id}, batch_key: entity.id)
     end
+
+    Ecspanse.event(ReadyEvent)
+
+    assert_receive :ready, 2000
+    assert_receive {:next_frame, _state}
+
+    assert {:ok, %Counter{value: 1000}} = Counter.fetch(entity)
+  end
+
+  @tag timeout: 60 * 60 * 1000
+  test "processes many concurrent events in many frames" do
+    start_supervised({TestServer2, :test})
+    Ecspanse.Server.test_server(self())
+    # simulate commands are run from a System
+    Ecspanse.System.debug()
+
+    Ecspanse.Command.insert_resource!({ParentProcess, pid: self()})
+
+    entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [Counter]})
+    assert {:ok, %Counter{value: 0}} = Counter.fetch(entity)
+
+    Ecspanse.System.execute_async(
+      1..1000,
+      fn _ ->
+        Ecspanse.event({IncrementEvent, entity_id: entity.id}, batch_key: entity.id)
+      end,
+      concurrent: 10
+    )
 
     Ecspanse.event(ReadyEvent)
 
