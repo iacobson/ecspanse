@@ -75,7 +75,7 @@ defmodule Ecspanse.System.Timer do
       end)
 
     Ecspanse.Command.update_components!(update)
-    Ecspanse.Command.remove_component!(remove)
+    Ecspanse.Command.remove_components!(remove)
   end
 
   defp build_event_spec(timer, entity) do
