@@ -287,7 +287,7 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
-  The same as `add_component!/2` but adds multiple components to moultiple entities at once.
+  The same as `add_component!/2` but adds multiple components to multiple entities at once.
 
   It takes a list of two element tuples as argument, where the first element of the tuple is the entity
   and the second element is a list of component specs.
