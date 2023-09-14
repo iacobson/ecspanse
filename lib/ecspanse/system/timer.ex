@@ -34,12 +34,23 @@ defmodule Ecspanse.System.Timer do
         entity = Query.get_component_entity(timer)
         event_spec = build_event_spec(timer, entity)
         Ecspanse.event(event_spec, batch_key: entity.id)
-        {timer, time: timer.duration + new_time}
+        {timer, time: repeating_time(timer, new_time)}
       else
         {timer, time: new_time}
       end
     end)
     |> Ecspanse.Command.update_components!()
+  end
+
+  # ensure against negative time, when the frame takes longer than the timer duration
+  defp repeating_time(timer, new_time) do
+    time = timer.duration + new_time
+
+    if time > 0 do
+      time
+    else
+      timer.duration
+    end
   end
 
   defp update_once(timers, frame) do
