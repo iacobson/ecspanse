@@ -99,15 +99,7 @@ defmodule Ecspanse.MixProject do
           Ecspanse.System.Debug
         ],
         Resources: [Ecspanse.Resource, Ecspanse.Resource.State, Ecspanse.Resource.FPS],
-        Events: [
-          Ecspanse.Event,
-          Ecspanse.Event.ComponentCreated,
-          Ecspanse.Event.ComponentUpdated,
-          Ecspanse.Event.ComponentDeleted,
-          Ecspanse.Event.ResourceCreated,
-          Ecspanse.Event.ResourceUpdated,
-          Ecspanse.Event.ResourceDeleted
-        ],
+        Events: [Ecspanse.Event],
         Queries: [Ecspanse.Query],
         Commands: [Ecspanse.Command],
         Templates: [
