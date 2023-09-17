@@ -26,7 +26,6 @@ defmodule Ecspanse.Command do
   alias __MODULE__
   alias Ecspanse.Component
   alias Ecspanse.Entity
-  alias Ecspanse.Event
   alias Ecspanse.Query
   alias Ecspanse.Resource
   alias Ecspanse.Util
@@ -1130,8 +1129,6 @@ defmodule Ecspanse.Command do
     :ok = validate_resource_does_not_exist(operation, resource_spec)
     resource_state = upsert_resource(operation, resource_spec)
 
-    resource_created_event(resource_state)
-
     %{
       command
       | return_result: resource_state
@@ -1156,8 +1153,6 @@ defmodule Ecspanse.Command do
 
     resource_state = upsert_resource(operation, {resource_module, state})
 
-    resource_updated_event(resource_state)
-
     %{
       command
       | return_result: resource_state
@@ -1176,7 +1171,6 @@ defmodule Ecspanse.Command do
 
     table = Util.resources_state_ets_table()
     :ets.delete(table, resource_module)
-    resource_deleted_event(resource_state)
 
     %{
       command
@@ -1240,10 +1234,10 @@ defmodule Ecspanse.Command do
     upsert_component(operation, entity, {component_module, state, []})
   end
 
-  defp upsert_component(operation, entity, {component_module, state, tags})
+  defp upsert_component(operation, entity, {component_module, state, component_spec_tags})
        when is_atom(component_module) and is_list(state) do
     :ok = validate_is_component(operation, component_module)
-    :ok = validate_tags(operation, tags)
+    :ok = validate_tags(operation, component_spec_tags)
 
     # VALIDATE THE COMPOENENT IS LOCKED FOR CREATION
     :ok =
@@ -1253,20 +1247,31 @@ defmodule Ecspanse.Command do
         component_module
       )
 
-    # merging tags from compile time with tags from component spec
-    tags = Enum.uniq(component_module.__component_tags__() ++ tags)
+    component_tags_set = tags_set(component_module, component_spec_tags)
 
     component_meta =
       struct!(Component.Meta, %{
         entity: entity,
         module: component_module,
-        tags: tags
+        tags: component_tags_set
       })
 
     component_state = struct!(component_module, Keyword.put(state, :__meta__, component_meta))
     :ok = validate_component_state(operation, component_state)
     # this is stored in the ETS table
-    {{entity.id, component_module}, tags, component_state}
+    {{entity.id, component_module}, component_tags_set, component_state}
+  end
+
+  defp tags_set(component_module, []) do
+    MapSet.new(component_module.__component_tags__())
+  end
+
+  defp tags_set(component_module, component_spec_tags) do
+    # merging tags from compile time with tags from component spec
+    MapSet.union(
+      MapSet.new(component_module.__component_tags__()),
+      MapSet.new(component_spec_tags)
+    )
   end
 
   # there is no guarantee that the components belong to the same entity
@@ -1329,7 +1334,7 @@ defmodule Ecspanse.Command do
   end
 
   # Returns Children component with its key
-  # {{entity_id, Component.Children, []}, %Component.Children{entities: [entity_3, entity_2, entity_1]}}
+  # {{entity_id, Component.Children}, MapSet.new(), %Component.Children{entities: [entity_3, entity_2, entity_1]}}
   # it is calling upsert_component which will validate the component is locked for creation
   defp upsert_children_for(operation, entity, children) do
     table = Util.components_state_ets_table()
@@ -1354,7 +1359,7 @@ defmodule Ecspanse.Command do
   end
 
   # Returns a Parents component with its key
-  # {{entity_id, Component.Parents, []}, %Component.Parents{entities: [entity_3, entity_2, entity_1]}}
+  # {{entity_id, Component.Parents}, MapSet.new(), %Component.Parents{entities: [entity_3, entity_2, entity_1]}}
   # it is calling upsert_component which will validate the component is locked for creation
   defp upsert_parents_for(operation, entity, parents) do
     table = Util.components_state_ets_table()
@@ -1454,7 +1459,7 @@ defmodule Ecspanse.Command do
     |> Enum.group_by(fn {k, _tags, _v} -> k end, fn {_k, _tags, v} -> v end)
     |> Enum.map(fn
       {k, [v]} ->
-        {k, [], v}
+        {k, MapSet.new(), v}
 
       {{entity_id, module}, values} ->
         list = Enum.map(values, fn value -> value.entities end) |> List.flatten() |> Enum.uniq()
@@ -1469,7 +1474,7 @@ defmodule Ecspanse.Command do
     |> Enum.group_by(fn {k, _tags, _v} -> k end, fn {_k, _tags, v} -> v end)
     |> Enum.map(fn
       {k, [v]} ->
-        {k, [], v}
+        {k, MapSet.new(), v}
 
       {{entity_id, module}, values} ->
         list =
@@ -1785,11 +1790,7 @@ defmodule Ecspanse.Command do
     end
   end
 
-  defp validate_tags(operation, tags) do
-    unless is_list(tags) do
-      raise Error, {operation, "Expected tags to be a list of atoms, got: #{inspect(tags)}"}
-    end
-
+  defp validate_tags(operation, tags) when is_list(tags) do
     non_tags = Enum.reject(tags, &is_atom/1)
 
     case non_tags do
@@ -1800,6 +1801,10 @@ defmodule Ecspanse.Command do
         raise Error,
               {operation, "Expected tags to be a list of atoms, got: #{inspect(non_tags)}"}
     end
+  end
+
+  defp validate_tags(operation, tags) do
+    raise Error, {operation, "Expected tags to be a list of atoms, got: #{inspect(tags)}"}
   end
 
   # Commits
@@ -1825,14 +1830,8 @@ defmodule Ecspanse.Command do
       [] ->
         :ets.insert(table, components)
 
-        invalidate =
-          Task.async(fn ->
-            # invalidate the cache when inserting components
-            Util.invalidate_cache()
-          end)
+        invalidate_cache_on_create_and_delete(components)
 
-        component_created_events(components)
-        Task.await(invalidate)
         :ok
 
       _ ->
@@ -1859,7 +1858,6 @@ defmodule Ecspanse.Command do
             maybe_invalidate_cache_on_relation_update(components)
           end)
 
-        component_updated_events(components)
         Task.await(invalidate)
         :ok
 
@@ -1877,14 +1875,7 @@ defmodule Ecspanse.Command do
       :ets.delete(table, key)
     end)
 
-    invalidate =
-      Task.async(fn ->
-        # invalidate the cache when deleting components
-        Util.invalidate_cache()
-      end)
-
-    component_deleted_events(components)
-    Task.await(invalidate)
+    invalidate_cache_on_create_and_delete(components)
 
     :ok
   end
@@ -1901,6 +1892,47 @@ defmodule Ecspanse.Command do
     end
   end
 
+  defp invalidate_cache_on_create_and_delete(components) do
+    i1 =
+      Task.async(fn ->
+        Util.invalidate_cache()
+      end)
+
+    i2 =
+      Task.async(fn ->
+        maybe_invalidate_tags_cache(components)
+      end)
+
+    i3 =
+      Task.async(fn ->
+        maybe_invalidate_timer_tag_cache(components)
+      end)
+
+    Task.await_many([i1, i2, i3])
+  end
+
+  defp maybe_invalidate_tags_cache(components) do
+    components_with_tags =
+      Enum.any?(components, fn {{_entity_id, _module}, tags, _component} -> Enum.any?(tags) end)
+
+    if components_with_tags do
+      Util.invalidate_tags_cache()
+    end
+  end
+
+  defp maybe_invalidate_timer_tag_cache(components) do
+    timer_component_tag = Ecspanse.Template.Component.Timer.timer_component_tag()
+
+    components_with_timer_tag =
+      Enum.any?(components, fn {{_entity_id, _module}, tags, _component} ->
+        timer_component_tag in tags
+      end)
+
+    if components_with_timer_tag do
+      Util.invalidate_timer_tag_cache()
+    end
+  end
+
   # helper query functions
 
   defp entities_descendants(entities) do
@@ -1908,81 +1940,5 @@ defmodule Ecspanse.Command do
     |> Query.stream()
     |> Stream.map(fn {entity} -> entity end)
     |> Enum.to_list()
-  end
-
-  ### Special Events
-
-  defp component_created_events(components) do
-    components
-    |> Enum.map(fn {_key, _tags, component} ->
-      {{Event.ComponentCreated, component.__meta__.entity.id},
-       struct!(Event.ComponentCreated, %{
-         component: component,
-         inserted_at: System.os_time()
-       })}
-    end)
-    |> add_events()
-  end
-
-  defp component_updated_events(components) do
-    components
-    |> Enum.map(fn {_key, _tags, component} ->
-      {{Event.ComponentUpdated, component.__meta__.entity.id},
-       struct!(Event.ComponentUpdated, %{
-         component: component,
-         inserted_at: System.os_time()
-       })}
-    end)
-    |> add_events()
-  end
-
-  defp component_deleted_events(components) do
-    components
-    |> Enum.map(fn {_key, _tags, component} ->
-      {{Event.ComponentDeleted, component.__meta__.entity.id},
-       struct!(Event.ComponentDeleted, %{
-         component: component,
-         inserted_at: System.os_time()
-       })}
-    end)
-    |> add_events()
-  end
-
-  defp resource_created_event(resource) do
-    event =
-      {{Event.ResourceCreated, resource.__meta__.module},
-       struct!(Event.ResourceCreated, %{
-         resource: resource,
-         inserted_at: System.os_time()
-       })}
-
-    add_events([event])
-  end
-
-  defp resource_updated_event(resource) do
-    event =
-      {{Event.ResourceUpdated, resource.__meta__.module},
-       struct!(Event.ResourceUpdated, %{
-         resource: resource,
-         inserted_at: System.os_time()
-       })}
-
-    add_events([event])
-  end
-
-  defp resource_deleted_event(resource) do
-    event =
-      {{Event.ResourceDeleted, resource.__meta__.module},
-       struct!(Event.ResourceDeleted, %{
-         resource: resource,
-         inserted_at: System.os_time()
-       })}
-
-    add_events([event])
-  end
-
-  defp add_events(events) when is_list(events) do
-    table = Util.events_ets_table()
-    :ets.insert(table, events)
   end
 end

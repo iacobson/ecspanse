@@ -45,46 +45,6 @@ defmodule Ecspanse.SystemTest do
     end
   end
 
-  defmodule TestSystem2 do
-    @moduledoc false
-    use Ecspanse.System,
-      event_subscriptions: [
-        Ecspanse.Event.ComponentCreated,
-        Ecspanse.Event.ComponentDeleted,
-        Ecspanse.Event.ComponentUpdated,
-        Ecspanse.Event.ResourceCreated,
-        Ecspanse.Event.ResourceDeleted,
-        Ecspanse.Event.ResourceUpdated
-      ]
-
-    def run(event, _frame) do
-      test_pid = Ecspanse.Server.debug().test_pid
-
-      case event do
-        %Ecspanse.Event.ComponentCreated{component: %TestComponent1{} = component} ->
-          send(test_pid, {:component_created, component})
-
-        %Ecspanse.Event.ComponentDeleted{component: %TestComponent1{} = component} ->
-          send(test_pid, {:component_deleted, component})
-
-        %Ecspanse.Event.ComponentUpdated{component: %TestComponent1{} = component} ->
-          send(test_pid, {:component_updated, component})
-
-        %Ecspanse.Event.ResourceCreated{resource: %TestResource1{} = resource} ->
-          send(test_pid, {:resource_created, resource})
-
-        %Ecspanse.Event.ResourceDeleted{resource: %TestResource1{} = resource} ->
-          send(test_pid, {:resource_deleted, resource})
-
-        %Ecspanse.Event.ResourceUpdated{resource: %TestResource1{} = resource} ->
-          send(test_pid, {:resource_updated, resource})
-
-        _ ->
-          :ok
-      end
-    end
-  end
-
   defmodule TestServer1 do
     @moduledoc false
     use Ecspanse
@@ -92,7 +52,6 @@ defmodule Ecspanse.SystemTest do
     def setup(data) do
       data
       |> Ecspanse.add_system(TestSystem1)
-      |> Ecspanse.add_system(TestSystem2)
     end
   end
 
@@ -152,79 +111,6 @@ defmodule Ecspanse.SystemTest do
 
       assert {:ok, component_1} = Ecspanse.Query.fetch_component(entity, TestComponent1)
       assert component_1.value == :foo
-    end
-  end
-
-  describe "command generated events" do
-    test "component_created event on component creation" do
-      entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
-      :timer.sleep(20)
-      assert_receive {:next_frame, _state}
-
-      assert_received {:component_created, created_component}
-
-      {:ok, component} = Ecspanse.Query.fetch_component(entity, TestComponent1)
-
-      assert created_component == component
-    end
-
-    test "component_deleted event on component deletion" do
-      entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
-
-      {:ok, component} = Ecspanse.Query.fetch_component(entity, TestComponent1)
-
-      Ecspanse.Command.remove_component!(component)
-      :timer.sleep(20)
-      assert_receive {:next_frame, _state}
-
-      assert_received {:component_deleted, deleted_component}
-
-      assert deleted_component == component
-    end
-
-    test "component_updated event on component update" do
-      entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
-      {:ok, component} = Ecspanse.Query.fetch_component(entity, TestComponent1)
-      Ecspanse.Command.update_component!(component, value: :bar)
-      :timer.sleep(20)
-      assert_receive {:next_frame, _state}
-
-      assert_received {:component_updated, updated_component}
-      {:ok, component} = Ecspanse.Query.fetch_component(entity, TestComponent1)
-
-      assert updated_component == component
-    end
-
-    test "resource_created event on resource creation" do
-      resource = Ecspanse.Command.insert_resource!(TestResource1)
-      :timer.sleep(20)
-      assert_receive {:next_frame, _state}
-
-      assert_received {:resource_created, created_resource}
-
-      assert created_resource == resource
-    end
-
-    test "resource_deleted event on resource deletion" do
-      resource = Ecspanse.Command.insert_resource!(TestResource1)
-      resource = Ecspanse.Command.delete_resource!(resource)
-      :timer.sleep(20)
-      assert_receive {:next_frame, _state}
-
-      assert_received {:resource_deleted, deleted_resource}
-
-      assert deleted_resource == resource
-    end
-
-    test "resource_updated event on resource update" do
-      resource = Ecspanse.Command.insert_resource!(TestResource1)
-      resource = Ecspanse.Command.update_resource!(resource, value: :bar)
-      :timer.sleep(20)
-      assert_receive {:next_frame, _state}
-
-      assert_received {:resource_updated, updated_resource}
-
-      assert updated_resource == resource
     end
   end
 end

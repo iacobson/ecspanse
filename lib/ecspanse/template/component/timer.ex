@@ -59,8 +59,10 @@ defmodule Ecspanse.Template.Component.Timer do
   See [a working example](./tutorial.md#energy-regeneration) in the tutorial
 
   """
+  @timer_component_tag :ecs_timer
+
   use Ecspanse.Template.Component,
-    tags: [:ecs_timer],
+    tags: [@timer_component_tag],
     state: [:duration, :time, :event, mode: :repeat, paused: false]
 
   @mode [:repeat, :once, :temporary]
@@ -122,4 +124,7 @@ defmodule Ecspanse.Template.Component.Timer do
             "Invalid paused for Timer Component: #{inspect(__MODULE__)}. The `:paused` field is mandatory in the timer state and must be a boolean."
     end
   end
+
+  @doc false
+  def timer_component_tag, do: @timer_component_tag
 end

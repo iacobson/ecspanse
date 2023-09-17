@@ -342,6 +342,7 @@ defmodule Ecspanse.Query do
     memo_list_parents(entity)
   end
 
+  @doc false
   defmemo memo_list_parents(%Entity{id: entity_id}), max_waiter: 1000, waiter_sleep_ms: 0 do
     case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Parents}) do
       [{_key, _tags, %Component.Parents{entities: parents_entities}}] -> parents_entities
@@ -390,7 +391,8 @@ defmodule Ecspanse.Query do
   @spec list_tags(components_state :: struct()) :: list(tag :: atom())
   def list_tags(component) do
     :ok = validate_components([component])
-    component.__meta__.tags
+    # tags are stored as MapSet in the component Meta
+    MapSet.to_list(component.__meta__.tags)
   end
 
   @doc """
@@ -408,12 +410,32 @@ defmodule Ecspanse.Query do
           list(components_state :: struct())
   def list_tagged_components(tags) do
     :ok = validate_tags(tags)
+    table = Util.components_state_ets_table()
 
-    Ecspanse.Util.list_entities_components_tags()
-    |> Stream.filter(fn {_entity_id, component_tags, _state} ->
-      Enum.all?(tags, &(&1 in component_tags))
+    timer_component_tag = Ecspanse.Template.Component.Timer.timer_component_tag()
+
+    # optimized function for timer components
+    # the filter_timer_entities_components_tags function is called when the timer system runs
+    filtered_entities_components_tags =
+      case tags do
+        [^timer_component_tag] ->
+          Ecspanse.Util.filter_timer_entities_components_tags()
+
+        _ ->
+          Ecspanse.Util.filter_entities_components_tags(tags)
+      end
+
+    filtered_entities_components_tags
+    |> Stream.map(fn {entity_id, comp_module, _tags_set} ->
+      case :ets.lookup(table, {entity_id, comp_module}) do
+        [{_key, _tags, comp_state}] -> comp_state
+        # checking for race conditions when a required component is removed during the query
+        # the whole entity should be filtered out
+        [] -> :reject
+      end
     end)
-    |> Enum.map(fn {_entity_id, _tags, state} -> state end)
+    |> Stream.reject(fn state -> state == :reject end)
+    |> Enum.to_list()
   end
 
   @doc """
@@ -432,9 +454,11 @@ defmodule Ecspanse.Query do
     :ok = validate_entities([entity])
     :ok = validate_tags(tags)
 
-    Ecspanse.Util.list_entities_components_tags(entity)
-    |> Stream.filter(fn {_component_entity_id, component_tags, _state} ->
-      Enum.all?(tags, &(&1 in component_tags))
+    tags_set = MapSet.new(tags)
+
+    Ecspanse.Util.list_entities_tags_state(entity)
+    |> Stream.filter(fn {_component_entity_id, component_tags_set, _state} ->
+      MapSet.subset?(tags_set, component_tags_set)
     end)
     |> Enum.map(fn {_entity_id, _tags, state} -> state end)
   end
@@ -457,13 +481,22 @@ defmodule Ecspanse.Query do
     :ok = validate_tags(tags)
 
     entity_ids = Enum.map(entities, & &1.id)
+    table = Util.components_state_ets_table()
 
-    Ecspanse.Util.list_entities_components_tags()
-    |> Stream.filter(fn {component_entity_id, component_tags, _state} ->
-      component_entity_id in entity_ids &&
-        Enum.all?(tags, &(&1 in component_tags))
+    Ecspanse.Util.filter_entities_components_tags(tags)
+    |> Stream.filter(fn {entity_id, _comp_module, _tags_set} ->
+      entity_id in entity_ids
     end)
-    |> Enum.map(fn {_entity_id, _tags, state} -> state end)
+    |> Stream.map(fn {entity_id, comp_module, _tags_set} ->
+      case :ets.lookup(table, {entity_id, comp_module}) do
+        [{_key, _tags, comp_state}] -> comp_state
+        # checking for race conditions when a required component is removed during the query
+        # the whole entity should be filtered out
+        [] -> :reject
+      end
+    end)
+    |> Stream.reject(fn state -> state == :reject end)
+    |> Enum.to_list()
   end
 
   @doc """

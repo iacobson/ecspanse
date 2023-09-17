@@ -229,6 +229,14 @@ defmodule Demo.API do
 end
 ```
 
+We create another event that will be emitted when the hero actually moved to handle various side effects.
+
+```elixir
+defmodule Demo.Events.HeroMoved do
+  use Ecspanse.Event
+end
+```
+
 ### The Move System
 
 The role of the move system is to listen to move events, then check if the hero has enough energy to move and if so, update the hero position and adjust the energy. We want this system to run asynchronously.
@@ -253,6 +261,7 @@ defmodule Demo.Systems.MoveHero do
         {energy, current: energy.current - 1},
         {position, update_coordinates(position, direction)}
       ])
+      Ecspanse.event(Demo.Events.HeroMoved)
     end
   end
 
@@ -270,6 +279,7 @@ defmodule Demo.Systems.MoveHero do
       :down -> [x: x, y: y - 1]
       :left -> [x: x - 1, y: y]
       :right -> [x: x + 1, y: y]
+      _ -> [x: x, y: y]
     end
   end
 end
@@ -570,20 +580,18 @@ Runtime tag setting enables the reusability of components in various scenarios. 
 
 ### Storing Found Resources
 
-On each component creation, update or deletion, Ecspanse automatically emits an event: `Ecspanse.Event.ComponentCreated`, `Ecspanse.Event.ComponentUpdated` or `Ecspanse.Event.ComponentDeleted`. The event contains the current component.
-
-We can listen to those events in our systems. Our new `MaybeFindResources` system subscribes to `ComponentUpdated` and matches just on the `Position` component struct. Then it randomly decides if the current position contains resources, and the type of resource.
+Our new `MaybeFindResources` system subscribes to `Demo.Events.HeroMoved` emitted by the `MoveHero` system. Then it randomly decides if the current position contains resources, and the type of resource.
 
 ```elixir
 defmodule Demo.Systems.MaybeFindResources do
   use Ecspanse.System,
     lock_components: [Demo.Components.Gems, Demo.Components.Gold],
-    event_subscriptions: [Ecspanse.Event.ComponentUpdated]
+    event_subscriptions: [Demo.Events.HeroMoved]
 
   alias Demo.Components
 
   @impl true
-  def run(%Ecspanse.Event.ComponentUpdated{component: %Demo.Components.Position{}}, _frame) do
+  def run(%Ecspanse.Event.HeroMoved{}, _frame) do
     with true <- found_resource?(),
          resource_module <- pick_resource(),
          {:ok, hero_entity} <- Demo.Entities.Hero.fetch(),

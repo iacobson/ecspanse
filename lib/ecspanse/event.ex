@@ -11,14 +11,6 @@ defmodule Ecspanse.Event do
   The batched events from the current frame are cleared once that frame ends.
   This implies each system has a single opportunity to process an event that has been scheduled.
 
-  There are some special events that are created and dispached by the framework:
-  - `Ecspanse.Event.ComponentCreated` - dispatched when new component is created
-  - `Ecspanse.Event.ComponentUpdated` - dispatched when a component is updated
-  - `Ecspanse.Event.ComponentDeleted` - dispatched when a component is deleted
-  - `Ecspanse.Event.ResourceCreated` - dispatched when new resource is created
-  - `Ecspanse.Event.ResourceUpdated` - dispatched when a resource is updated
-  - `Ecspanse.Event.ResourceDeleted` - dispatched when a resource is deleted
-
   ## Options
     - `:fields` - a list with all the event struct keys and their initial values (if any)
     For example: `[:direction, type: :hero]`
