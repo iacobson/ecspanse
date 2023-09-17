@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.4.0 (2023-09-17)
+
+### Breaking
+
+- removed the automatically generated events: `Ecspanse.Event.{ComponentCreated, ComponentUpdated, ComponentDeleted, ResourceCreated, ResourceUpdated, ResourceDeleted}`. Use custom emitted events or short-lived components instead.
+
+### Improvements
+
+- improved performance for tagged components. The system loop now runs faster when dealing with tagged components.
+
 ## v0.3.1 (2023-08-30)
 
 ### Fixes
