@@ -149,7 +149,7 @@ defmodule Ecspanse.Component do
     @opaque t :: %__MODULE__{
               entity: Ecspanse.Entity.t(),
               module: module(),
-              tags: list(atom())
+              tags: MapSet.t(atom())
             }
 
     @enforce_keys [:entity, :module]
@@ -162,7 +162,7 @@ defmodule Ecspanse.Component do
 
       tags = Keyword.get(opts, :tags, [])
 
-      unless is_list(tags) do
+      unless is_list(tags) && Enum.all?(tags, &is_atom/1) do
         raise ArgumentError,
               "Invalid tags for Component: #{inspect(__MODULE__)}. The `:tags` option must be a list of atoms."
       end
