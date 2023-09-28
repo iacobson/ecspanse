@@ -30,7 +30,8 @@ defmodule Ecspanse.Query do
           not_for_entities: list(Ecspanse.Entity.t()),
           for_children_of: list(Ecspanse.Entity.t()),
           for_descendants_of: list(Ecspanse.Entity.t()),
-          for_parents_of: list(Ecspanse.Entity.t())
+          for_parents_of: list(Ecspanse.Entity.t()),
+          for_ancestors_of: list(Ecspanse.Entity.t())
         }
 
   @enforce_keys [:select]
@@ -43,7 +44,8 @@ defmodule Ecspanse.Query do
     :not_for_entities,
     :for_children_of,
     :for_descendants_of,
-    :for_parents_of
+    :for_parents_of,
+    :for_ancestors_of
   ]
 
   defmodule Error do
@@ -108,9 +110,10 @@ defmodule Ecspanse.Query do
   - `:for_children_of` - a list of `t:Ecspanse.Entity.t/0`. The components will be returned only for the children of those entities.
   - `:for_descendants_of` - a list of `t:Ecspanse.Entity.t/0`. The components will be returned only for all descendants of those entities.
   - `:for_parents_of` - a list of `t:Ecspanse.Entity.t/0`. The components will be returned only for the parents of those entities.
+  - `:for_ancestors_of` - a list of `t:Ecspanse.Entity.t/0`. The components will be returned only for all ancestors of those entities.
 
   > #### Info  {: .error}
-  > Combining the following filters is not supported: `:for, :not_for, :for_children_of, :for_descendants_of, :for_parents_of`.
+  > Combining the following filters is not supported: `:for, :not_for, :for_children_of, :for_descendants_of, :for_parents_of, :for_ancestors_of`.
   > Only one of them can be used in a query. Otherwise it will rise an error.
 
   ## Examples
@@ -177,6 +180,7 @@ defmodule Ecspanse.Query do
     for_children_of = Keyword.get(filters, :for_children_of, []) |> Enum.uniq()
     for_descendants_of = Keyword.get(filters, :for_descendants_of, []) |> Enum.uniq()
     for_parents_of = Keyword.get(filters, :for_parents_of, []) |> Enum.uniq()
+    for_ancestors_of = Keyword.get(filters, :for_ancestors_of, []) |> Enum.uniq()
 
     :ok = validate_entities(for_entities)
 
@@ -189,7 +193,8 @@ defmodule Ecspanse.Query do
       not_for_entities: not_for_entities,
       for_children_of: for_children_of,
       for_descendants_of: for_descendants_of,
-      for_parents_of: for_parents_of
+      for_parents_of: for_parents_of,
+      for_ancestors_of: for_ancestors_of
     }
   end
 
@@ -351,6 +356,27 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
+  Returns the list of ancestor entities for the given entity.
+  That means the parents of the entity and their parents and so on.
+
+  ## Examples
+
+    ```elixir
+    [hero_entity, level_entity] = Ecspanse.Query.list_ancestors(compass_entity)
+    ```
+  """
+  @doc group: :relationships
+  @spec list_ancestors(Ecspanse.Entity.t()) :: list(Ecspanse.Entity.t())
+  def list_ancestors(%Entity{} = entity) do
+    memo_list_ancestors(entity)
+  end
+
+  @doc false
+  defmemo memo_list_ancestors(%Entity{} = entity), max_waiter: 1000, waiter_sleep_ms: 0 do
+    list_ancestors_entities([entity], [])
+  end
+
+  @doc """
   Fetches an entity's component by a list of tags.
   Raises if more than one entry is found.
 
@@ -397,6 +423,7 @@ defmodule Ecspanse.Query do
 
   @doc """
   Returns a list of components tagged with a list of tags for all entities.
+
   The components need to be tagged with all the given tags to return.
 
   ## Examples
@@ -441,6 +468,8 @@ defmodule Ecspanse.Query do
   @doc """
   Returns a list of components tagged with a list of tags for a given entity.
 
+  The components need to be tagged with all the given tags to return.
+
   ## Examples
 
     ```elixir
@@ -466,6 +495,8 @@ defmodule Ecspanse.Query do
   @doc """
   Returns a list of components tagged with a list of tags for a given list of entities.
   The components are not grouped by entity, but returned as a flat list.
+
+  The components need to be tagged with all the given tags to return.
 
   ## Examples
 
@@ -502,6 +533,8 @@ defmodule Ecspanse.Query do
   @doc """
   Returns a list of components tagged with a list of tags for the children of a given entity.
 
+  The components need to be tagged with all the given tags to return.
+
   ## Examples
 
     ```elixir
@@ -521,6 +554,8 @@ defmodule Ecspanse.Query do
 
   @doc """
   Returns a list of components tagged with a list of tags for the descendants of a given entity.
+
+  The components need to be tagged with all the given tags to return.
 
   ## Examples
 
@@ -542,6 +577,8 @@ defmodule Ecspanse.Query do
   @doc """
   Returns a list of components tagged with a list of tags for the parents of a given entity.
 
+  The components need to be tagged with all the given tags to return.
+
   ## Examples
 
     ```elixir
@@ -556,6 +593,28 @@ defmodule Ecspanse.Query do
       [] -> []
       [parent] -> list_tagged_components_for_entity(parent, tags)
       parents -> list_tagged_components_for_entities(parents, tags)
+    end
+  end
+
+  @doc """
+  Returns a list of components tagged with a list of tags for the ancestors of a given entity.
+
+  The components need to be tagged with all the given tags to return.
+
+  ## Examples
+
+    ```elixir
+    [dungeon_component] = Ecspanse.Query.list_tagged_components_for_ancestors(hero_entity, [:dungeon])
+    ```
+  """
+  @doc group: :tags
+  @spec list_tagged_components_for_ancestors(Ecspanse.Entity.t(), list(tag :: atom())) ::
+          list(components_state :: struct())
+  def list_tagged_components_for_ancestors(entity, tags) do
+    case list_ancestors(entity) do
+      [] -> []
+      [ancestor] -> list_tagged_components_for_entity(ancestor, tags)
+      ancestors -> list_tagged_components_for_entities(ancestors, tags)
     end
   end
 
@@ -853,6 +912,9 @@ defmodule Ecspanse.Query do
       not Enum.empty?(query.for_parents_of) ->
         entities_with_components_stream_for_parents(query)
 
+      not Enum.empty?(query.for_ancestors_of) ->
+        entities_with_components_stream_for_ancestors(query)
+
       true ->
         filter_for_entities([])
     end
@@ -874,6 +936,13 @@ defmodule Ecspanse.Query do
 
   defp entities_with_components_stream_for_parents(query) do
     case list_parents_entities(query.for_parents_of) do
+      [] -> []
+      entities -> filter_for_entities(entities)
+    end
+  end
+
+  defp entities_with_components_stream_for_ancestors(query) do
+    case list_ancestors_entities(query.for_ancestors_of, []) do
       [] -> []
       entities -> filter_for_entities(entities)
     end
@@ -909,6 +978,24 @@ defmodule Ecspanse.Query do
     |> stream()
     |> Stream.map(fn {parents} -> parents.entities end)
     |> Stream.concat()
+  end
+
+  defp list_ancestors_entities([], acc) do
+    acc
+  end
+
+  defp list_ancestors_entities(entities, acc) do
+    parents =
+      select({Component.Parents}, for: entities)
+      |> stream()
+      |> Stream.map(fn {%Component.Parents{entities: parents}} -> parents end)
+      |> Enum.concat()
+
+    # avoid circular dependencies
+    parents = Enum.uniq(parents -- acc)
+    acc = Enum.uniq(acc ++ parents)
+
+    list_ancestors_entities(parents, acc)
   end
 
   defp filter_for_entities([]) do
