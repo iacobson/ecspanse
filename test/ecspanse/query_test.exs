@@ -355,6 +355,35 @@ defmodule Ecspanse.QueryTest do
       assert length(components) == 1
     end
 
+    test "can query just ancestors of entities" do
+      entity_1 =
+        Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
+
+      entity_2 =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity, components: [TestComponent1], parents: [entity_1]}
+        )
+
+      entity_3 =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity, components: [TestComponent1], parents: [entity_2]}
+        )
+
+      assert result =
+               Ecspanse.Query.select({Ecspanse.Entity, TestComponent1},
+                 for_ancestors_of: [entity_3]
+               )
+               |> Ecspanse.Query.stream()
+               |> Enum.to_list()
+
+      assert length(result) == 2
+
+      for {entity, component} <- result do
+        assert entity.id in [entity_1.id, entity_2.id]
+        assert %TestComponent1{} = component
+      end
+    end
+
     test "can return only one result and not a stream" do
       Ecspanse.Command.spawn_entity!(
         {Ecspanse.Entity, components: [TestComponent1, TestComponent2, TestComponent3]}
@@ -423,6 +452,18 @@ defmodule Ecspanse.QueryTest do
       entity_3 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, children: [entity_2]})
 
       assert [entity_1, entity_3] == Ecspanse.Query.list_parents(entity_2)
+    end
+  end
+
+  describe "list_ancestors/1" do
+    test "returns the ancestors of an entity" do
+      entity_1 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
+
+      entity_2 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, children: [entity_1]})
+
+      entity_3 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, children: [entity_2]})
+
+      assert [entity_2, entity_3] == Ecspanse.Query.list_ancestors(entity_1)
     end
   end
 
@@ -592,7 +633,7 @@ defmodule Ecspanse.QueryTest do
 
       entity_3 =
         Ecspanse.Command.spawn_entity!(
-          {Ecspanse.Entity, components: [{TestComponent4, [], [:alpha]}], parents: [entity_1]}
+          {Ecspanse.Entity, components: [{TestComponent4, [], [:alpha]}], parents: [entity_2]}
         )
 
       Ecspanse.Command.spawn_entity!(
@@ -600,7 +641,7 @@ defmodule Ecspanse.QueryTest do
          components: [TestComponent3, {TestComponent4, [], [:alpha]}, TestComponent5]}
       )
 
-      components = Ecspanse.Query.list_tagged_components_for_descendants(entity_2, [:bar, :alpha])
+      components = Ecspanse.Query.list_tagged_components_for_children(entity_2, [:bar, :alpha])
 
       assert length(components) == 2
 
@@ -612,7 +653,7 @@ defmodule Ecspanse.QueryTest do
   end
 
   describe "list_tagged_components_for_descendants/2" do
-    test "returns the components for a list of tags for the children of a given entity" do
+    test "returns the components for a list of tags for the descendants of a given entity" do
       entity_1 =
         Ecspanse.Command.spawn_entity!(
           {Ecspanse.Entity,
@@ -628,7 +669,7 @@ defmodule Ecspanse.QueryTest do
 
       entity_3 =
         Ecspanse.Command.spawn_entity!(
-          {Ecspanse.Entity, components: [{TestComponent4, [], [:alpha]}], parents: [entity_2]}
+          {Ecspanse.Entity, components: [{TestComponent4, [], [:alpha]}], parents: [entity_1]}
         )
 
       Ecspanse.Command.spawn_entity!(
@@ -636,7 +677,7 @@ defmodule Ecspanse.QueryTest do
          components: [TestComponent3, {TestComponent4, [], [:alpha]}, TestComponent5]}
       )
 
-      components = Ecspanse.Query.list_tagged_components_for_children(entity_2, [:bar, :alpha])
+      components = Ecspanse.Query.list_tagged_components_for_descendants(entity_2, [:bar, :alpha])
 
       assert length(components) == 2
 
@@ -673,6 +714,42 @@ defmodule Ecspanse.QueryTest do
       )
 
       components = Ecspanse.Query.list_tagged_components_for_parents(entity_2, [:bar, :alpha])
+
+      assert length(components) == 2
+
+      assert [%TestComponent4{} = comp_1, %TestComponent4{} = comp_2] = components
+      e1 = Ecspanse.Query.get_component_entity(comp_1)
+      e2 = Ecspanse.Query.get_component_entity(comp_2)
+      assert Enum.all?([e1, e2], fn e -> e.id in [entity_1.id, entity_3.id] end)
+    end
+  end
+
+  describe "list_tagged_components_for_ancestors/2" do
+    test "returns the components for a list of tags for the ancestors of a given entity" do
+      entity_1 =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity,
+           components: [
+             TestComponent1,
+             TestComponent2,
+             {TestComponent4, [], [:alpha]},
+             TestComponent5
+           ]}
+        )
+
+      entity_2 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [entity_1]})
+
+      entity_3 =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity, components: [{TestComponent4, [], [:alpha]}], children: [entity_1]}
+        )
+
+      Ecspanse.Command.spawn_entity!(
+        {Ecspanse.Entity,
+         components: [TestComponent3, {TestComponent4, [], [:alpha]}, TestComponent5]}
+      )
+
+      components = Ecspanse.Query.list_tagged_components_for_ancestors(entity_2, [:bar, :alpha])
 
       assert length(components) == 2
 
