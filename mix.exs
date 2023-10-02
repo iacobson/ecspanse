@@ -1,7 +1,7 @@
 defmodule Ecspanse.MixProject do
   use Mix.Project
 
-  @version "0.5.0"
+  @version "0.6.0"
   @source_url "https://github.com/iacobson/ecspanse"
 
   def project do
@@ -62,7 +62,8 @@ defmodule Ecspanse.MixProject do
         Relationships: &(&1[:group] == :relationships),
         Components: &(&1[:group] == :components),
         Resources: &(&1[:group] == :resources),
-        Tags: &(&1[:group] == :tags)
+        Tags: &(&1[:group] == :tags),
+        "Implemented Callbacks": &(&1[:group] == :implemented)
       ],
       nest_modules_by_prefix: [
         Ecspanse.Entity,
@@ -72,7 +73,8 @@ defmodule Ecspanse.MixProject do
         Ecspanse.Event,
         Ecspanse.Query,
         Ecspanse.Command,
-        Ecspanse.Template
+        Ecspanse.Template,
+        Ecspanse.Projection
       ],
       groups_for_modules: [
         API: [
@@ -107,7 +109,8 @@ defmodule Ecspanse.MixProject do
           Ecspanse.Template.Component.Timer,
           Ecspanse.Template.Event,
           Ecspanse.Template.Event.Timer
-        ]
+        ],
+        Projections: [Ecspanse.Projection]
       ]
     ]
   end
