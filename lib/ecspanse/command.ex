@@ -104,17 +104,18 @@ defmodule Ecspanse.Command do
   to avoid the need to lock all involved components.
 
   ## Examples
-  ```elixir
-    %Ecspanse.Entity{} = Ecspanse.Command.spawn_entity!(
-      {
-        Ecspanse.Entity,
-        id: "my_custom_id",
-        components: [Demo.Components.Hero, {Demo.Components.Position, [x: 5, y: 3], [:hero, :map]}],
-        children: [potion_entity, sword_entity],
-        parents: [map_entity]
-      }
-    )
-  ```
+
+    ```elixir
+      %Ecspanse.Entity{} = Ecspanse.Command.spawn_entity!(
+        {
+          Ecspanse.Entity,
+          id: "my_custom_id",
+          components: [Demo.Components.Hero, {Demo.Components.Position, [x: 5, y: 3], [:hero, :map]}],
+          children: [potion_entity, sword_entity],
+          parents: [map_entity]
+        }
+      )
+    ```
   """
   @doc group: :entities
   @spec spawn_entity!(Entity.entity_spec()) :: Entity.t()
@@ -149,6 +150,7 @@ defmodule Ecspanse.Command do
   to avoid the need to lock all involved components.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.despawn_entity!(hero_entity)
     ```
@@ -220,6 +222,7 @@ defmodule Ecspanse.Command do
   > Use `deep_clone_entity!/1` to clone the entity and all of its descendants.
 
   ## Examples
+
     ```elixir
     %Ecspanse.Entity{} = entity = Ecspanse.Command.clone_entity!(compass_entity)
     ```
@@ -246,6 +249,7 @@ defmodule Ecspanse.Command do
   to avoid the need to lock all involved components.
 
   ## Examples
+
     ```elixir
     %Ecspanse.Entity{} = entity = Ecspanse.Command.deep_clone_entity!(enemy_entity)
     ```
@@ -274,6 +278,7 @@ defmodule Ecspanse.Command do
   > If an attempt is made to insert a component that already exists for the entity, an error will be raised.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.add_component!(hero_entity, Demo.Components.Gold)
     :ok = Ecspanse.Command.add_component!(hero_entity, {Demo.Components.Gold, [amount: 5], [:resource, :available]})
@@ -316,6 +321,7 @@ defmodule Ecspanse.Command do
   The function takes two arguments: the component struct to update and a keyword list of changes to apply.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.update_component!(position_component, x: :12)
     ```
@@ -333,6 +339,7 @@ defmodule Ecspanse.Command do
   and the second element is a keyword list of changes to apply.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.update_components!([
       {position_component, x: 7, y: 9},
@@ -357,6 +364,7 @@ defmodule Ecspanse.Command do
   Removes an existing component from its entity. The components is destroyed.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.remove_component!(invisibility_component)
     ```
@@ -385,6 +393,7 @@ defmodule Ecspanse.Command do
   Adds an entity as child to a parent entity.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.add_child!(hero_entity, sword_entity)
     ```
@@ -403,6 +412,7 @@ defmodule Ecspanse.Command do
   and the second element is a list of children entities.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.add_children!([
       {hero_entity, [sword_entity]},
@@ -425,6 +435,7 @@ defmodule Ecspanse.Command do
   Adds a parent entity to a child entity.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.add_parent!(sowrd_entity, hero_entity)
     ```
@@ -443,6 +454,7 @@ defmodule Ecspanse.Command do
   and the second element is a list of parent entities.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.add_parents!([
       {sword_entity, [hero_entity]},
@@ -465,6 +477,7 @@ defmodule Ecspanse.Command do
   Removes a child entity from a parent entity.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.remove_child!(hero_entity, sword_entity)
     ```
@@ -483,6 +496,7 @@ defmodule Ecspanse.Command do
   and the second element is a list of children entities.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.remove_children!([
       {hero_entity, [sword_entity]},
@@ -505,6 +519,7 @@ defmodule Ecspanse.Command do
   Removes a parent entity from a child entity.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.remove_parent!(sword_entity, hero_entity)
     ```
@@ -523,6 +538,7 @@ defmodule Ecspanse.Command do
   and the second element is a list of parent entities.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.remove_parents!([
       {sword_entity, [hero_entity]},
@@ -549,6 +565,7 @@ defmodule Ecspanse.Command do
   > If an attempt is made to insert a resource that already exists, an error will be raised.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.insert_resource!({Demo.Resources.Lobby, player_count: 0})
     ```
@@ -566,6 +583,7 @@ defmodule Ecspanse.Command do
   Updates an existing global resource.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.update_resource!(lobby_resource, player_count: 1)
     ```
@@ -584,6 +602,7 @@ defmodule Ecspanse.Command do
   Deletes an existing global resource.
 
   ## Examples
+
     ```elixir
     :ok = Ecspanse.Command.delete_resource!(lobby_resource)
     ```

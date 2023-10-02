@@ -1,6 +1,6 @@
 defmodule Ecspanse.Component do
   @moduledoc """
-  The component is the basic building block of the ECS architecture, holding the entity state.
+  The `Ecspanse.Component` is the basic building block of the ECS architecture, holding the entity state.
   The components are defined by invoking `use Ecspanse.Component` in their module definition.
 
   An entity cannot exist without at least a component.
@@ -57,6 +57,7 @@ defmodule Ecspanse.Component do
   A `component_spec` is the definition required to create a component.
 
   ## Examples
+
     ```elixir
     Demo.Components.Gold
     {Demo.Components.Gold, [amount: 5]}
@@ -103,7 +104,11 @@ defmodule Ecspanse.Component do
   Fetches the component for an entity. It has the same functionality as `Ecspanse.Query.fetch_component/2`,
   but it may be more convenient to use in some cases.
 
-  ## Example:
+  > #### Implemented Callback  {: .tip}
+  > This callback is implemented by the library and can be used as such.
+
+  ## Examples:
+
     ``` elixir
       {:ok, %Demo.Components.Position{} = position_comopnent} = Demo.Components.Position.fetch(hero_entity)
 
@@ -112,17 +117,23 @@ defmodule Ecspanse.Component do
       {:ok, %Demo.Components.Position{} = position_comopnent} = Ecspanse.Query.fetch_component(hero_entity, Demo.Components.Position)
     ```
   """
+  @doc group: :implemented
   @callback fetch(entity :: Ecspanse.Entity.t()) ::
               {:ok, component :: struct()} | {:error, :not_found}
 
   @doc """
   Lists all components of the current type for all entities.
 
-  ## Example:
+  > #### Implemented Callback  {: .info}
+  > This callback is implemented by the library and can be used as such.
+
+  ## Examples:
+
     ```elixir
     enemy_components = Demo.Components.Enemy.list()
     ```
   """
+  @doc group: :implemented
   @callback list() :: list(component :: struct())
 
   @optional_callbacks validate: 1
