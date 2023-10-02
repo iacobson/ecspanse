@@ -1,10 +1,16 @@
 # Changelog
 
+## v0.6.0 (2023-10-02)
+
+### Features
+
+- introduces `Ecspanse.Projection` to build state projections across entities and components.
+
 ## v0.5.0 (2023-09-28)
 
 ### Features
 
-- introducing ancestors queries to query for parents of an entity, the parents of parents, and so on:
+- introduces ancestors queries to query for parents of an entity, the parents of parents, and so on:
   - `Ecspanse.Query.select/2` new option: `:for_ancestors_of`
   - `Ecspanse.Query.list_ancestors/1`
   - `Ecspanse.Query.list_tagged_components_for_ancestors/2`
@@ -17,7 +23,7 @@
 
 ### Improvements
 
-- improved performance for tagged components. The system loop now runs faster when dealing with tagged components.
+- improves performance for tagged components. The system loop now runs faster when dealing with tagged components.
 
 ## v0.3.1 (2023-08-30)
 

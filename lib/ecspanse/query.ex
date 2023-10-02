@@ -246,7 +246,7 @@ defmodule Ecspanse.Query do
 
   An entity exists only if it has at least one component.
 
-    ## Examples
+  ## Examples
 
     ```elixir
     {:ok, %Ecspanse.Entity{}} = Ecspanse.Query.fetch_entity(hero_entity_id)

@@ -147,7 +147,7 @@ defmodule Ecspanse do
               fps_limit: @fps_limit
             }
 
-            spec = %{
+            %{
               id: __MODULE__,
               start: {Ecspanse.Server, :start_link, [payload]},
               restart: :permanent
@@ -162,13 +162,13 @@ defmodule Ecspanse do
         end
       else
         @doc false
-        def child_spec(arg) do
+        def child_spec(_arg) do
           payload = %{
             ecspanse_module: __MODULE__,
             fps_limit: @fps_limit
           }
 
-          spec = %{
+          %{
             id: __MODULE__,
             start: {Ecspanse.Server, :start_link, [payload]},
             restart: :permanent
