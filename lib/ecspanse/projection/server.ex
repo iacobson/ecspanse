@@ -32,9 +32,9 @@ defmodule Ecspanse.Projection.Server do
 
     validate_projection(new_projection, state.projection_module)
 
-    with true <- function_exported?(state.projection_module, :on_change, 2),
+    with true <- function_exported?(state.projection_module, :on_change, 3),
          false <- new_projection == state.projection do
-      apply(state.projection_module, :on_change, [state.attrs, new_projection])
+      apply(state.projection_module, :on_change, [state.attrs, new_projection, state.projection])
     end
 
     {:reply, :ok, %{state | projection: new_projection}}
