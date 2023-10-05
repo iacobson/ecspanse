@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.7.0 (2023-10-05)
+
+### Breaking
+
+- `c:Ecspanse.Projection.on_change/3` replaces the `on_change/2` and now takes both the new projection as well as the previous projection as arguments.
+
+### Improvements
+
+- updating projections after all frame systems have run to return a consistent state.
+
 ## v0.6.0 (2023-10-02)
 
 ### Features

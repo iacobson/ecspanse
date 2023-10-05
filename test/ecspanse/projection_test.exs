@@ -25,7 +25,7 @@ defmodule Ecspanse.ProjectionTest do
     end
 
     @impl true
-    def on_change(%{test_pid: test_pid}, projection) do
+    def on_change(%{test_pid: test_pid}, projection, _previous_projection) do
       send(test_pid, {:projection_updated, projection})
     end
   end
@@ -96,7 +96,6 @@ defmodule Ecspanse.ProjectionTest do
 
       Ecspanse.Command.update_components!([{comp_1, value: 100}, {comp_2, value: 200}])
 
-      assert_receive {:next_frame, _state}
       assert_receive {:next_frame, _state}
 
       assert_receive {:projection_updated, %TestProjection{comp_1: 100, comp_2: 200}}

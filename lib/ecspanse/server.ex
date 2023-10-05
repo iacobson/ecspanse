@@ -61,6 +61,7 @@ defmodule Ecspanse.Server do
               | :frame_start_systems
               | :batch_systems
               | :frame_end_systems
+              | :all_systems_run
               | :frame_ended,
             frame_timer: :running | :finished,
             ecspanse_module: module(),
@@ -78,7 +79,6 @@ defmodule Ecspanse.Server do
             delta: non_neg_integer(),
             frame_data: Frame.t(),
             events_ets_table: atom(),
-            projection_update_task: Task.t(),
             test: boolean(),
             test_pid: pid() | nil
           }
@@ -107,7 +107,6 @@ defmodule Ecspanse.Server do
               delta: 0,
               frame_data: %Frame{},
               events_ets_table: nil,
-              projection_update_task: nil,
               test: false,
               test_pid: nil
   end
@@ -273,7 +272,7 @@ defmodule Ecspanse.Server do
     # in order to finish a frame, two conditions must be met:
     # 1. the frame time must pass: eg 1000/60 milliseconds.
     # .  this sets the frame_timer: from :running to :finished
-    # 2. all the frame systems must have finished running
+    # 2. all the frame systems must have finished running, and all the projections must have finished updating
     # .  this sets the status: to :frame_ended,
     # So, when state.frame_timer == :finished && state.status == :frame_ended, the frame is finished
 
@@ -285,31 +284,6 @@ defmodule Ecspanse.Server do
     # but also to avoid inconsistencies in the components
     state = refresh_system_run_conditions_map(state)
 
-    projection_update_task =
-      Task.async(fn ->
-        projection_pids =
-          DynamicSupervisor.which_children(Ecspanse.Projection.Supervisor)
-          |> Enum.map(fn {_, pid, _, _} -> pid end)
-
-        Task.async_stream(
-          projection_pids,
-          fn pid ->
-            # Ensure against race conditions when the projection was terminated
-            try do
-              GenServer.call(pid, :update)
-            catch
-              :exit, {:noproc, {GenServer, :call, _}} ->
-                :ok
-            end
-          end,
-          ordered: false,
-          max_concurrency: length(projection_pids) + 1
-        )
-        |> Stream.run()
-
-        :finished_projection_updates
-      end)
-
     state = %{
       state
       | status: :frame_start_systems,
@@ -320,8 +294,7 @@ defmodule Ecspanse.Server do
         frame_data: %Frame{
           delta: delta,
           event_batches: event_batches
-        },
-        projection_update_task: projection_update_task
+        }
     }
 
     Process.send_after(self(), :finish_frame_timer, round(limit))
@@ -368,7 +341,7 @@ defmodule Ecspanse.Server do
         :run_next_system,
         %State{scheduled_systems: [], status: :frame_end_systems} = state
       ) do
-    send(self(), :end_frame)
+    send(self(), :finished_running_all_systems)
     {:noreply, state}
   end
 
@@ -437,10 +410,51 @@ defmodule Ecspanse.Server do
   end
 
   # finishing the frame systems execution
-  def handle_info(:end_frame, state) do
+  # scheduing projections
+  def handle_info(:finished_running_all_systems, state) do
+    Task.async(fn ->
+      projection_pids =
+        DynamicSupervisor.which_children(Ecspanse.Projection.Supervisor)
+        |> Enum.map(fn {_, pid, _, _} -> pid end)
+
+      Task.async_stream(
+        projection_pids,
+        fn pid ->
+          # Ensure against race conditions when the projection was terminated
+          try do
+            GenServer.call(pid, :update)
+          catch
+            :exit, {:noproc, {GenServer, :call, _}} ->
+              :ok
+          end
+        end,
+        ordered: false,
+        max_concurrency: length(projection_pids) + 1
+      )
+      |> Stream.run()
+
+      :finished_projection_updates
+    end)
+
+    state = %State{
+      state
+      | status: :all_systems_run
+    }
+
+    {:noreply, state}
+  end
+
+  # finished the frame projection updates
+  def handle_info(
+        {ref, :finished_projection_updates},
+        state
+      )
+      when is_reference(ref) do
+    Process.demonitor(ref, [:flush])
+
     state = %State{state | status: :frame_ended}
 
-    if state.frame_timer == :finished && is_nil(state.projection_update_task) do
+    if state.frame_timer == :finished do
       events_ets_table = Util.events_ets_table()
       Util.swithch_events_ets_table()
       state = %State{state | events_ets_table: events_ets_table}
@@ -457,29 +471,7 @@ defmodule Ecspanse.Server do
   def handle_info(:finish_frame_timer, state) do
     state = %State{state | frame_timer: :finished}
 
-    if state.status == :frame_ended && is_nil(state.projection_update_task) do
-      events_ets_table = Util.events_ets_table()
-      Util.swithch_events_ets_table()
-      state = %State{state | events_ets_table: events_ets_table}
-
-      send(self(), :start_frame)
-
-      {:noreply, state}
-    else
-      {:noreply, state}
-    end
-  end
-
-  # finished the frame projection updates
-  def handle_info(
-        {ref, :finished_projection_updates},
-        state
-      )
-      when is_reference(ref) do
-    Process.demonitor(ref, [:flush])
-    state = %State{state | projection_update_task: nil}
-
-    if state.status == :frame_ended && state.frame_timer == :finished do
+    if state.status == :frame_ended do
       events_ets_table = Util.events_ets_table()
       Util.swithch_events_ets_table()
       state = %State{state | events_ets_table: events_ets_table}

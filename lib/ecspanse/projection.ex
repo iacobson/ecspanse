@@ -6,8 +6,7 @@ defmodule Ecspanse.Projection do
   Projections are used to build models and query the state of application across multiple
   entities and their components.
 
-  They are mostly designed to be created and used by external clients (such as UI libraries),
-  but they can also be used internally from the `Ecspanse.System` if needed.
+  They are designed to be created and used by external clients (such as UI libraries, for example Phoenix LiveView),
 
   The Projections are GenServers and the client that creates them is responsible for
   storing their `pid` and using it to communicate with them.
@@ -17,8 +16,8 @@ defmodule Ecspanse.Projection do
   querying the state and building the projection struct.
 
   > #### Note  {: .warning}
-  > The `project/2` callback runs every frame, so many projects with
-  > complex queries can have a negative impact on performance.
+  > The `project/2` callback runs every frame, after executing all systems.
+  > Many projections with complex queries can have a negative impact on performance.
 
   ## Options
   - `:fields` - a list with all the event struct keys and their initial values (if any)
@@ -43,9 +42,9 @@ defmodule Ecspanse.Projection do
       end
 
       @impl true
-      def on_change(%{client_pid: pid} = _attrs, projection) do
+      def on_change(%{client_pid: pid} = _attrs, new_projection, _previous_projection) do
         # when the projection changes, send it to the client
-        send(pid, {:projection_updated, projection})
+        send(pid, {:projection_updated, new_projection})
       end
     end
     ```
@@ -146,21 +145,22 @@ defmodule Ecspanse.Projection do
   @doc """
   Optional callback that is executed every time the projection changes.
 
-  It takes the `attrs` map argument passed to `c:Ecspanse.Projection.start!/1`
-  and the projection struct as arguments. The return value is ignored.
+  It takes the `attrs` map argument passed to `c:Ecspanse.Projection.start!/1`,
+  the new projection and the previous projection structs as arguments. The return value is ignored.
 
   ## Examples
 
     ```elixir
     @impl true
-    def on_change(%{client_pid: pid} = _attrs, projection) do
-      send(pid, {:projection_updated, projection})
+    def on_change(%{client_pid: pid} = _attrs, new_projection, _previous_projection) do
+      send(pid, {:projection_updated, new_projection})
     end
     ```
   """
-  @callback on_change(attrs :: map(), projection :: struct()) :: any()
+  @callback on_change(attrs :: map(), new_projection :: struct(), previous_projection :: struct) ::
+              any()
 
-  @optional_callbacks on_change: 2
+  @optional_callbacks on_change: 3
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
