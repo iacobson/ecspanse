@@ -74,7 +74,7 @@ defmodule Ecspanse.Projection do
 
   > #### Info  {: .info}
   > The `attrs` map is passed to the `c:Ecspanse.Projection.project/1`
-  > and `c:Ecspanse.Projection.on_change/2` callbacks.
+  > and `c:Ecspanse.Projection.on_change/3` callbacks.
 
   The caller is responsible for storing the returned `pid`.
 

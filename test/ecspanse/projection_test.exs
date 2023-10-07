@@ -77,7 +77,7 @@ defmodule Ecspanse.ProjectionTest do
     end
   end
 
-  describe "on_change/2" do
+  describe "on_change/3" do
     test "is called when the projection changes" do
       entity =
         Ecspanse.Command.spawn_entity!(

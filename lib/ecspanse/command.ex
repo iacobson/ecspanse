@@ -217,9 +217,16 @@ defmodule Ecspanse.Command do
   to avoid the need to lock all involved components.
 
   > #### Note  {: .info}
-  >
   > The entity's `Ecspanse.Component.Children` and `Ecspanse.Component.Parents` components are not cloned.
-  > Use `deep_clone_entity!/1` to clone the entity and all of its descendants.
+  > Use `deep_clone_entity!/2` to clone the entity and all of its descendants.
+
+  ## Options
+
+  - `:id` - a custom unique ID for the entity (binary). If not provided, a random UUID will be generated.
+
+  > #### Entity ID  {: .warning}
+  > The entity IDs must be unique. Attention when providing the `:id` option.
+  > If the provided ID is not unique, clonning the entity will raise an error.
 
   ## Examples
 
@@ -228,8 +235,8 @@ defmodule Ecspanse.Command do
     ```
   """
   @doc group: :entities
-  @spec clone_entity!(Entity.t()) :: Entity.t()
-  def clone_entity!(entity) do
+  @spec clone_entity!(Entity.t(), opts :: keyword()) :: Entity.t()
+  def clone_entity!(entity, opts \\ []) do
     components = Ecspanse.Query.list_components(entity)
 
     component_specs =
@@ -238,7 +245,15 @@ defmodule Ecspanse.Command do
         {component.__struct__, state, Ecspanse.Query.list_tags(component)}
       end)
 
-    spawn_entity!({Ecspanse.Entity, components: component_specs, children: [], parents: []})
+    case Keyword.fetch(opts, :id) do
+      {:ok, entity_id} when is_binary(entity_id) ->
+        spawn_entity!(
+          {Ecspanse.Entity, id: entity_id, components: component_specs, children: [], parents: []}
+        )
+
+      _ ->
+        spawn_entity!({Ecspanse.Entity, components: component_specs, children: [], parents: []})
+    end
   end
 
   @doc """
@@ -248,6 +263,24 @@ defmodule Ecspanse.Command do
   it is recommended to run this function in a synchronous system (such as a `frame_start` or `frame_end` system)
   to avoid the need to lock all involved components.
 
+  ## Options
+
+  - `:id` - a custom unique ID for the entity (binary). If not provided, a random UUID will be generated.
+
+  > #### Entity ID  {: .warning}
+  > The entity IDs must be unique. Attention when providing the `:id` option.
+  > If the provided ID is not unique, clonning the entity will raise an error.
+
+  The cloned descendants entities will receive a random UUID as ID by default.
+
+  ## Cloning descendants
+
+  The deep clonning operates only for the descendants of the entity.
+  If any of the descendants has a parent that is not a descendant of the entity,
+  the parent will not be cloned or referenced.
+
+  If this is a desired behaviour, the parents should be added manually after the deep clonning.
+
   ## Examples
 
     ```elixir
@@ -255,9 +288,9 @@ defmodule Ecspanse.Command do
     ```
   """
   @doc group: :entities
-  @spec deep_clone_entity!(Entity.t()) :: Entity.t()
-  def deep_clone_entity!(entity) do
-    cloned_entity = clone_entity!(entity)
+  @spec deep_clone_entity!(Entity.t(), opts: keyword()) :: Entity.t()
+  def deep_clone_entity!(entity, opts \\ []) do
+    cloned_entity = clone_entity!(entity, opts)
     children = Ecspanse.Query.list_children(entity)
 
     case children do
