@@ -109,7 +109,7 @@ defmodule Ecspanse.CommandTest do
     end
   end
 
-  describe "clone_entity!/1" do
+  describe "clone_entity!/2" do
     test "create a clone of the entity" do
       entity =
         Ecspanse.Command.spawn_entity!(
@@ -145,9 +145,22 @@ defmodule Ecspanse.CommandTest do
       assert Ecspanse.Query.list_tags(entity_component_1) ==
                Ecspanse.Query.list_tags(cloned_entity_component_1)
     end
+
+    test "create a named clone of an entity" do
+      entity =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity, id: "alpha", components: [TestComponent1]}
+        )
+
+      assert entity.id == "alpha"
+
+      clone = Ecspanse.Command.clone_entity!(entity, id: "beta")
+
+      assert clone.id == "beta"
+    end
   end
 
-  describe "deep_clone_entity/1" do
+  describe "deep_clone_entity/2" do
     test "create a clone of the entity and all its descendants" do
       assert %Ecspanse.Entity{} =
                root_entity =
@@ -169,6 +182,25 @@ defmodule Ecspanse.CommandTest do
       cloned_entity_descendants = Ecspanse.Query.list_descendants(cloned_entity)
 
       assert length(root_entity_descendants) == length(cloned_entity_descendants)
+    end
+
+    test "create a named deep clone of an entity" do
+      assert %Ecspanse.Entity{} =
+               root_entity =
+               Ecspanse.Command.spawn_entity!(
+                 {Ecspanse.Entity, id: "alpha", components: [TestComponent1]}
+               )
+
+      entity_1 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [root_entity]})
+      entity_2 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [entity_1]})
+      _entity_3 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [entity_2]})
+      _entity_4 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [root_entity]})
+
+      assert root_entity.id == "alpha"
+
+      cloned_entity = Ecspanse.Command.deep_clone_entity!(root_entity, id: "beta")
+
+      assert cloned_entity.id == "beta"
     end
   end
 

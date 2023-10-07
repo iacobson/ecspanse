@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.7.1 (2023-10-07)
+
+### Improvements
+
+- `Ecspanse.Command.clone_entity!/2` and `Ecspanse.Command.deep_clone_entity!/2` now accept an `:id` option to set the id of the cloned entity.
+
 ## v0.7.0 (2023-10-05)
 
 ### Breaking

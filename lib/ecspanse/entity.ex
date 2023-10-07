@@ -32,6 +32,10 @@ defmodule Ecspanse.Entity do
   > #### Note  {: .info}
   > At least one of the `:components`, `:children` or `:parents` options must be provided,
   > otherwise the entity cannot be persisted.
+
+  > #### Entity ID  {: .warning}
+  > The entity IDs must be unique. Attention when providing the `:id` option as part of the `entity_spec`.
+  > If the provided ID is not unique, spwaning entities will raise an error.
   """
   @type entity_spec :: {Entity, opts :: keyword()}
 
