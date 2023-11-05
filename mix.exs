@@ -1,7 +1,7 @@
 defmodule Ecspanse.MixProject do
   use Mix.Project
 
-  @version "0.7.1"
+  @version "0.7.2"
   @source_url "https://github.com/iacobson/ecspanse"
 
   def project do
