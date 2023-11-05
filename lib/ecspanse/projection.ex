@@ -16,8 +16,9 @@ defmodule Ecspanse.Projection do
   querying the state and building the projection struct.
 
   > #### Info  {: .info}
-  > On server initialization, the `on_change/3` callback is called with the initial projection as the new projection,
-  > and the default projection struct as the previous projection. This is executed even if the projection is the same as the default one.
+  > On server initialization, the `on_change/3` callback is called with the initial calculated projection as the new_projection,
+  > and the default projection struct as the previous_projection.
+  > This is executed even if the calculated projection is the same as the default one.
   > As the `on_change/3` callback is generally used to send the projection to the client,
   > this ensures that the client receives the initial projection.
 
