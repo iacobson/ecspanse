@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.7.2 (2023-11-05)
+
+### Improvements
+
+- `c:Ecspanse.Projection.on_change/3` is called on Projection server initialization.
+
 ## v0.7.1 (2023-10-07)
 
 ### Improvements
