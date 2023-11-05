@@ -15,9 +15,16 @@ defmodule Ecspanse.Projection do
   `c:Ecspanse.Projection.project/1` callback. This is responsible for
   querying the state and building the projection struct.
 
+  > #### Info  {: .info}
+  > On server initialization, the `on_change/3` callback is called with the initial calculated projection as the new_projection,
+  > and the default projection struct as the previous_projection.
+  > This is executed even if the calculated projection is the same as the default one.
+  > As the `on_change/3` callback is generally used to send the projection to the client,
+  > this ensures that the client receives the initial projection.
+
   > #### Note  {: .warning}
   > The `project/2` callback runs every frame, after executing all systems.
-  > Many projections with complex queries can have a negative impact on performance.
+  > Many projections with complex queries may have a negative impact on performance.
 
   ## Options
   - `:fields` - a list with all the event struct keys and their initial values (if any)
