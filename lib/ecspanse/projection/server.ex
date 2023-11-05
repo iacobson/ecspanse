@@ -23,6 +23,11 @@ defmodule Ecspanse.Projection.Server do
 
     validate_projection(projection, projection_module)
 
+    # call the `on_change/3` callback upon initialization to handle the initial projection
+    if function_exported?(projection_module, :on_change, 3) do
+      apply(projection_module, :on_change, [attrs, projection, struct(projection_module)])
+    end
+
     {:ok, %{attrs: attrs, projection: projection, projection_module: projection_module}}
   end
 

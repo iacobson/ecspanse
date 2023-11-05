@@ -78,6 +78,23 @@ defmodule Ecspanse.ProjectionTest do
   end
 
   describe "on_change/3" do
+    test "is called once when the projection server starts" do
+      entity =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity, components: [TestComponent1, TestComponent2]}
+        )
+
+      assert_receive {:next_frame, _state}
+
+      projection_pid = TestProjection.start!(%{entity_id: entity.id, test_pid: self()})
+      assert %TestProjection{comp_1: 1, comp_2: 2} = TestProjection.get!(projection_pid)
+
+      assert_receive {:next_frame, _state}
+
+      assert_receive {:projection_updated, %TestProjection{comp_1: 1, comp_2: 2}}
+      TestProjection.stop(projection_pid)
+    end
+
     test "is called when the projection changes" do
       entity =
         Ecspanse.Command.spawn_entity!(
