@@ -8,7 +8,7 @@ The story of the game is simple:
 
 - the game features a single character (Hero).
 - the hero has energy. It starts with 50 energy points and it can have a maximum of 100 energy points. The energy points are used to perform actions. Every 3 seconds the hero restores 1 energy point.
-- the hero can move in four directions in a tiles-like manner, without actually implementing a tile system. For example, if the hero moves right it will transition form (0,0) to (1,0) and so on. Each move costs 1 energy point.
+- the hero can move in four directions in a tiles-like manner, without actually implementing a tile system. For example, if the hero moves right it will transition from (0,0) to (1,0) and so on. Each move costs 1 energy point.
 - on each move the hero has a chance to find resources: gold or gems. Resources are not inventory items, but tradeable items. The hero can trade resources for inventory items.
 - the hero starts with some items in their inventory: 2 potions and one pair of boots.
 - the hero can purchase a map with 2 gold and a compass with 3 gold and 2 gems.
@@ -105,9 +105,9 @@ The system must implement the `c:Ecspanse.System.WithoutEventSubscriptions.run/1
 
 Operations that involve the creation of entities or components are done via the functions in the `Ecspanse.Command` module. The commands cannot be executed outside of a system.
 
-### Scheduling Spawn Hero the System
+### Scheduling the Spawn Hero System
 
-It is now time schedule the newly created system as a startup system. This is done by updating the `c:Ecspanse.setup/1` function in the `Demo` module. We already created this function in the [Getting Started](./getting_started.md) guide.
+It is now time to schedule the newly created system as a startup system. This is done by updating the `c:Ecspanse.setup/1` function in the `Demo` module. We already created this function in the [Getting Started](./getting_started.md) guide.
 
 ```elixir
 defmodule Demo do
@@ -200,7 +200,7 @@ The goal of this chapter is to implement the hero movement. The hero will be abl
 > ### Ecspanse Concepts 2 {: .info}
 >
 > - receiving external input through events
-> - implementing ans scheduling async systems
+> - implementing and scheduling async systems
 > - locking components for parallel operations
 > - implementing systems that subscribe to events
 > - updating components with commands
@@ -215,7 +215,7 @@ defmodule Demo.Events.MoveHero do
 end
 ```
 
-Similar to the components, the events are structs under the hood. The fields and their default values are defined with the `:fileds` option.
+Similar to the components, the events are structs under the hood. The fields and their default values are defined with the `:fields` option.
 
 We can also expose the event in the API module:
 
@@ -287,7 +287,7 @@ end
 
 #### Component Locking
 
-We said that the move system will run asynchronously. This means that it will run in parallel with the other systems. The `lock_components` option is used to specify the components that will be locked by the system. That means that no other systems that lock at least one of the locket components will run in the same parallel batch as the `MoveHero` system. In our case, we want to lock the `Demo.Components.Position` and `Demo.Components.Energy` components. This is because we want to update the hero position and energy, and we need to avoid race conditions.
+We said that the move system will run asynchronously. This means that it will run in parallel with the other systems. The `lock_components` option is used to specify the components that will be locked by the system. That means that no other systems that lock at least one of the locked components will run in the same parallel batch as the `MoveHero` system. In our case, we want to lock the `Demo.Components.Position` and `Demo.Components.Energy` components. This is because we want to update the hero position and energy, and we need to avoid race conditions.
 
 The commands will check if the system is async and will raise an error if we try to update, insert or delete components that are not locked. For extra safety we can also lock components for which we don't update the state, but we read and depend on it.
 
@@ -419,7 +419,7 @@ The system locks the `Energy` component to update its state. And subscribes to t
 
 The system adds 1 point to the current energy. You are right to wonder why don't we first check the max energy cap. We will clarify this in the next section.
 
-This system introduces also new ways of querying entities and components: `Ecspanse.Query.fetch_entity/1` and `Ecspanse.Query.fetch_component/2`.
+This system also introduces new ways of querying entities and components: `Ecspanse.Query.fetch_entity/1` and `Ecspanse.Query.fetch_component/2`.
 
 **TIP**
 The following functions would produce the same results:
@@ -470,13 +470,13 @@ By using the `:run_if` option, the `RestoreEnergy` system will run only if the c
 
 #### The System Execution Order
 
-By using the `:after` option, the `MoveHero` system will run after the `RestoreEnergy` system. Both are async systems, but even the async systems run in batches, not all at once. The batches are scheduled depending on the locked components and the specified order of execution of the systems.
+By using the `:run_after` option, the `MoveHero` system will run after the `RestoreEnergy` system. Both are async systems, but even the async systems run in batches, not all at once. The batches are scheduled depending on the locked components and the specified order of execution of the systems.
 
 > #### Note {: .info}
 >
 > It does not matter if the `RestoreEnergy` system actually runs this turn.
 > The `MoveHero` will still run if receiving the `MoveHero` event.
-> The `:run_after` option, just guarantees that if both systems are running,
+> The `:run_after` option just guarantees that if both systems are running,
 > the `MoveHero` will run after the `RestoreEnergy`.
 
 #### Scheduling the Built-in Timer System
@@ -494,11 +494,11 @@ The goal of this chapter is to implement the resource gathering. With each move,
 > - using tags to manage collections of components
 > - using advanced component specs
 > - using component templates
-> - using the auto-emitted component updatd events
+> - using the auto-emitted component updated events
 
 ### Creating the Resource Template Component
 
-Template components are used to define the structure for related components. It is a guarantee that certain componets will have certain fields in their state.
+Template components are used to define the structure for related components. It is a guarantee that certain components will have certain fields in their state.
 
 Together with tags, this is a powerful way to achieve polymorphism in components.
 
@@ -550,9 +550,9 @@ end
 
 As you can observe, the two components are invoking the newly defined template with `use Demo.Components.Resource` instead of `use Ecspanse.Component`.
 
-Another new concept introduced both here and in the templat definition is the `:tags` option. It is a list of atoms that can be used to group and query components. The resource components can now be used as a resource store for the user, but they can also be used to represent the cost of various items. We will handle the second use case in the next chapters.
+Another new concept introduced both here and in the template definition is the `:tags` option. It is a list of atoms that can be used to group and query components. The resource components can now be used as a resource store for the user, but they can also be used to represent the cost of various items. We will handle the second use case in the next chapters.
 
-For such cases, it is important to use a standardized approach, a perfect use-case for templates. Eg. all the resource components should have the same state fields.
+For such cases, it is important to use a standardized approach, a perfect use-case for templates. E.g., all the resource components should have the same state fields.
 
 ### Adding the Resources Components to the Hero Entity
 
@@ -625,7 +625,7 @@ defmodule Demo do
 end
 ```
 
-The last step of the current section is to expose the resources in the `fetch_hero_details/0` funciton in the `Demo.API` module.
+The last step of the current section is to expose the resources in the `fetch_hero_details/0` function in the `Demo.API` module.
 
 ```elixir
   defp list_hero_resources(hero_entity) do
@@ -655,7 +655,7 @@ iex(14)> Demo.API.fetch_hero_details
 
 ## Market and Inventory Items
 
-The gloal of this chapter is to implement invetory items and a market. The hero can buy items from the market with resources and store them in the inventory.
+The goal of this chapter is to implement inventory items and a market. The hero can buy items from the market with resources and store them in the inventory.
 
 > ### Ecspanse Concepts 5 {: .info}
 >
@@ -688,7 +688,7 @@ defmodule Demo.Components.Potion do
 end
 ```
 
-The inventory items, however are more complex than this. They cost resources, and in the future they may have various attributes impacting the hero abilities. So the items will be entities of their own. We will create a new `Entities.Inventory` module to manage the inventory items specs.
+The inventory items, however are more complex than this. They cost resources, and in the future they may have various attributes impacting the hero's abilities. So the items will be entities of their own. We will create a new `Entities.Inventory` module to manage the inventory items specs.
 
 ```elixir
 defmodule Demo.Entities.Inventory do
@@ -780,7 +780,7 @@ This shows another way to spawn an entity with children already attached. The ne
 #...
 ```
 
-One last thing we can do in this chapter is to add new funtions to our API:
+One last thing we can do in this chapter is to add new functions to our API:
 
 ```elixir
 defmodule Demo.API do
@@ -862,7 +862,7 @@ The goal of this chapter is to allow the hero to purchase items from the market 
 
 ### Purchasing Items Event
 
-The event that triggeres an item purchase is very simple:
+The event that triggers an item purchase is very simple:
 
 ```elixir
 defmodule Demo.Events.PurchaseMarketItem do
@@ -871,7 +871,7 @@ end
 ```
 
 It stores only the ID of the entity of the item being purchased.
-On the other hand, the system is a bit more comlex.
+On the other hand, the system is a bit more complex.
 
 ### Purchasing Items System
 
@@ -933,7 +933,7 @@ end
 
 This system modifies many components, so one option is to make it synchronous. This way we don't have to individually lock each modified component. Later on it can be refactored into async if needed.
 
-Before commiting any component state changes it is important to perform all the required validations.
+Before committing any component state changes it is important to perform all the required validations.
 
 #### Validate Entities Exist
 
@@ -943,7 +943,7 @@ First of all, we want to make sure that the affected entities still exist. We us
 
 We need to make sure that the item we want to purchase is still available in the market. In a multiplayer game scenario this would avoid race conditions where two players purchase the same item in the same time. We use the `Ecspanse.Query.is_child_of?/1` function to validate that the item is still a child of the market.
 
-#### Vlaidate Resources
+#### Validate Resources
 
 Before the purchase is made, we need to make sure that the hero has enough resources to buy the item. Again, the tags prove useful. They allow us to query the same components from different entities and compare them.
 
