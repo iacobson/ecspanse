@@ -24,7 +24,7 @@ end
 
 ## Setup
 
-The subsequent stage involves configuring Ecspanse via `use ECSpanse`. In this guide, the primary Demo module will accommodate the Ecspanse setup:
+The subsequent stage involves configuring Ecspanse via `use Ecspanse`. In this guide, the primary Demo module will accommodate the Ecspanse setup:
 
 ```elixir
 defmodule Demo do
@@ -37,7 +37,7 @@ defmodule Demo do
 end
 ```
 
-The `c:Ecspanse.setup/1` callback is mandatory. It will be later on used to schedule the application systems.
+The `c:Ecspanse.setup/1` callback is mandatory. It will be used later on to schedule the application systems.
 
 ## Starting the Ecspanse server
 
