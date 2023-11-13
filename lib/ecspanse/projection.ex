@@ -150,6 +150,30 @@ defmodule Ecspanse.Projection do
   @callback get!(projection_pid :: pid()) :: projection :: struct()
 
   @doc """
+  Optional callback that allows the projection to run only when certain conditions are met.
+  This is useful for expensive projections that are not always needed.
+
+  It takes the `attrs` map argument passed to `c:Ecspanse.Projection.start!/1`,
+  the current projection struct as arguments. It returns a boolean.
+
+  ## Examples
+
+      ```elixir
+      @impl true
+      @doc "Run the projection only if the hero is alive"
+      def run?(%{entity_id: entity_id} = _attrs, _current_projection) do
+        with  {:ok, entity} = fetch_entity(entity_id),
+              {:ok, hero_comp} = Demo.Components.Hero.fetch(entity) do
+          hero.state == :alive
+        else
+          _ -> false
+        end
+      end
+      ```
+  """
+  @callback run?(attrs :: map(), current_projection :: struct) :: boolean()
+
+  @doc """
   Optional callback that is executed every time the projection changes.
 
   It takes the `attrs` map argument passed to `c:Ecspanse.Projection.start!/1`,
@@ -167,7 +191,7 @@ defmodule Ecspanse.Projection do
   @callback on_change(attrs :: map(), new_projection :: struct(), previous_projection :: struct) ::
               any()
 
-  @optional_callbacks on_change: 3
+  @optional_callbacks on_change: 3, run?: 2
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do

@@ -16,6 +16,15 @@ defmodule Ecspanse.ProjectionTest do
     use Ecspanse.Projection, fields: [comp_1: 0, comp_2: 0]
 
     @impl true
+    def run?(%{entity_id: entity_id}, _projection) do
+      {:ok, entity} = fetch_entity(entity_id)
+      {:ok, comp_1} = TestComponent1.fetch(entity)
+      {:ok, comp_2} = TestComponent2.fetch(entity)
+
+      comp_1.value > 0 && comp_2.value > 0
+    end
+
+    @impl true
     def project(%{entity_id: entity_id}) do
       {:ok, entity} = fetch_entity(entity_id)
       {:ok, comp_1} = TestComponent1.fetch(entity)
@@ -72,6 +81,52 @@ defmodule Ecspanse.ProjectionTest do
       assert_receive {:next_frame, _state}
 
       assert %TestProjection{comp_1: 100, comp_2: 200} = TestProjection.get!(projection_pid)
+
+      TestProjection.stop(projection_pid)
+    end
+  end
+
+  describe "run?/2" do
+    test "runs the projection only in the correct state" do
+      # the projection would not run if one of the components values is <= 0
+
+      entity =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity, components: [TestComponent1, TestComponent2]}
+        )
+
+      assert_receive {:next_frame, _state}
+
+      projection_pid = TestProjection.start!(%{entity_id: entity.id, test_pid: self()})
+
+      assert %TestProjection{comp_1: 1, comp_2: 2} = TestProjection.get!(projection_pid)
+
+      assert_receive {:next_frame, _state}
+
+      {:ok, comp_1} = TestComponent1.fetch(entity)
+      {:ok, comp_2} = TestComponent2.fetch(entity)
+
+      Ecspanse.Command.update_components!([{comp_1, value: 100}, {comp_2, value: 200}])
+
+      assert_receive {:next_frame, _state}
+      assert_receive {:next_frame, _state}
+
+      assert %TestProjection{comp_1: 100, comp_2: 200} = TestProjection.get!(projection_pid)
+
+      # update components to negative values
+      Ecspanse.Command.update_components!([{comp_1, value: -999}, {comp_2, value: -999}])
+
+      assert_receive {:next_frame, _state}
+      assert_receive {:next_frame, _state}
+
+      assert %TestProjection{comp_1: 100, comp_2: 200} = TestProjection.get!(projection_pid)
+
+      Ecspanse.Command.update_components!([{comp_1, value: 10}, {comp_2, value: 20}])
+
+      assert_receive {:next_frame, _state}
+      assert_receive {:next_frame, _state}
+
+      assert %TestProjection{comp_1: 10, comp_2: 20} = TestProjection.get!(projection_pid)
 
       TestProjection.stop(projection_pid)
     end
