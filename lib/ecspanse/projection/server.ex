@@ -33,6 +33,24 @@ defmodule Ecspanse.Projection.Server do
 
   @impl true
   def handle_call(:update, _from, state) do
+    if function_exported?(state.projection_module, :run?, 2) do
+      if apply(state.projection_module, :run?, [state.attrs, state.projection]) do
+        new_projection = run_projection(state)
+        {:reply, :ok, %{state | projection: new_projection}}
+      else
+        {:reply, :ok, state}
+      end
+    else
+      new_projection = run_projection(state)
+      {:reply, :ok, %{state | projection: new_projection}}
+    end
+  end
+
+  def handle_call(:get, _from, state) do
+    {:reply, state.projection, state}
+  end
+
+  defp run_projection(state) do
     new_projection = state.projection_module.project(state.attrs)
 
     validate_projection(new_projection, state.projection_module)
@@ -42,11 +60,7 @@ defmodule Ecspanse.Projection.Server do
       apply(state.projection_module, :on_change, [state.attrs, new_projection, state.projection])
     end
 
-    {:reply, :ok, %{state | projection: new_projection}}
-  end
-
-  def handle_call(:get, _from, state) do
-    {:reply, state.projection, state}
+    new_projection
   end
 
   defp validate_projection(projection, projection_module) do

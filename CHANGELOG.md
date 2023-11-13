@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.7.3 (2023-11-13)
+
+### Improvements
+
+- implement the `c:Ecspanse.Projection.run?/2` optional callback to run projections conditionally.
+
 ## v0.7.2 (2023-11-05)
 
 ### Improvements
