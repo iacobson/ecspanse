@@ -153,23 +153,23 @@ defmodule Ecspanse.Projection do
   Optional callback that allows the projection to run only when certain conditions are met.
   This is useful for expensive projections that are not always needed.
 
-  It takes the `attrs` map argument passed to `c:Ecspanse.Projection.start!/1`,
+  It takes the `attrs` map argument passed to `c:Ecspanse.Projection.start!/1` and
   the current projection struct as arguments. It returns a boolean.
 
   ## Examples
 
-      ```elixir
-      @impl true
-      @doc "Run the projection only if the hero is alive"
-      def run?(%{entity_id: entity_id} = _attrs, _current_projection) do
-        with  {:ok, entity} = fetch_entity(entity_id),
-              {:ok, hero_comp} = Demo.Components.Hero.fetch(entity) do
-          hero.state == :alive
-        else
-          _ -> false
-        end
+    ```elixir
+    @impl true
+    @doc "Run the projection only if the hero is alive"
+    def run?(%{entity_id: entity_id} = _attrs, _current_projection) do
+      with  {:ok, entity} = fetch_entity(entity_id),
+            {:ok, hero_comp} = Demo.Components.Hero.fetch(entity) do
+        hero.state == :alive
+      else
+        _ -> false
       end
-      ```
+    end
+    ```
   """
   @callback run?(attrs :: map(), current_projection :: struct) :: boolean()
 
