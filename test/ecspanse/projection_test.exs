@@ -1,6 +1,8 @@
 defmodule Ecspanse.ProjectionTest do
   use ExUnit.Case
 
+  alias Ecspanse.Projection
+
   defmodule TestComponent1 do
     @moduledoc false
     use Ecspanse.Component, state: [value: 1]
@@ -16,21 +18,37 @@ defmodule Ecspanse.ProjectionTest do
     use Ecspanse.Projection, fields: [comp_1: 0, comp_2: 0]
 
     @impl true
-    def run?(%{entity_id: entity_id}, _projection) do
-      {:ok, entity} = fetch_entity(entity_id)
-      {:ok, comp_1} = TestComponent1.fetch(entity)
-      {:ok, comp_2} = TestComponent2.fetch(entity)
-
-      comp_1.value > 0 && comp_2.value > 0
+    def project(%{entity_id: entity_id}) do
+      with {:ok, entity} <- fetching_entity(entity_id),
+           {:ok, comp_1} <- fetching_first_component(entity),
+           {:ok, comp_2} <- fetching_second_component(entity) do
+        result = struct!(__MODULE__, comp_1: comp_1.value, comp_2: comp_2.value)
+        {:ok, result}
+      end
     end
 
-    @impl true
-    def project(%{entity_id: entity_id}) do
-      {:ok, entity} = fetch_entity(entity_id)
-      {:ok, comp_1} = TestComponent1.fetch(entity)
-      {:ok, comp_2} = TestComponent2.fetch(entity)
+    # if the entity is not found, the projection is in :loading state
+    defp fetching_entity(entity_id) do
+      case Ecspanse.Entity.fetch(entity_id) do
+        {:ok, entity} -> {:ok, entity}
+        _ -> :loading
+      end
+    end
 
-      struct!(__MODULE__, comp_1: comp_1.value, comp_2: comp_2.value)
+    # if comp_1 is not present for the entity it is considered an error
+    defp fetching_first_component(entity) do
+      case TestComponent1.fetch(entity) do
+        {:ok, comp_1} -> {:ok, comp_1}
+        _ -> {:error, :comp_1_not_found}
+      end
+    end
+
+    # if comp_2 is not present for the entity, the projection will halt
+    defp fetching_second_component(entity) do
+      case TestComponent2.fetch(entity) do
+        {:ok, comp_2} -> {:ok, comp_2}
+        _ -> :halt
+      end
     end
 
     @impl true
@@ -41,7 +59,7 @@ defmodule Ecspanse.ProjectionTest do
 
   defmodule TestServer do
     @moduledoc false
-    use Ecspanse, fps_limit: 60
+    use Ecspanse, fps_limit: 12
 
     def setup(data) do
       data
@@ -68,7 +86,8 @@ defmodule Ecspanse.ProjectionTest do
 
       projection_pid = TestProjection.start!(%{entity_id: entity.id, test_pid: self()})
 
-      assert %TestProjection{comp_1: 1, comp_2: 2} = TestProjection.get!(projection_pid)
+      assert %Projection{state: :ok, result: %TestProjection{comp_1: 1, comp_2: 2}} =
+               TestProjection.get!(projection_pid)
 
       assert_receive {:next_frame, _state}
 
@@ -80,53 +99,8 @@ defmodule Ecspanse.ProjectionTest do
       assert_receive {:next_frame, _state}
       assert_receive {:next_frame, _state}
 
-      assert %TestProjection{comp_1: 100, comp_2: 200} = TestProjection.get!(projection_pid)
-
-      TestProjection.stop(projection_pid)
-    end
-  end
-
-  describe "run?/2" do
-    test "runs the projection only in the correct state" do
-      # the projection would not run if one of the components values is <= 0
-
-      entity =
-        Ecspanse.Command.spawn_entity!(
-          {Ecspanse.Entity, components: [TestComponent1, TestComponent2]}
-        )
-
-      assert_receive {:next_frame, _state}
-
-      projection_pid = TestProjection.start!(%{entity_id: entity.id, test_pid: self()})
-
-      assert %TestProjection{comp_1: 1, comp_2: 2} = TestProjection.get!(projection_pid)
-
-      assert_receive {:next_frame, _state}
-
-      {:ok, comp_1} = TestComponent1.fetch(entity)
-      {:ok, comp_2} = TestComponent2.fetch(entity)
-
-      Ecspanse.Command.update_components!([{comp_1, value: 100}, {comp_2, value: 200}])
-
-      assert_receive {:next_frame, _state}
-      assert_receive {:next_frame, _state}
-
-      assert %TestProjection{comp_1: 100, comp_2: 200} = TestProjection.get!(projection_pid)
-
-      # update components to negative values
-      Ecspanse.Command.update_components!([{comp_1, value: -999}, {comp_2, value: -999}])
-
-      assert_receive {:next_frame, _state}
-      assert_receive {:next_frame, _state}
-
-      assert %TestProjection{comp_1: 100, comp_2: 200} = TestProjection.get!(projection_pid)
-
-      Ecspanse.Command.update_components!([{comp_1, value: 10}, {comp_2, value: 20}])
-
-      assert_receive {:next_frame, _state}
-      assert_receive {:next_frame, _state}
-
-      assert %TestProjection{comp_1: 10, comp_2: 20} = TestProjection.get!(projection_pid)
+      assert %Projection{state: :ok, result: %TestProjection{comp_1: 100, comp_2: 200}} =
+               TestProjection.get!(projection_pid)
 
       TestProjection.stop(projection_pid)
     end
@@ -142,11 +116,15 @@ defmodule Ecspanse.ProjectionTest do
       assert_receive {:next_frame, _state}
 
       projection_pid = TestProjection.start!(%{entity_id: entity.id, test_pid: self()})
-      assert %TestProjection{comp_1: 1, comp_2: 2} = TestProjection.get!(projection_pid)
+
+      assert %Projection{state: :ok, result: %TestProjection{comp_1: 1, comp_2: 2}} =
+               TestProjection.get!(projection_pid)
 
       assert_receive {:next_frame, _state}
 
-      assert_receive {:projection_updated, %TestProjection{comp_1: 1, comp_2: 2}}
+      assert_receive {:projection_updated,
+                      %Projection{state: :ok, result: %TestProjection{comp_1: 1, comp_2: 2}}}
+
       TestProjection.stop(projection_pid)
     end
 
@@ -159,7 +137,9 @@ defmodule Ecspanse.ProjectionTest do
       assert_receive {:next_frame, _state}
 
       projection_pid = TestProjection.start!(%{entity_id: entity.id, test_pid: self()})
-      assert %TestProjection{comp_1: 1, comp_2: 2} = TestProjection.get!(projection_pid)
+
+      assert %Projection{state: :ok, result: %TestProjection{comp_1: 1, comp_2: 2}} =
+               TestProjection.get!(projection_pid)
 
       assert_receive {:next_frame, _state}
 
@@ -170,8 +150,134 @@ defmodule Ecspanse.ProjectionTest do
 
       assert_receive {:next_frame, _state}
 
-      assert_receive {:projection_updated, %TestProjection{comp_1: 100, comp_2: 200}}
+      assert_receive {:projection_updated,
+                      %Projection{state: :ok, result: %TestProjection{comp_1: 100, comp_2: 200}}}
+
       TestProjection.stop(projection_pid)
+    end
+  end
+
+  describe "projection states" do
+    test "the projection is in :loading state when the entity does not exist" do
+      projection_pid = TestProjection.start!(%{entity_id: "not ready", test_pid: self()})
+
+      assert %Projection{
+               state: :loading,
+               result: nil,
+               loading?: true,
+               ok?: false,
+               error?: false,
+               halted?: false
+             } =
+               TestProjection.get!(projection_pid)
+    end
+
+    test "the projection is in :error state if the component_1 does not exist" do
+      entity =
+        Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent2]})
+
+      assert_receive {:next_frame, _state}
+
+      projection_pid = TestProjection.start!(%{entity_id: entity.id, test_pid: self()})
+
+      assert %Projection{
+               state: :error,
+               result: :comp_1_not_found,
+               loading?: false,
+               ok?: false,
+               error?: true,
+               halted?: false
+             } =
+               TestProjection.get!(projection_pid)
+
+      assert_receive {:next_frame, _state}
+
+      Ecspanse.Command.add_component!(entity, TestComponent1)
+
+      assert_receive {:next_frame, _state}
+      assert_receive {:next_frame, _state}
+
+      assert %Projection{
+               state: :ok,
+               result: %TestProjection{comp_1: 1, comp_2: 2},
+               loading?: false,
+               ok?: true,
+               error?: false,
+               halted?: false
+             } =
+               TestProjection.get!(projection_pid)
+    end
+
+    test "the projection is in :halt state if the component_2 does not exist" do
+      entity =
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity, components: [TestComponent1, TestComponent2]}
+        )
+
+      {:ok, comp_1} = TestComponent1.fetch(entity)
+      {:ok, comp_2} = TestComponent2.fetch(entity)
+
+      assert_receive {:next_frame, _state}
+
+      projection_pid = TestProjection.start!(%{entity_id: entity.id, test_pid: self()})
+
+      assert %Projection{state: :ok, result: %TestProjection{comp_1: 1, comp_2: 2}} =
+               TestProjection.get!(projection_pid)
+
+      assert_receive {:next_frame, _state}
+
+      Ecspanse.Command.remove_component!(comp_2)
+
+      assert_receive {:next_frame, _state}
+      assert_receive {:next_frame, _state}
+
+      assert %Projection{
+               state: :halt,
+               result: %TestProjection{comp_1: 1, comp_2: 2},
+               loading?: false,
+               ok?: false,
+               error?: false,
+               halted?: true
+             } =
+               TestProjection.get!(projection_pid)
+
+      # Even if the Ecspanse components change, while waiting, the projection does not change.
+      # This is useful for complex projections that should run only when the entity is in a certain state.
+
+      Ecspanse.Command.update_component!(comp_1, value: 100)
+
+      assert_receive {:next_frame, _state}
+
+      assert %Projection{state: :halt, result: %TestProjection{comp_1: 1, comp_2: 2}} =
+               TestProjection.get!(projection_pid)
+
+      assert_receive {:next_frame, _state}
+
+      {:ok, comp_1} = TestComponent1.fetch(entity)
+      Ecspanse.Command.update_component!(comp_1, value: 200)
+
+      assert_receive {:next_frame, _state}
+
+      assert %Projection{state: :halt, result: %TestProjection{comp_1: 1, comp_2: 2}} =
+               TestProjection.get!(projection_pid)
+
+      assert_receive {:next_frame, _state}
+
+      Ecspanse.Command.add_component!(entity, TestComponent2)
+
+      assert_receive {:next_frame, _state}
+
+      # once back to :ok state, it will return the processed projection
+
+      assert %Projection{
+               state: :ok,
+               result: %TestProjection{comp_1: 200, comp_2: 2},
+               loading?: false,
+               ok?: true,
+               error?: false,
+               halted?: false
+             } =
+               TestProjection.get!(projection_pid)
     end
   end
 end
