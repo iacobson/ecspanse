@@ -45,7 +45,8 @@ defmodule Ecspanse.Projection do
         {:ok, gold} = Demo.Components.Gold.fetch(entity)
         {:ok, gems} = Demo.Components.Gems.fetch(entity)
 
-        struct!(__MODULE__, pos_x: pos.x, pos_y: pos.y, resources_gold: gold.amount, resources_gems: gems.amount)
+        result = struct!(__MODULE__, pos_x: pos.x, pos_y: pos.y, resources_gold: gold.amount, resources_gems: gems.amount)
+        {:ok, result}
       end
 
       @impl true
@@ -74,6 +75,25 @@ defmodule Ecspanse.Projection do
     ```
   """
 
+  @type projection_state :: :loading | :ok | :error | :halt
+  @type projection_result_success :: struct()
+  @type projection_result :: projection_result_success() | any() | nil
+  @type t :: %__MODULE__{
+          state: projection_state(),
+          result: projection_result(),
+          loading?: boolean(),
+          ok?: boolean(),
+          error?: boolean(),
+          halted?: boolean()
+        }
+
+  defstruct state: :loading,
+            result: nil,
+            loading?: true,
+            ok?: false,
+            error?: false,
+            halted?: false
+
   @doc """
   Starts a new projection server and returns its `pid`.
 
@@ -98,26 +118,51 @@ defmodule Ecspanse.Projection do
   @callback start!(attrs :: map()) :: projection_pid :: pid()
 
   @doc """
-  The `project/1` callback is responsible for querying the state and building the projection struct.
+  The `project/1` callback is responsible for querying the state and building the Projection struct.
 
   It takes the `attrs` map argument passed to `c:Ecspanse.Projection.start!/1`.
-  It must return the projection struct.
+  It must return one of the following:
+  - `:loading` - the projection is in the `:loading` state, the `result` is `nil`
+  - `{:loading, result :: any()}` - the projection is in the `:loading` state, the `result` is the given value
+  - `{:ok, success_projection :: struct()}` - the projection is in the `:ok` state, the `result` is the implemented projection struct
+  - `:error` - the projection is in the `:error` state, the `result` is `nil`
+  - `{:error, result :: any()}` - the projection is in the `:error` state, the `result` is the given value
+  - `:halt` - the projection is in the `:halt` state, the `result` is the existing projection result
+
+  > #### Info  {: .info}
+  > Returning `:halt` is very useful for expensive projections that need to run just in certain conditions.
+  > For example, a projection that calculates the distance between two entities should only run when both entities exist.
+  > If one of the entities is removed, the projection can be set to `:halt` and should not be recalculated until the entity is added again.
 
   ## Examples
 
     ```elixir
       @impl true
       def project(%{entity_id: entity_id} = _attrs) do
-        {:ok, entity} = fetch_entity(entity_id)
-        {:ok, pos} = Demo.Components.Position.fetch(entity)
-        {:ok, gold} = Demo.Components.Gold.fetch(entity)
-        {:ok, gems} = Demo.Components.Gems.fetch(entity)
-
-        struct!(__MODULE__, pos_x: pos.x, pos_y: pos.y, resources_gold: gold.amount, resources_gems: gems.amount)
+        # ...
+        cond do
+          enemy_entity_missing?(entity_id) ->
+            :loading
+          enemy_location_component_missing?(entity_id) ->
+            :halt
+          true ->
+            {:ok, struct!(__MODULE__, pos_x: comp_pos.x, pos_y: comp_pos.y}}
+        end
       end
+
+      # the client
+
+      <div :if={@enemy_projection.loading?}>Spinner</div>
+      <div :if={@enemy_projection.ok?}>Show Enemy</div>
     ```
   """
-  @callback project(attrs :: map()) :: projection :: struct()
+  @callback project(attrs :: map()) ::
+              :loading
+              | {:loading, any()}
+              | {:ok, projection_result_success()}
+              | :error
+              | {:error, any()}
+              | :halt
 
   @doc """
   Stops the projection server by its `pid`.
@@ -135,7 +180,7 @@ defmodule Ecspanse.Projection do
   @callback stop(projection_pid :: pid()) :: :ok
 
   @doc """
-  Gets the projection struct by providing the server `pid`.
+  Gets the Projection struct by providing the server `pid`.
 
   > #### Implemented Callback  {: .tip}
   > This callback is implemented by the library and can be used as such.
@@ -143,35 +188,12 @@ defmodule Ecspanse.Projection do
   ## Examples
 
     ```elixir
-    %Demo.Projection.Hero{} = Demo.Projections.Hero.get!(projection_pid)
+    %Ecspanse.Projection{state: :ok, result: %Demo.Projection.Hero{}} =
+      Demo.Projections.Hero.get!(projection_pid)
     ```
   """
   @doc group: :implemented
-  @callback get!(projection_pid :: pid()) :: projection :: struct()
-
-  @doc """
-  Optional callback that allows the projection to run only when certain conditions are met.
-  This is useful for expensive projections that are not always needed.
-
-  It takes the `attrs` map argument passed to `c:Ecspanse.Projection.start!/1` and
-  the current projection struct as arguments. It returns a boolean.
-
-  ## Examples
-
-    ```elixir
-    @impl true
-    @doc "Run the projection only if the hero is alive"
-    def run?(%{entity_id: entity_id} = _attrs, _current_projection) do
-      with  {:ok, entity} = fetch_entity(entity_id),
-            {:ok, hero_comp} = Demo.Components.Hero.fetch(entity) do
-        hero.state == :alive
-      else
-        _ -> false
-      end
-    end
-    ```
-  """
-  @callback run?(attrs :: map(), current_projection :: struct) :: boolean()
+  @callback get!(projection_pid :: pid()) :: t()
 
   @doc """
   Optional callback that is executed every time the projection changes.
@@ -188,10 +210,9 @@ defmodule Ecspanse.Projection do
     end
     ```
   """
-  @callback on_change(attrs :: map(), new_projection :: struct(), previous_projection :: struct) ::
-              any()
+  @callback on_change(attrs :: map(), new_projection :: t(), previous_projection :: t()) :: any()
 
-  @optional_callbacks on_change: 3, run?: 2
+  @optional_callbacks on_change: 3
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
