@@ -1,10 +1,25 @@
 # Changelog
 
+## v0.8.0 (2023-11-14)
+
+### Improvements
+
+- refactor the `Ecspanse.Projection` to include the state of the projection
+  - the projection result is now wraped in a `Ecspanse.Projection{}` struct, together with the projection state.
+  - the `c:Ecspanse.Projection.project/1` callback returns now the projection state as well as the projection result.
+
+### Breaking
+
+- the `Projection.run?/2` callback has been removed. The functionality is now handled by the `c:Ecspanse.Projection.project/1` callback, by returning `:halt`.
+- the `c:Ecspanse.Projection.project/1` callback should now return also the state of the projection. See the documentation for more details.
+- the `c:Ecspanse.Projection.on_change/3` callback takes as second and third argument the `t:Ecspanse.Projection.t/0`.
+- the `c:Ecspanse.Projection.get!/1` callback now returns a `t:Ecspanse.Projection.t/0`.
+
 ## v0.7.3 (2023-11-13)
 
 ### Improvements
 
-- implement the `c:Ecspanse.Projection.run?/2` optional callback to run projections conditionally.
+- implement the `Projection.run?/2` optional callback to run projections conditionally.
 
 ## v0.7.2 (2023-11-05)
 
