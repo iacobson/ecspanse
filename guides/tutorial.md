@@ -591,7 +591,7 @@ defmodule Demo.Systems.MaybeFindResources do
   alias Demo.Components
 
   @impl true
-  def run(%Ecspanse.Event.HeroMoved{}, _frame) do
+  def run(%Demo.Events.HeroMoved{}, _frame) do
     with true <- found_resource?(),
          resource_module <- pick_resource(),
          {:ok, hero_entity} <- Demo.Entities.Hero.fetch(),
