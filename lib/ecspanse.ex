@@ -483,7 +483,16 @@ defmodule Ecspanse do
 
     event = prepare_event(event_spec, batch_key)
 
-    :ets.insert(Util.events_ets_table(), event)
+    try do
+      :ets.insert(Util.events_ets_table(), event)
+    rescue
+      e ->
+        case :ets.info(Util.events_ets_table()) do
+          :undefined -> reraise Util.server_not_started_error(), __STACKTRACE__
+          _ -> reraise e, __STACKTRACE__
+        end
+    end
+
     :ok
   end
 

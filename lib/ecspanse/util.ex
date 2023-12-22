@@ -60,8 +60,16 @@ defmodule Ecspanse.Util do
           {entity_id, component_module}
       end
 
-    :ets.select(components_state_ets_table(), f)
-    |> Enum.group_by(fn {k, _v} -> k end, fn {_k, v} -> v end)
+    try do
+      :ets.select(components_state_ets_table(), f)
+      |> Enum.group_by(fn {k, _v} -> k end, fn {_k, v} -> v end)
+    rescue
+      e ->
+        case :ets.info(components_state_ets_table()) do
+          :undefined -> reraise server_not_started_error(), __STACKTRACE__
+          _ -> reraise e, __STACKTRACE__
+        end
+    end
   end
 
   @doc false
@@ -105,7 +113,15 @@ defmodule Ecspanse.Util do
           {entity_id, component_module, component_tags_set}
       end
 
-    :ets.select(components_state_ets_table(), f)
+    try do
+      :ets.select(components_state_ets_table(), f)
+    rescue
+      e ->
+        case :ets.info(components_state_ets_table()) do
+          :undefined -> reraise server_not_started_error(), __STACKTRACE__
+          _ -> reraise e, __STACKTRACE__
+        end
+    end
   end
 
   @doc false
@@ -122,7 +138,15 @@ defmodule Ecspanse.Util do
           {id, component_tags_set, component_state}
       end
 
-    :ets.select(components_state_ets_table(), f)
+    try do
+      :ets.select(components_state_ets_table(), f)
+    rescue
+      e ->
+        case :ets.info(components_state_ets_table()) do
+          :undefined -> reraise server_not_started_error(), __STACKTRACE__
+          _ -> reraise e, __STACKTRACE__
+        end
+    end
   end
 
   @doc false
@@ -165,6 +189,11 @@ defmodule Ecspanse.Util do
       _exception ->
         reraise exception, attributes, __STACKTRACE__
     end
+  end
+
+  @doc false
+  def server_not_started_error do
+    "Ecspanse Server not started. The module invoking `use Ecspanse` needs to be added to the aplication supervision tree."
   end
 
   @doc false

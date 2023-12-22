@@ -260,7 +260,16 @@ defmodule Ecspanse.Query do
         {{^entity_id, _component_module}, _component_tags, _component_state} -> ^entity_id
       end
 
-    result = :ets.select(Util.components_state_ets_table(), f, 1)
+    result =
+      try do
+        :ets.select(Util.components_state_ets_table(), f, 1)
+      rescue
+        e ->
+          case :ets.info(Util.components_state_ets_table()) do
+            :undefined -> reraise Util.server_not_started_error(), __STACKTRACE__
+            _ -> reraise e, __STACKTRACE__
+          end
+      end
 
     case result do
       {[^entity_id], _} ->
@@ -305,7 +314,18 @@ defmodule Ecspanse.Query do
 
   @doc false
   defmemo memo_list_children(%Entity{id: entity_id}), max_waiter: 1000, waiter_sleep_ms: 0 do
-    case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Children}) do
+    result =
+      try do
+        :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Children})
+      rescue
+        e ->
+          case :ets.info(Util.components_state_ets_table()) do
+            :undefined -> reraise Util.server_not_started_error(), __STACKTRACE__
+            _ -> reraise e, __STACKTRACE__
+          end
+      end
+
+    case result do
       [{_key, _tags, %Component.Children{entities: children_entities}}] -> children_entities
       [] -> []
     end
@@ -349,7 +369,18 @@ defmodule Ecspanse.Query do
 
   @doc false
   defmemo memo_list_parents(%Entity{id: entity_id}), max_waiter: 1000, waiter_sleep_ms: 0 do
-    case :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Parents}) do
+    result =
+      try do
+        :ets.lookup(Util.components_state_ets_table(), {entity_id, Component.Parents})
+      rescue
+        e ->
+          case :ets.info(Util.components_state_ets_table()) do
+            :undefined -> reraise Util.server_not_started_error(), __STACKTRACE__
+            _ -> reraise e, __STACKTRACE__
+          end
+      end
+
+    case result do
       [{_key, _tags, %Component.Parents{entities: parents_entities}}] -> parents_entities
       [] -> []
     end
@@ -454,7 +485,18 @@ defmodule Ecspanse.Query do
 
     filtered_entities_components_tags
     |> Stream.map(fn {entity_id, comp_module, _tags_set} ->
-      case :ets.lookup(table, {entity_id, comp_module}) do
+      result =
+        try do
+          :ets.lookup(table, {entity_id, comp_module})
+        rescue
+          e ->
+            case :ets.info(table) do
+              :undefined -> reraise Util.server_not_started_error(), __STACKTRACE__
+              _ -> reraise e, __STACKTRACE__
+            end
+        end
+
+      case result do
         [{_key, _tags, comp_state}] -> comp_state
         # checking for race conditions when a required component is removed during the query
         # the whole entity should be filtered out
@@ -519,7 +561,18 @@ defmodule Ecspanse.Query do
       entity_id in entity_ids
     end)
     |> Stream.map(fn {entity_id, comp_module, _tags_set} ->
-      case :ets.lookup(table, {entity_id, comp_module}) do
+      result =
+        try do
+          :ets.lookup(table, {entity_id, comp_module})
+        rescue
+          e ->
+            case :ets.info(table) do
+              :undefined -> reraise Util.server_not_started_error(), __STACKTRACE__
+              _ -> reraise e, __STACKTRACE__
+            end
+        end
+
+      case result do
         [{_key, _tags, comp_state}] -> comp_state
         # checking for race conditions when a required component is removed during the query
         # the whole entity should be filtered out
@@ -631,7 +684,18 @@ defmodule Ecspanse.Query do
   @spec fetch_component(Ecspanse.Entity.t(), module()) ::
           {:ok, component_state :: struct()} | {:error, :not_found}
   def fetch_component(%Entity{id: entity_id}, component_module) do
-    case :ets.lookup(Util.components_state_ets_table(), {entity_id, component_module}) do
+    result =
+      try do
+        :ets.lookup(Util.components_state_ets_table(), {entity_id, component_module})
+      rescue
+        e ->
+          case :ets.info(Util.components_state_ets_table()) do
+            :undefined -> reraise Util.server_not_started_error(), __STACKTRACE__
+            _ -> reraise e, __STACKTRACE__
+          end
+      end
+
+    case result do
       [{_key, _tags, component}] -> {:ok, component}
       [] -> {:error, :not_found}
     end
@@ -693,7 +757,15 @@ defmodule Ecspanse.Query do
           component_state
       end
 
-    :ets.select(table, f)
+    try do
+      :ets.select(table, f)
+    rescue
+      e ->
+        case :ets.info(table) do
+          :undefined -> reraise Util.server_not_started_error(), __STACKTRACE__
+          _ -> reraise e, __STACKTRACE__
+        end
+    end
   end
 
   @doc """
@@ -860,7 +932,18 @@ defmodule Ecspanse.Query do
   @spec fetch_resource(resource_module :: module()) ::
           {:ok, resource_state :: struct()} | {:error, :not_found}
   def fetch_resource(resource_module) do
-    case :ets.lookup(Util.resources_state_ets_table(), resource_module) do
+    result =
+      try do
+        :ets.lookup(Util.resources_state_ets_table(), resource_module)
+      rescue
+        e ->
+          case :ets.info(Util.resources_state_ets_table()) do
+            :undefined -> reraise Util.server_not_started_error(), __STACKTRACE__
+            _ -> reraise e, __STACKTRACE__
+          end
+      end
+
+    case result do
       [{_key, resource}] -> {:ok, resource}
       [] -> {:error, :not_found}
     end
@@ -1086,7 +1169,18 @@ defmodule Ecspanse.Query do
   # add mandatory components to the select tuple
   defp add_select_components(select_tuple, comp_modules, entity_id, components_state_ets_table) do
     Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
-      case :ets.lookup(components_state_ets_table, {entity_id, comp_module}) do
+      result =
+        try do
+          :ets.lookup(components_state_ets_table, {entity_id, comp_module})
+        rescue
+          e ->
+            case :ets.info(components_state_ets_table) do
+              :undefined -> reraise Util.server_not_started_error(), __STACKTRACE__
+              _ -> reraise e, __STACKTRACE__
+            end
+        end
+
+      case result do
         [{_key, _tags, comp_state}] -> Tuple.append(acc, comp_state)
         # checking for race conditions when a required component is removed during the query
         # the whole entity should be filtered out
@@ -1103,7 +1197,18 @@ defmodule Ecspanse.Query do
          components_state_ets_table
        ) do
     Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
-      case :ets.lookup(components_state_ets_table, {entity_id, comp_module}) do
+      result =
+        try do
+          :ets.lookup(components_state_ets_table, {entity_id, comp_module})
+        rescue
+          e ->
+            case :ets.info(components_state_ets_table) do
+              :undefined -> reraise Util.server_not_started_error(), __STACKTRACE__
+              _ -> reraise e, __STACKTRACE__
+            end
+        end
+
+      case result do
         [{_key, _tags, comp_state}] -> Tuple.append(acc, comp_state)
         [] -> Tuple.append(acc, nil)
       end
