@@ -444,12 +444,12 @@ defmodule Demo do
   def setup(data) do
     data
     |> Ecspanse.add_startup_system(Systems.SpawnHero)
-    |> Ecspanse.add_system(Systems.RestoreEnergy, run_if: [{__MODULE__, :energy_not_max}])
+    |> Ecspanse.add_system(Systems.RestoreEnergy, run_if: [{__MODULE__, :energy_not_max?}])
     |> Ecspanse.add_system(Systems.MoveHero, run_after: [Systems.RestoreEnergy])
     |> Ecspanse.add_frame_end_system(Ecspanse.System.Timer)
   end
 
-  def energy_not_max do
+  def energy_not_max? do
     Ecspanse.Query.select({Demo.Components.Energy}, with: [Demo.Components.Hero])
     |> Ecspanse.Query.one()
     |> case do
@@ -466,7 +466,7 @@ end
 
 #### The Conditional System Execution
 
-By using the `:run_if` option, the `RestoreEnergy` system will run only if the current energy is below the max energy. The `energy_not_max/0` function must always return a boolean value. Please note, this is not an efficient implementation. The `energy_not_max/0` function will be called every frame. If the check would happen in the `RestoreEnergy` system, it would run only once every 3 seconds. But we took the opportunity to exemplify conditionally running systems.
+By using the `:run_if` option, the `RestoreEnergy` system will run only if the current energy is below the max energy. The `energy_not_max?/0` function must always return a boolean value. Please note, this is not an efficient implementation. The `energy_not_max?/0` function will be called every frame. If the check would happen in the `RestoreEnergy` system, it would run only once every 3 seconds. But we took the opportunity to exemplify conditionally running systems.
 
 #### The System Execution Order
 
