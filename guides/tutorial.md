@@ -166,11 +166,11 @@ defmodule Demo.API do
   @spec fetch_hero_details() :: {:ok, map()} | {:error, :not_found}
   def fetch_hero_details do
     Ecspanse.Query.select(
-      {Demo.Components.Hero, Demo.Components.Energy, Demo.Components.Position}
+      {Ecspanse.Entity, Demo.Components.Hero, Demo.Components.Energy, Demo.Components.Position}
     )
     |> Ecspanse.Query.one()
     |> case do
-      {hero, energy, position} ->
+      {hero_entity, hero, energy, position} ->
         %{name: hero.name, energy: energy.current, max_energy: energy.max, pos_x: position.x, pos_y: position.y}
       _ ->
         {:error, :not_found}
@@ -637,6 +637,16 @@ The last step of the current section is to expose the resources in the `fetch_he
 
 Here we use the `Ecspanse.Query.list_tagged_components_for_entity/2` function to get all the components tagged with `:resource` and `:available` for the hero entity.
 
+The map returned by `fetch_hero_details/0` function should be updated with the new resources field:
+
+```elixir
+  %{
+    # ...
+    pos_y: position.y,
+    resources: list_hero_resources(hero_entity),
+  }
+```
+
 Starting the application and moving the hero around will now start to accumulate resources:
 
 ```iex
@@ -817,6 +827,17 @@ defmodule Demo.API do
     |> Enum.map(&%{name: &1.name, amount: &1.amount})
   end
 end
+```
+
+The map returned by `fetch_hero_details/0` function should be updated with the new inventory field:
+
+```elixir
+  %{
+    # ...
+    pos_y: position.y,
+    resources: list_hero_resources(hero_entity),
+    inventory: list_hero_inventory(hero_entity)
+  }
 ```
 
 We will now display the hero's inventory and the market items with their respective prices.
