@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.1 (2023-12-22)
+
+### Improvements
+
+- returns an explicit error message when trying to run queries or create events and the Ecspanse server is not running.
+- documentation improvements.
+
 ## v0.8.0 (2023-11-14)
 
 ### Improvements
