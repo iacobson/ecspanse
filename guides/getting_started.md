@@ -41,7 +41,25 @@ The `c:Ecspanse.setup/1` callback is mandatory. It will be used later on to sche
 
 ## Starting the Ecspanse server
 
-The module implementing `Ecspanse` needs to be added to the supervision tree.
+The module invoking `use Ecspanse` needs to be added to the aplication supervision tree.
+
+```elixir
+defmodule Demo.Application do
+  @moduledoc false
+
+  use Application
+
+  @impl true
+  def start(_type, _args) do
+    children = [
+      Demo
+    ]
+
+    opts = [strategy: :one_for_one, name: Demo.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+end
+```
 
 The Ecspanse server loop will start together with the application:
 
