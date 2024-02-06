@@ -171,7 +171,7 @@ defmodule Demo.API do
     |> Ecspanse.Query.one()
     |> case do
       {hero_entity, hero, energy, position} ->
-        %{name: hero.name, energy: energy.current, max_energy: energy.max, pos_x: position.x, pos_y: position.y}
+        {:ok, %{name: hero.name, energy: energy.current, max_energy: energy.max, pos_x: position.x, pos_y: position.y}}
       _ ->
         {:error, :not_found}
     end
