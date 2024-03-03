@@ -30,9 +30,6 @@ defmodule Ecspanse.Component do
     Ecspanse.Command.add_component!(hero_entity, {Demo.Components.Position, [x: 7, y: 2], [:map]})
     ```
 
-  After their creation, the components become structs with the fields defined in the `state` option of the spec, plus some metadata added by the framework. Components can also be used
-  as an Entity lable, without state.
-
   After being created, components become structs with the provided fields, along with some metadata added by the framework.
   Components can also be used as an entity label, without state.
 
