@@ -112,6 +112,7 @@ defmodule Ecspanse do
     quote bind_quoted: [opts: opts], location: :keep do
       import Ecspanse,
         only: [
+          insert_resource: 2,
           add_startup_system: 2,
           add_frame_start_system: 2,
           add_frame_start_system: 3,
@@ -176,6 +177,15 @@ defmodule Ecspanse do
         end
       end
     end
+  end
+
+  @doc """
+  Inserts a new global resource at startup.
+  See `Ecspanse.Resource` and `Ecspanse.Command.insert_resource!/1` for more info.
+  """
+  @spec insert_resource(Ecspanse.Data.t(), Ecspanse.Resource.resource_spec()) :: Ecspanse.Data.t()
+  def insert_resource(%Ecspanse.Data{operations: operations} = data, resource_spec) do
+    %Ecspanse.Data{data | operations: [{:insert_resource, resource_spec} | operations]}
   end
 
   @doc """

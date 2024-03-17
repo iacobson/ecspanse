@@ -95,7 +95,7 @@ defmodule Ecspanse.MixProject do
           Ecspanse.System,
           Ecspanse.System.WithEventSubscriptions,
           Ecspanse.System.WithoutEventSubscriptions,
-          Ecspanse.System.CreateDefaultResources,
+          Ecspanse.System.CreateStartupResources,
           Ecspanse.System.Timer,
           Ecspanse.System.TrackFPS,
           Ecspanse.System.Debug

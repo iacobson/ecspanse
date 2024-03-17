@@ -66,6 +66,7 @@ defmodule Ecspanse.Server do
             frame_timer: :running | :finished,
             ecspanse_module: module(),
             system_run_conditions_map: map(),
+            startup_resources: list(Ecspanse.Resource.spec()),
             startup_systems: list(Ecspanse.System.t()),
             frame_start_systems: list(Ecspanse.System.t()),
             batch_systems: list(list(Ecspanse.System.t())),
@@ -94,6 +95,7 @@ defmodule Ecspanse.Server do
               frame_timer: :running,
               ecspanse_module: nil,
               system_run_conditions_map: %{},
+              startup_resources: [],
               startup_systems: [],
               frame_start_systems: [],
               batch_systems: [],
@@ -203,7 +205,7 @@ defmodule Ecspanse.Server do
     # Special system that creates the default resources
     create_default_resources_system =
       %System{
-        module: Ecspanse.System.CreateDefaultResources,
+        module: Ecspanse.System.CreateStartupResources,
         queue: :startup_systems,
         execution: :sync,
         run_conditions: []
@@ -525,6 +527,11 @@ defmodule Ecspanse.Server do
   defp apply_operations([operation | operations], state) do
     %State{} = state = apply_operation(operation, state)
     apply_operations(operations, state)
+  end
+
+  # persist startup resources specs
+  defp apply_operation({:insert_resource, resource_spec}, state) do
+    %State{state | startup_resources: state.startup_resources ++ [resource_spec]}
   end
 
   # batch async systems

@@ -19,7 +19,7 @@ defmodule Ecspanse.System do
   Resources can be created, updated, and deleted only by systems that are executed synchronously.
 
   There are some special systems that are created automatically by the framework:
-  - `Ecspanse.System.CreateDefaultResources` - startup system that creates the default framework resources.
+  - `Ecspanse.System.CreateStartupResources` - startup system that creates the default framework resources.
   - `Ecspanse.System.Debug` - used by the `debug/0` function.
   - `Ecspanse.System.Timer` - tracks and updates all components using the `Ecspanse.Template.Component.Timer` template.
   - `Ecspanse.System.TrackFPS` - tracks and updates the `Ecspanse.Resource.FPS` resource.
