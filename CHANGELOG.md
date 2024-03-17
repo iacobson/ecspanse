@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.1 (2024-03-17)
+
+TODO: fix this
+
+### Features
+
+- insert resources at startup with `Ecspanse.insert_resource/2`
+
 ## v0.8.1 (2023-12-22)
 
 ### Improvements

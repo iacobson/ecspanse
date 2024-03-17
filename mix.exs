@@ -1,14 +1,14 @@
 defmodule Ecspanse.MixProject do
   use Mix.Project
 
-  @version "0.8.1"
+  @version "0.9.0"
   @source_url "https://github.com/iacobson/ecspanse"
 
   def project do
     [
       app: :ecspanse,
       version: @version,
-      elixir: "~> 1.15",
+      elixir: "~> 1.16",
       start_permanent: Mix.env() == :prod,
       consolidate_protocols: Mix.env() != :test,
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -40,7 +40,7 @@ defmodule Ecspanse.MixProject do
       {:ex2ms, "~> 1.6"},
       {:memoize, "~> 1.4"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:ex_doc, "~> 0.30.0", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.31", only: :dev, runtime: false}
     ]
   end
 
