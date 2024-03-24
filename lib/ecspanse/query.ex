@@ -68,7 +68,7 @@ defmodule Ecspanse.Query do
       system_module = Process.get(:system_module)
 
       system_msg = """
-      Calling System Module: #{inspect(system_module)}
+      Calling System Module: #{Kernel.inspect(system_module)}
       """
 
       if system_module do
@@ -149,7 +149,8 @@ defmodule Ecspanse.Query do
           {select_comp ++ [comp], select_opt_comp}
 
         error, _acc ->
-          raise Error, "Expected to be a Component or [opt: Component], got: `#{inspect(error)}`"
+          raise Error,
+                "Expected to be a Component or [opt: Component], got: `#{Kernel.inspect(error)}`"
       end)
 
     {return_entity, select_comp} =
@@ -237,7 +238,7 @@ defmodule Ecspanse.Query do
     case stream(query) |> Enum.to_list() do
       [result_tuple] -> result_tuple
       [] -> nil
-      results -> raise Error, "Expected to return one result, got: `#{inspect(results)}`"
+      results -> raise Error, "Expected to return one result, got: `#{Kernel.inspect(results)}`"
     end
   end
 
@@ -431,7 +432,7 @@ defmodule Ecspanse.Query do
     case components do
       [component] -> {:ok, component}
       [] -> {:error, :not_found}
-      results -> raise Error, "Expected to return one result, got: `#{inspect(results)}`"
+      results -> raise Error, "Expected to return one result, got: `#{Kernel.inspect(results)}`"
     end
   end
 

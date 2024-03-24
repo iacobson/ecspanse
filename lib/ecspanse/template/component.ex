@@ -69,14 +69,14 @@ defmodule Ecspanse.Template.Component do
 
       unless is_list(tags) do
         raise ArgumentError,
-              "Invalid tags for Template: #{inspect(__MODULE__)}. The `:tags` option must be a list of atoms."
+              "Invalid tags for Template: #{Kernel.inspect(__MODULE__)}. The `:tags` option must be a list of atoms."
       end
 
       state = Keyword.get(opts, :state, [])
 
       unless is_list(state) do
         raise ArgumentError,
-              "Invalid state for Template: #{inspect(__MODULE__)}. The `:state` option must be a list with all the Component state struct keys and their initial values (if any). Eg: [:foo, :bar, baz: 1]"
+              "Invalid state for Template: #{Kernel.inspect(__MODULE__)}. The `:state` option must be a list with all the Component state struct keys and their initial values (if any). Eg: [:foo, :bar, baz: 1]"
       end
 
       Module.register_attribute(__MODULE__, :template_tags, accumulate: false)
@@ -97,14 +97,14 @@ defmodule Ecspanse.Template.Component do
 
           unless is_list(component_tags) do
             raise ArgumentError,
-                  "Invalid tags for Component: #{inspect(__MODULE__)}. The `:tags` option must be a list of atoms."
+                  "Invalid tags for Component: #{Kernel.inspect(__MODULE__)}. The `:tags` option must be a list of atoms."
           end
 
           component_state = Keyword.get(opts, :state, [])
 
           unless is_list(component_state) do
             raise ArgumentError,
-                  "Invalid state for Component: #{inspect(__MODULE__)}. The `:state` option must be a list with all the Component state struct keys and their initial values (if any). Eg: [:foo, :bar, baz: 1]"
+                  "Invalid state for Component: #{Kernel.inspect(__MODULE__)}. The `:state` option must be a list with all the Component state struct keys and their initial values (if any). Eg: [:foo, :bar, baz: 1]"
           end
 
           tags = Enum.uniq(template_tags ++ component_tags)

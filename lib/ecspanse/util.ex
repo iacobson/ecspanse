@@ -169,7 +169,7 @@ defmodule Ecspanse.Util do
         event_module,
         :event,
         ArgumentError,
-        "The module #{inspect(event_module)} must be an event."
+        "The module #{Kernel.inspect(event_module)} must be an event."
       )
     end)
 

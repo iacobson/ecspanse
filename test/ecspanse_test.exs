@@ -240,6 +240,23 @@ defmodule EcspanseTest do
     end
   end
 
+  ##########
+
+  defmodule TestState1 do
+    @moduledoc false
+    use Ecspanse.State, states: [:foo, :bar], default: :foo
+  end
+
+  defmodule TestServer7 do
+    @moduledoc false
+    use Ecspanse
+
+    def setup(data) do
+      data
+      |> init_state({TestState1, :bar})
+    end
+  end
+
   ###############
 
   describe "setup/1 callback" do
@@ -404,13 +421,21 @@ defmodule EcspanseTest do
       assert_receive {:next_frame, _state}
     end
 
-    test "resources can be inserted on startup" do
+    test "resources can be inserted at startup" do
       start_supervised({TestServer6, :test})
       Ecspanse.Server.test_server(self())
 
       assert_receive {:next_frame, _state}
       {:ok, resource} = Ecspanse.Query.fetch_resource(TestResource2)
       assert resource.foo == :bar
+    end
+
+    test "states can be initialized at startup " do
+      start_supervised({TestServer7, :test})
+      Ecspanse.Server.test_server(self())
+
+      assert_receive {:next_frame, _state}
+      assert TestState1.get_state!() == :bar
     end
   end
 

@@ -2,7 +2,7 @@ defmodule Ecspanse do
   @moduledoc """
   Ecspanse is an Entity Component System (ECS) framework for Elixir.
 
-  > #### note {: .info}
+  > #### Note {: .info}
   > Ecspanse is not a game engine, but a flexible foundation
   > for managing state and building logic, offering features like:
   > - flexible queries with multiple filters
@@ -113,6 +113,7 @@ defmodule Ecspanse do
       import Ecspanse,
         only: [
           insert_resource: 2,
+          init_state: 2,
           add_startup_system: 2,
           add_frame_start_system: 2,
           add_frame_start_system: 3,
@@ -131,7 +132,7 @@ defmodule Ecspanse do
 
       if fps_limit && not (is_integer(fps_limit) || fps_limit == :unlimited) do
         raise ArgumentError,
-              "If set, the option :fps_limit must be a non negative integer in the Server module #{inspect(__MODULE__)}"
+              "If set, the option :fps_limit must be a non negative integer in the Server module #{Kernel.inspect(__MODULE__)}"
       end
 
       Module.register_attribute(__MODULE__, :fps_limit, accumulate: false)
@@ -177,6 +178,16 @@ defmodule Ecspanse do
         end
       end
     end
+  end
+
+  @doc """
+  Initializes a state at startup.
+  > #### Note {: .info}
+  > States can be initialized once, only at startup.
+  """
+  @spec init_state(Ecspanse.Data.t(), Ecspanse.State.state_spec()) :: Ecspanse.Data.t()
+  def init_state(%Ecspanse.Data{operations: operations} = data, state_spec) do
+    %Ecspanse.Data{data | operations: [{:init_state, state_spec} | operations]}
   end
 
   @doc """
@@ -531,7 +542,7 @@ defmodule Ecspanse do
       event_module,
       :event,
       ArgumentError,
-      "The module #{inspect(event_module)} must be a Event"
+      "The module #{Kernel.inspect(event_module)} must be a Event"
     )
   end
 

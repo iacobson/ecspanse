@@ -17,11 +17,13 @@ defmodule Ecspanse.Resource.State do
           value: atom()
         }
 
+  @impl Ecspanse.Resource
   def validate(%State{value: value}) do
     if is_atom(value) do
       :ok
     else
-      {:error, "Invalid state value: #{inspect(value)}. The Resource.State value must be an atom"}
+      {:error,
+       "Invalid state value: #{Kernel.inspect(value)}. The Resource.State value must be an atom"}
     end
   end
 end

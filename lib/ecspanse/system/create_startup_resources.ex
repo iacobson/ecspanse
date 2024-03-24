@@ -11,11 +11,22 @@ defmodule Ecspanse.System.CreateStartupResources do
     Ecspanse.Command.insert_resource!(Ecspanse.Resource.State)
     Ecspanse.Command.insert_resource!(Ecspanse.Resource.FPS)
 
-    state = Ecspanse.Server.debug()
-    startup_resource_configs = state.startup_resources
+    server_state = Ecspanse.Server.debug()
+    state_specs = server_state.startup_states
+    startup_resource_specs = server_state.startup_resources
 
-    for resource_config <- startup_resource_configs do
-      Ecspanse.Command.insert_resource!(resource_config)
+    for state_spec <- state_specs do
+      case state_spec do
+        {state_module, initial_state} when is_atom(state_module) and is_atom(initial_state) ->
+          Ecspanse.Command.insert_resource!({state_module, [current: initial_state]})
+
+        state_module when is_atom(state_module) ->
+          Ecspanse.Command.insert_resource!(state_module)
+      end
+    end
+
+    for resource_spec <- startup_resource_specs do
+      Ecspanse.Command.insert_resource!(resource_spec)
     end
   end
 end

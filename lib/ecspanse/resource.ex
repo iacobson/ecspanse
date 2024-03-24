@@ -29,7 +29,7 @@ defmodule Ecspanse.Resource do
   - `Ecspanse.Resource.State` - a high level state implementation.
 
   > #### Note  {: .info}
-  > Resources can be created, updated or deleted only from sysnchronous systems.
+  > Resources can be created, updated or deleted only from synchronous systems.
 
   """
 
@@ -87,7 +87,7 @@ defmodule Ecspanse.Resource do
 
       unless is_list(state) do
         raise ArgumentError,
-              "Invalid state for Resource: #{inspect(__MODULE__)}. The `:state` option must be a list with all the Resource state struct keys and their initial values (if any). Eg: [:foo, :bar, baz: 1]"
+              "Invalid state for Resource: #{Kernel.inspect(__MODULE__)}. The `:state` option must be a list with all the Resource state struct keys and their initial values (if any). Eg: [:foo, :bar, baz: 1]"
       end
 
       state = state |> Keyword.put(:__meta__, nil)

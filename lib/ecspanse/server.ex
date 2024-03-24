@@ -67,6 +67,7 @@ defmodule Ecspanse.Server do
             ecspanse_module: module(),
             system_run_conditions_map: map(),
             startup_resources: list(Ecspanse.Resource.spec()),
+            startup_states: list(Ecspanse.State.state_spec()),
             startup_systems: list(Ecspanse.System.t()),
             frame_start_systems: list(Ecspanse.System.t()),
             batch_systems: list(list(Ecspanse.System.t())),
@@ -96,6 +97,7 @@ defmodule Ecspanse.Server do
               ecspanse_module: nil,
               system_run_conditions_map: %{},
               startup_resources: [],
+              startup_states: [],
               startup_systems: [],
               frame_start_systems: [],
               batch_systems: [],
@@ -403,7 +405,7 @@ defmodule Ecspanse.Server do
       )
       when is_reference(ref) do
     unless ref in system_refs do
-      raise "Received System message from unexpected System: #{inspect(ref)}"
+      raise "Received System message from unexpected System: #{Kernel.inspect(ref)}"
     end
 
     Process.demonitor(ref, [:flush])
@@ -534,6 +536,11 @@ defmodule Ecspanse.Server do
     %State{state | startup_resources: state.startup_resources ++ [resource_spec]}
   end
 
+  # persist states specs
+  defp apply_operation({:init_state, state_spec}, state) do
+    %State{state | startup_states: state.startup_states ++ [state_spec]}
+  end
+
   # batch async systems
   defp apply_operation(
          {:add_system,
@@ -567,7 +574,7 @@ defmodule Ecspanse.Server do
     non_exising_systems = after_systems -- system_modules
 
     if length(non_exising_systems) > 0 do
-      raise "Systems #{inspect(non_exising_systems)} does not exist. A system can run only after existing systems"
+      raise "Systems #{Kernel.inspect(non_exising_systems)} does not exist. A system can run only after existing systems"
     end
 
     # should return a list of lists
@@ -599,11 +606,11 @@ defmodule Ecspanse.Server do
       system_module,
       :system,
       ArgumentError,
-      "The module #{inspect(system_module)} must be a System"
+      "The module #{Kernel.inspect(system_module)} must be a System"
     )
 
     if MapSet.member?(state.system_modules, system_module) do
-      raise "System #{inspect(system_module)} already exists. Server systems must be unique."
+      raise "System #{Kernel.inspect(system_module)} already exists. Server systems must be unique."
     end
 
     %State{state | system_modules: MapSet.put(state.system_modules, system_module)}
@@ -670,7 +677,7 @@ defmodule Ecspanse.Server do
         result = apply(module, function, args)
 
         unless is_boolean(result) do
-          raise "System run condition functions must return a boolean. Got: #{inspect(result)}. For #{inspect({module, function, args})}."
+          raise "System run condition functions must return a boolean. Got: #{Kernel.inspect(result)}. For #{Kernel.inspect({module, function, args})}."
         end
 
         %State{
