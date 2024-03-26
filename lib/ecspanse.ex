@@ -266,8 +266,8 @@ defmodule Ecspanse do
 
   ## Options
 
-  - `:run_in_state` - a list of states in which the system should run.
-  - `:run_not_in_state` - a list of states in which the system should not run.
+  - `:run_in_state` - a tuple of the state module using `Ecspanse.State` and the atom state in which the system should run.
+  - `:run_not_in_state` - same as `run_in_state`, but the system will run when the state is not the one provided.
   - `:run_if` - a list of tuples containing the module and function that define a condition for running the system. Eg. `[{MyModule, :my_function}]`. The function must return a boolean.
   - `:run_after` - only for async systems - a system or list of systems that must run before this system.
 
@@ -297,13 +297,19 @@ defmodule Ecspanse do
   > when the async systems are grouped together into batches.
   > Then the scheduler tries to execute every system in every batch.
 
+  ## Conditionally running systems
+  # TODO: explain how it works
+  # explain that run_if can be used when complex conditions are needed. For example combining mulitple states.
+  # explain that in the case of system sets, the state conditions are cumulative. Both the system set and the system conditions must be met.
+  # attention for incompatible run_in_state and run_not_in_state conditions
+
   ## Examples
 
     ```elixir
     Ecspanse.add_system(
       ecspanse_data,
       Demo.Systems.MoveHero,
-      run_in_state: [:play],
+      run_in_state: {Demo.States.Game, [:play]},
       run_after: [Demo.Systems.RestoreEnergy]
     )
     ```
@@ -417,7 +423,7 @@ defmodule Ecspanse do
     @impl Ecspanse
     def setup(data) do
       data
-      |> Ecspanse.add_system_set({Demo.HeroSystemSet, :setup}, [run_in_state: :play])
+      |> Ecspanse.add_system_set({Demo.HeroSystemSet, :setup}, [run_in_state: {Demo.States.Game, :play}])
     end
 
     defmodule HeroSystemSet do
@@ -547,6 +553,7 @@ defmodule Ecspanse do
   end
 
   # merge the system options with the system set options
+  # this is the reason the conditional run states are a list
   defp merge_system_options(system_opts, system_set_opts)
        when is_list(system_opts) and is_map(system_set_opts) do
     system_set_opts = Map.values(system_set_opts) |> List.flatten() |> Enum.uniq()
@@ -557,26 +564,18 @@ defmodule Ecspanse do
   end
 
   defp add_run_conditions(system, opts) do
-    run_in_state =
-      case Keyword.get(opts, :run_in_state, []) do
-        state when is_atom(state) -> [state]
-        states when is_list(states) -> states
-      end
+    run_in_state = conditional_run_state(opts, :run_in_state)
 
     run_in_state_functions =
-      Enum.map(run_in_state, fn state ->
-        {Ecspanse.Util, :run_system_in_state, [state]}
+      Enum.map(run_in_state, fn {state_module, state} ->
+        {Ecspanse.Util, :run_system_in_state, [state_module, state]}
       end)
 
-    run_not_in_state =
-      case Keyword.get(opts, :run_not_in_state, []) do
-        state when is_atom(state) -> [state]
-        states when is_list(states) -> states
-      end
+    run_not_in_state = conditional_run_state(opts, :run_not_in_state)
 
     run_not_in_state_functions =
-      Enum.map(run_not_in_state, fn state ->
-        {Ecspanse.Util, :run_system_not_in_state, [state]}
+      Enum.map(run_not_in_state, fn {state_module, state} ->
+        {Ecspanse.Util, :run_system_not_in_state, [state_module, state]}
       end)
 
     run_if =
@@ -594,5 +593,26 @@ defmodule Ecspanse do
       system
       | run_conditions: run_in_state_functions ++ run_not_in_state_functions ++ run_if_functions
     }
+  end
+
+  defp conditional_run_state(opts, option) do
+    # This is a list. See the `merge_system_options/2` function for more info.
+    # The run state conditions from systems and system sets are cumulative.
+    Keyword.get(opts, option, [])
+    |> Enum.map(fn
+      {state_module, state} when is_atom(state_module) and is_atom(state) ->
+        unless is_atom(state) and state in state_module.__states__() do
+          raise ArgumentError,
+                "Invalid system run condition for State: #{Kernel.inspect(state_module)}. The the run condition state must be an atom from: #{Kernel.inspect(state_module.__states__())}."
+        end
+
+        [{state_module, state}]
+
+      state_run_condition ->
+        raise ArgumentError,
+              "Invalid system run condition: #{Kernel.inspect(state_run_condition)}. The run condition state must be tuple in the form `{StateModule, :state}`."
+    end)
+    |> List.flatten()
+    |> Enum.uniq()
   end
 end

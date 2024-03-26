@@ -7,6 +7,8 @@ defmodule Ecspanse.State do
   Explain that the state transition happens sync, in the current system, but it will be picked up
   by run_if and run_in_state conditions only in the next frame. For sensitive systems, a good mitigation
   is to make state transition systems as frame_end, and run them as late in the frame as possible.
+
+  Explain that states can be initialized only at startup in the setup/1 function. As they are used in `run_in_state` system conditions
   """
 
   @type state_spec ::
@@ -121,6 +123,11 @@ defmodule Ecspanse.State do
         )
 
         :ok
+      end
+
+      @doc false
+      def __states__ do
+        @states
       end
     end
   end

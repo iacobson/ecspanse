@@ -8,7 +8,6 @@ defmodule Ecspanse.System.CreateStartupResources do
 
   @impl true
   def run(_frame) do
-    Ecspanse.Command.insert_resource!(Ecspanse.Resource.State)
     Ecspanse.Command.insert_resource!(Ecspanse.Resource.FPS)
 
     server_state = Ecspanse.Server.debug()

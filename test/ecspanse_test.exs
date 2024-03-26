@@ -177,6 +177,26 @@ defmodule EcspanseTest do
 
   ##########
 
+  defmodule TestState1 do
+    @moduledoc false
+    use Ecspanse.State, states: [:baz, :foo, :bar], default: :baz
+  end
+
+  defmodule TestState2 do
+    @moduledoc false
+    use Ecspanse.State, states: [:baz, :foo, :bar], default: :baz
+  end
+
+  defmodule TestState3 do
+    @moduledoc false
+    use Ecspanse.State, states: [:baz, :foo, :bar], default: :baz
+  end
+
+  defmodule TestState4 do
+    @moduledoc false
+    use Ecspanse.State, states: [:baz, :foo, :bar], default: :baz
+  end
+
   defmodule TestResource1 do
     @moduledoc false
     use Ecspanse.Resource, state: [pid: nil]
@@ -211,15 +231,44 @@ defmodule EcspanseTest do
     end
   end
 
+  defmodule TestSystem12 do
+    @moduledoc false
+    use Ecspanse.System
+
+    def run(_frame) do
+      {:ok, resource} = fetch_resource(TestResource1)
+      send(resource.pid, :system_set)
+    end
+  end
+
   defmodule TestServer5 do
     @moduledoc false
-    use Ecspanse
+    use Ecspanse, fps_limit: 12
 
     def setup(data) do
       data
+      |> init_state(TestState1)
+      |> init_state(TestState2)
+      |> init_state(TestState3)
+      |> init_state(TestState4)
       |> add_startup_system(TestSystem9)
-      |> add_system(TestSystem10, run_in_state: [:foo])
-      |> add_system(TestSystem11, run_in_state: [:bar])
+      |> add_system(TestSystem10, run_in_state: {TestState1, :foo})
+      |> add_system(TestSystem11, run_in_state: {TestState1, :bar})
+      |> add_system_set({__MODULE__, :test_system_set},
+        run_in_state: {TestState2, :foo},
+        run_not_in_state: {TestState3, :baz},
+        run_if: {__MODULE__, :test_conditional_function?}
+      )
+    end
+
+    def test_system_set(data) do
+      data
+      |> add_system(TestSystem12, run_in_state: {TestState1, :bar})
+    end
+
+    def test_conditional_function? do
+      TestState3.get_state!() == :foo and
+        TestState4.get_state!() == :foo
     end
   end
 
@@ -242,7 +291,7 @@ defmodule EcspanseTest do
 
   ##########
 
-  defmodule TestState1 do
+  defmodule TestState5 do
     @moduledoc false
     use Ecspanse.State, states: [:foo, :bar], default: :foo
   end
@@ -253,7 +302,7 @@ defmodule EcspanseTest do
 
     def setup(data) do
       data
-      |> init_state({TestState1, :bar})
+      |> init_state({TestState5, :bar})
     end
   end
 
@@ -385,40 +434,45 @@ defmodule EcspanseTest do
 
       {:ok, pid_resource} = Ecspanse.Query.fetch_resource(TestResource1)
       Ecspanse.Command.update_resource!(pid_resource, pid: self())
-      :timer.sleep(10)
 
-      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
-      refute state_resource.value
+      current_state = TestState1.get_state!()
+      assert current_state == :baz
 
       assert_receive {:next_frame, _state}
       refute_receive :foo
       refute_receive :bar
+      refute_receive :system_set
       assert_receive {:next_frame, _state}
 
-      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
-      Ecspanse.Command.update_resource!(state_resource, value: :foo)
+      assert :ok = TestState1.set_state!(:foo)
 
-      :timer.sleep(10)
       assert_receive {:next_frame, _state}
-      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
-      assert state_resource.value == :foo
 
-      :timer.sleep(10)
+      current_state = TestState1.get_state!()
+      assert current_state == :foo
+
       assert_receive :foo
       refute_receive :bar
+      refute_receive :system_set
       assert_receive {:next_frame, _state}
 
-      :timer.sleep(10)
-      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
-      Ecspanse.Command.update_resource!(state_resource, value: :bar)
+      assert :ok = TestState1.set_state!(:bar)
 
       assert_receive {:next_frame, _state}
-      {:ok, state_resource} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
-      assert state_resource.value == :bar
 
-      :timer.sleep(10)
+      current_state = TestState1.get_state!()
+      assert current_state == :bar
+
       assert_receive :bar
+      refute_receive :system_set
       assert_receive {:next_frame, _state}
+
+      assert :ok = TestState2.set_state!(:foo)
+      assert :ok = TestState3.set_state!(:foo)
+      assert :ok = TestState4.set_state!(:foo)
+
+      assert_receive {:next_frame, _state}
+      assert_receive :system_set
     end
 
     test "resources can be inserted at startup" do
@@ -435,7 +489,7 @@ defmodule EcspanseTest do
       Ecspanse.Server.test_server(self())
 
       assert_receive {:next_frame, _state}
-      assert TestState1.get_state!() == :bar
+      assert TestState5.get_state!() == :bar
     end
   end
 

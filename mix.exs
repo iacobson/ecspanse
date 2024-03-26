@@ -100,7 +100,8 @@ defmodule Ecspanse.MixProject do
           Ecspanse.System.TrackFPS,
           Ecspanse.System.Debug
         ],
-        Resources: [Ecspanse.Resource, Ecspanse.Resource.State, Ecspanse.Resource.FPS],
+        Resources: [Ecspanse.Resource, Ecspanse.Resource.FPS],
+        States: [Ecspanse.State],
         Events: [Ecspanse.Event],
         Queries: [Ecspanse.Query],
         Commands: [Ecspanse.Command],

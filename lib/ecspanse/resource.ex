@@ -26,7 +26,6 @@ defmodule Ecspanse.Resource do
 
   There are some special resources that are created automatically by the framework:
   - `Ecspanse.Resource.FPS` - tracks the frames per second.
-  - `Ecspanse.Resource.State` - a high level state implementation.
 
   > #### Note  {: .info}
   > Resources can be created, updated or deleted only from synchronous systems.
