@@ -324,6 +324,18 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
+  The same as `add_component!/2` but fetches the component after adding it.
+  """
+  @doc group: :components
+  @spec add_and_fetch_component!(Entity.t(), Component.component_spec()) ::
+          {:ok, component_state :: struct()}
+  def add_and_fetch_component!(entity, component_spec) do
+    add_component!(entity, component_spec)
+    component_module = get_component_module(component_spec)
+    Ecspanse.Query.fetch_component(entity, component_module)
+  end
+
+  @doc """
   The same as `add_component!/2` but adds multiple components to multiple entities at once.
 
   It takes a list of two element tuples as argument, where the first element of the tuple is the entity
@@ -363,6 +375,18 @@ defmodule Ecspanse.Command do
   @spec update_component!(current_component :: struct(), state_changes :: keyword()) :: :ok
   def update_component!(component, changes_keyword) do
     update_components!([{component, changes_keyword}])
+  end
+
+  @doc """
+  The same as `update_component!/2` but fetches the component after updating it.
+  """
+  @doc group: :components
+  @spec update_and_fetch_component!(current_component :: struct(), state_changes :: keyword()) ::
+          {:ok, component_state :: struct()}
+  def update_and_fetch_component!(component, changes_keyword) do
+    update_component!(component, changes_keyword)
+    component_meta = component.__meta__
+    Ecspanse.Query.fetch_component(component_meta.entity, component_meta.module)
   end
 
   @doc """
@@ -1685,12 +1709,7 @@ defmodule Ecspanse.Command do
   end
 
   defp validate_no_relation(operation, component_specs) do
-    component_modules =
-      Enum.map(component_specs, fn
-        {component_module, _, _} when is_atom(component_module) -> component_module
-        {component_module, _} when is_atom(component_module) -> component_module
-        component_module when is_atom(component_module) -> component_module
-      end)
+    component_modules = Enum.map(component_specs, &get_component_module/1)
 
     if component_modules -- [Component.Children, Component.Parent] == component_modules do
       :ok
@@ -1751,12 +1770,7 @@ defmodule Ecspanse.Command do
         :ok
 
       existing_components when is_list(existing_components) ->
-        component_modules =
-          Enum.map(component_specs, fn
-            {component_module, _, _} when is_atom(component_module) -> component_module
-            {component_module, _} when is_atom(component_module) -> component_module
-            component_module when is_atom(component_module) -> component_module
-          end)
+        component_modules = Enum.map(component_specs, &get_component_module/1)
 
         if component_modules -- existing_components == component_modules do
           :ok
@@ -1992,6 +2006,16 @@ defmodule Ecspanse.Command do
 
     if components_with_timer_tag do
       Util.invalidate_timer_tag_cache()
+    end
+  end
+
+  # helper
+
+  defp get_component_module(component_spec) do
+    case component_spec do
+      {component_module, _, _} when is_atom(component_module) -> component_module
+      {component_module, _} when is_atom(component_module) -> component_module
+      component_module when is_atom(component_module) -> component_module
     end
   end
 

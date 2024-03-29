@@ -282,6 +282,22 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
+  Checks if an entity exists by its ID, or by the entity struct.
+  """
+  @doc group: :entities
+  @spec entity_exists?(Ecspanse.Entity.id() | Ecspanse.Entity.t()) :: boolean()
+  def entity_exists?(entity_id) when is_binary(entity_id) do
+    case fetch_entity(entity_id) do
+      {:ok, %Ecspanse.Entity{}} -> true
+      _ -> false
+    end
+  end
+
+  def entity_exists?(%Ecspanse.Entity{id: entity_id}) do
+    entity_exists?(entity_id)
+  end
+
+  @doc """
   Returns a component's entity.
 
   ## Examples
