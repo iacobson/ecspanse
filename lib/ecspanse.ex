@@ -299,6 +299,9 @@ defmodule Ecspanse do
 
   ## Conditionally running systems
   # TODO: explain how it works
+  # explain: run conditions are evaluated at the beginning of each frame, for all systems.
+  # So any change in the running conditions will be picked up in the next frame.
+
   # explain that run_if can be used when complex conditions are needed. For example combining mulitple states.
   # explain that in the case of system sets, the state conditions are cumulative. Both the system set and the system conditions must be met.
   # attention for incompatible run_in_state and run_not_in_state conditions

@@ -59,8 +59,8 @@ defmodule Ecspanse.StateTest do
     :ok
   end
 
-  describe "set_state!/1" do
-    test "transition state" do
+  describe "set_state!/1, get_state!/0" do
+    test "transition state and receives the StateTransition event" do
       assert_receive {:next_frame, _state}
       Ecspanse.Command.insert_resource!({ParentProcess, pid: self()})
 
