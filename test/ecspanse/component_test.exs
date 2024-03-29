@@ -6,6 +6,19 @@ defmodule Ecspanse.ComponentTest do
     use Ecspanse.Component
   end
 
+  defmodule TestComponent2 do
+    @moduledoc false
+    use Ecspanse.Component, state: [value: :foo]
+
+    def validate(%TestComponent2{value: value}) do
+      if value == :foo do
+        :ok
+      else
+        {:error, "Invalid value"}
+      end
+    end
+  end
+
   defmodule TestServer1 do
     @moduledoc false
     use Ecspanse
@@ -45,6 +58,27 @@ defmodule Ecspanse.ComponentTest do
       Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
 
       assert [%TestComponent1{}, %TestComponent1{}] = TestComponent1.list()
+    end
+  end
+
+  describe "validate/1 callback" do
+    test "raises an Ecspanse.Command.Error if the component is invalid at creation time" do
+      assert_raise(Ecspanse.Command.Error, fn ->
+        Ecspanse.Command.spawn_entity!(
+          {Ecspanse.Entity, components: [{TestComponent2, value: :bar}]}
+        )
+      end)
+    end
+
+    test "raises an Ecspanse.Command.Error if the component is invalid upon update" do
+      entity =
+        Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent2]})
+
+      {:ok, component} = TestComponent2.fetch(entity)
+
+      assert_raise(Ecspanse.Command.Error, fn ->
+        Ecspanse.Command.update_component!(component, value: :bar)
+      end)
     end
   end
 end
