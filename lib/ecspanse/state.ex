@@ -1,16 +1,33 @@
 defmodule Ecspanse.State do
   @moduledoc """
-  TODO
+  The `Ecspanse.State` module is responsible for creating, storing and manipulating various application states.
+  It provides functions for initializing the state, updating the state, and retrieving
+  information from the state. As well as emitting special `Ecspanse.Event.StateTransition` events when the state changes.
 
-  State transitions may happen only in synchronous systems.
+  > #### Attention  {: .warning}
+  > Under the hood, the States are just `Ecspanse.Resource` modules with a few additional constraints.
+  > As a result, state transitions may happen only in synchronous systems.
+  > `set_state!/1` should not be called in async systems, as it will raise an error.
 
-  Explain that the state transition happens sync, in the current system, but it will be picked up
-  by run_if and run_in_state conditions only in the next frame. For sensitive systems, a good mitigation
-  is to make state transition systems as frame_end, and run them as late in the frame as possible.
+  State can be initialized only at startup in the `Ecspanse.setup/1` function.
+  So, the state can be used for conditionally running systems (such as `:run_in_state`, or `run_if`).
+  See `Ecspanse.add_system/3` for more information.
 
-  Explain that states can be initialized only at startup in the setup/1 function. As they are used in `run_in_state` system conditions
+  In the context of conditionally running systems, it is important to keep in mind that aldough the state transition
+  is synchronous and immediate, the run conditions will pick the change only for the next frame. For sensitive systems,
+  a good mitigation is to make state transition systems as `frame_end`, and run them as late in the frame as possible.
   """
 
+  @typedoc """
+  A `state_spec` is the definition required to create a state module.
+
+  ## Examples
+
+    ```elixir
+    Demo.States.Game
+    {Demo.States.Game, :paused}
+    ```
+  """
   @type state_spec ::
           (state_module :: module())
           | {state_module :: module(), initial_state :: atom()}
@@ -35,7 +52,7 @@ defmodule Ecspanse.State do
   @doc """
   Sets the current state for the state module.
 
-  This function can run only in a synchronous system, otherwise it will raise an error.
+  This function **can run only in a synchronous system**, otherwise it will raise an error.
   It is advised against calling this function multiple times in the same system for the same state module.
 
   Upon state change, a `Ecspanse.Event.StateTransition` event is automatically emitted.
