@@ -19,7 +19,7 @@ defmodule Ecspanse.System do
   Resources can be created, updated, and deleted only by systems that are executed synchronously.
 
   There are some special systems that are created automatically by the framework:
-  - `Ecspanse.System.CreateDefaultResources` - startup system that creates the default framework resources.
+  - `Ecspanse.System.CreateStartupResources` - startup system that creates the default framework resources, states, and custom resources inserted at startup.
   - `Ecspanse.System.Debug` - used by the `debug/0` function.
   - `Ecspanse.System.Timer` - tracks and updates all components using the `Ecspanse.Template.Component.Timer` template.
   - `Ecspanse.System.TrackFPS` - tracks and updates the `Ecspanse.Resource.FPS` resource.
@@ -238,7 +238,7 @@ defmodule Ecspanse.System do
 
         event_modules ->
           raise ArgumentError,
-                "#{inspect(__MODULE__)} :event_subscriptions option must be a list of event modules. Got: #{inspect(event_modules)}"
+                "#{Kernel.inspect(__MODULE__)} :event_subscriptions option must be a list of event modules. Got: #{Kernel.inspect(event_modules)}"
       end
 
       Enum.each(locked_components, fn
@@ -247,7 +247,7 @@ defmodule Ecspanse.System do
             component,
             :component,
             ArgumentError,
-            "All modules provided to the #{inspect(__MODULE__)} System :lock_components option must be Components. #{inspect(component)} is not a Component"
+            "All modules provided to the #{Kernel.inspect(__MODULE__)} System :lock_components option must be Components. #{Kernel.inspect(component)} is not a Component"
           )
       end)
 

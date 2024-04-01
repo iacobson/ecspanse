@@ -172,7 +172,7 @@ defmodule Ecspanse.Component do
 
       unless is_list(tags) && Enum.all?(tags, &is_atom/1) do
         raise ArgumentError,
-              "Invalid tags for Component: #{inspect(__MODULE__)}. The `:tags` option must be a list of atoms."
+              "Invalid tags for Component: #{Kernel.inspect(__MODULE__)}. The `:tags` option must be a list of atoms."
       end
 
       Module.register_attribute(__MODULE__, :ecs_type, accumulate: false)
@@ -184,7 +184,7 @@ defmodule Ecspanse.Component do
 
       unless is_list(state) do
         raise ArgumentError,
-              "Invalid state for Component: #{inspect(__MODULE__)}. The `:state` option must be a list with all the Component state struct keys and their initial values (if any). Eg: [:foo, :bar, baz: 1]"
+              "Invalid state for Component: #{Kernel.inspect(__MODULE__)}. The `:state` option must be a list with all the Component state struct keys and their initial values (if any). Eg: [:foo, :bar, baz: 1]"
       end
 
       state = state |> Keyword.put(:__meta__, nil)

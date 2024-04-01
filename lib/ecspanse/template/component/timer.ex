@@ -85,7 +85,7 @@ defmodule Ecspanse.Template.Component.Timer do
       :ok
     else
       raise ArgumentError,
-            "Invalid duration for Timer Component: #{inspect(__MODULE__)}. The `:duration` field is mandatory in the timer state and must be a positive integer."
+            "Invalid duration for Timer Component: #{Kernel.inspect(__MODULE__)}. The `:duration` field is mandatory in the timer state and must be a positive integer."
     end
   end
 
@@ -94,7 +94,7 @@ defmodule Ecspanse.Template.Component.Timer do
       :ok
     else
       raise ArgumentError,
-            "Invalid time for Timer Component: #{inspect(__MODULE__)}. The `:time` field is mandatory in the timer state and must be a non-negative integer."
+            "Invalid time for Timer Component: #{Kernel.inspect(__MODULE__)}. The `:time` field is mandatory in the timer state and must be a non-negative integer."
     end
   end
 
@@ -103,7 +103,7 @@ defmodule Ecspanse.Template.Component.Timer do
       :ok
     else
       raise ArgumentError,
-            "Invalid event for Timer Component: #{inspect(__MODULE__)}. The `:event` field is mandatory in the timer state and must be an atom."
+            "Invalid event for Timer Component: #{Kernel.inspect(__MODULE__)}. The `:event` field is mandatory in the timer state and must be an atom."
     end
   end
 
@@ -112,7 +112,7 @@ defmodule Ecspanse.Template.Component.Timer do
       :ok
     else
       raise ArgumentError,
-            "Invalid mode for Timer Component: #{inspect(__MODULE__)}. The `:mode` field is mandatory in the timer state and must be one of the following: #{inspect(@mode)}"
+            "Invalid mode for Timer Component: #{Kernel.inspect(__MODULE__)}. The `:mode` field is mandatory in the timer state and must be one of the following: #{Kernel.inspect(@mode)}"
     end
   end
 
@@ -121,7 +121,7 @@ defmodule Ecspanse.Template.Component.Timer do
       :ok
     else
       raise ArgumentError,
-            "Invalid paused for Timer Component: #{inspect(__MODULE__)}. The `:paused` field is mandatory in the timer state and must be a boolean."
+            "Invalid paused for Timer Component: #{Kernel.inspect(__MODULE__)}. The `:paused` field is mandatory in the timer state and must be a boolean."
     end
   end
 

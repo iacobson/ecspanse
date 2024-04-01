@@ -22,6 +22,10 @@ Ecspanse draws inspiration from the API of [bevy_ecs](https://docs.rs/bevy_ecs/l
 
 Please note that Ecspanse does not claim to be a Bevy equivalent in Elixir. If you're seeking a fully-featured ECS game library, please give [Bevy](https://bevyengine.org/) a try.
 
+## Requirements
+
+OTP-25.0 and above is required to use Ecspanse.
+
 ## Installation
 
 Refer to the [Getting Started](https://hexdocs.pm/ecspanse/getting_started.html) guide for installation instructions.
@@ -42,7 +46,6 @@ This multiplayer game was built with Ecspanse during the library's development. 
 
 ## To Do
 
-- [ ] Implement persistence: Develop a flexible and selective method for saving and loading components and resources.
 - [ ] Expand testing beyond happy path scenarios.
 - [ ] Improve documentation.
 

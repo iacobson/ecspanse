@@ -150,16 +150,15 @@ defmodule Ecspanse.Util do
   end
 
   @doc false
-  def run_system_in_state(run_in_state) do
-    {:ok, %Ecspanse.Resource.State{value: state}} =
-      Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
+  def run_system_in_state(state_module, run_in_state) do
+    current_state = state_module.get_state!()
 
-    run_in_state == state
+    run_in_state == current_state
   end
 
   @doc false
-  def run_system_not_in_state(run_not_in_state) do
-    not run_system_in_state(run_not_in_state)
+  def run_system_not_in_state(state_module, run_not_in_state) do
+    not run_system_in_state(state_module, run_not_in_state)
   end
 
   @doc false
@@ -169,7 +168,7 @@ defmodule Ecspanse.Util do
         event_module,
         :event,
         ArgumentError,
-        "The module #{inspect(event_module)} must be an event."
+        "The module #{Kernel.inspect(event_module)} must be an event."
       )
     end)
 

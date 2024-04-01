@@ -407,6 +407,27 @@ defmodule Ecspanse.QueryTest do
     end
   end
 
+  describe "entity_exists?/1" do
+    test "returns true if the entity exists" do
+      entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
+
+      assert Ecspanse.Query.entity_exists?(entity.id)
+      assert Ecspanse.Query.entity_exists?(entity)
+    end
+
+    test "returns false if the entity does not exist" do
+      refute Ecspanse.Query.entity_exists?(UUID.uuid4())
+    end
+
+    test "returns false if the entity was despawned" do
+      entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
+      Ecspanse.Command.despawn_entity!(entity)
+
+      refute Ecspanse.Query.entity_exists?(entity)
+      refute Ecspanse.Query.entity_exists?(entity.id)
+    end
+  end
+
   describe "get_component_entity/1" do
     test "returns the entity for a component" do
       entity = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})

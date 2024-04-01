@@ -223,7 +223,7 @@ defmodule Ecspanse.Projection do
 
       unless is_list(projection) do
         raise ArgumentError,
-              "Invalid Projection: #{inspect(__MODULE__)}. The `:fields` option must be a list with all the projection struct keys and their initial values (if any). Eg: [:foo, :bar, baz: 1]"
+              "Invalid Projection: #{Kernel.inspect(__MODULE__)}. The `:fields` option must be a list with all the projection struct keys and their initial values (if any). Eg: [:foo, :bar, baz: 1]"
       end
 
       defstruct projection
@@ -234,7 +234,7 @@ defmodule Ecspanse.Projection do
       def start!(attrs \\ %{}) do
         unless is_map(attrs) do
           raise ArgumentError,
-                "Invalid attrs for Projection: #{inspect(__MODULE__)}. The `start!/1` callback takes a map as argument."
+                "Invalid attrs for Projection: #{Kernel.inspect(__MODULE__)}. The `start!/1` callback takes a map as argument."
         end
 
         {:ok, pid} =
@@ -250,7 +250,7 @@ defmodule Ecspanse.Projection do
       def get!(projection_pid) do
         unless is_pid(projection_pid) do
           raise ArgumentError,
-                "Invalid projection_pid for Projection: #{inspect(__MODULE__)}. The `get/1` callback takes a pid as argument."
+                "Invalid projection_pid for Projection: #{Kernel.inspect(__MODULE__)}. The `get/1` callback takes a pid as argument."
         end
 
         GenServer.call(projection_pid, :get)
@@ -260,7 +260,7 @@ defmodule Ecspanse.Projection do
       def stop(projection_pid) do
         unless is_pid(projection_pid) do
           raise ArgumentError,
-                "Invalid projection_pid for Projection: #{inspect(__MODULE__)}. The `stop/1` callback takes a pid as argument."
+                "Invalid projection_pid for Projection: #{Kernel.inspect(__MODULE__)}. The `stop/1` callback takes a pid as argument."
         end
 
         DynamicSupervisor.terminate_child(Ecspanse.Projection.Supervisor, projection_pid)

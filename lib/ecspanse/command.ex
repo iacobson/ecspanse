@@ -72,8 +72,8 @@ defmodule Ecspanse.Command do
     @impl true
     def exception({%Ecspanse.Command.Operation{} = operation, message}) do
       msg = """
-      System: #{inspect(operation.system)}
-      Operation: #{inspect(operation.name)}
+      System: #{Kernel.inspect(operation.system)}
+      Operation: #{Kernel.inspect(operation.name)}
       Message: #{message}
       """
 
@@ -324,6 +324,18 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
+  The same as `add_component!/2` but fetches the component after adding it.
+  """
+  @doc group: :components
+  @spec add_and_fetch_component!(Entity.t(), Component.component_spec()) ::
+          {:ok, component_state :: struct()}
+  def add_and_fetch_component!(entity, component_spec) do
+    add_component!(entity, component_spec)
+    component_module = get_component_module(component_spec)
+    Ecspanse.Query.fetch_component(entity, component_module)
+  end
+
+  @doc """
   The same as `add_component!/2` but adds multiple components to multiple entities at once.
 
   It takes a list of two element tuples as argument, where the first element of the tuple is the entity
@@ -363,6 +375,18 @@ defmodule Ecspanse.Command do
   @spec update_component!(current_component :: struct(), state_changes :: keyword()) :: :ok
   def update_component!(component, changes_keyword) do
     update_components!([{component, changes_keyword}])
+  end
+
+  @doc """
+  The same as `update_component!/2` but fetches the component after updating it.
+  """
+  @doc group: :components
+  @spec update_and_fetch_component!(current_component :: struct(), state_changes :: keyword()) ::
+          {:ok, component_state :: struct()}
+  def update_and_fetch_component!(component, changes_keyword) do
+    update_component!(component, changes_keyword)
+    component_meta = component.__meta__
+    Ecspanse.Query.fetch_component(component_meta.entity, component_meta.module)
   end
 
   @doc """
@@ -597,10 +621,13 @@ defmodule Ecspanse.Command do
   > An Ecspanse instance can only hold one resource of each type at a time.
   > If an attempt is made to insert a resource that already exists, an error will be raised.
 
+  > #### Note  {: .warning}
+  > Resources can be created, updated or deleted only from synchronous systems.
+
   ## Examples
 
     ```elixir
-    :ok = Ecspanse.Command.insert_resource!({Demo.Resources.Lobby, player_count: 0})
+    %Demo.Resources.Lobby{} = Ecspanse.Command.insert_resource!({Demo.Resources.Lobby, player_count: 0})
     ```
   """
   @doc group: :resources
@@ -615,10 +642,13 @@ defmodule Ecspanse.Command do
   @doc """
   Updates an existing global resource.
 
+  > #### Note  {: .warning}
+  > Resources can be created, updated or deleted only from synchronous systems.
+
   ## Examples
 
     ```elixir
-    :ok = Ecspanse.Command.update_resource!(lobby_resource, player_count: 1)
+    %Demo.Resources.Lobby{} = Ecspanse.Command.update_resource!(lobby_resource, player_count: 1)
     ```
   """
   @doc group: :resources
@@ -634,10 +664,13 @@ defmodule Ecspanse.Command do
   @doc """
   Deletes an existing global resource.
 
+  > #### Note  {: .warning}
+  > Resources can be created, updated or deleted only from synchronous systems.
+
   ## Examples
 
     ```elixir
-    :ok = Ecspanse.Command.delete_resource!(lobby_resource)
+    %Demo.Resources.Lobby{} = Ecspanse.Command.delete_resource!(lobby_resource)
     ```
   """
   @doc group: :resources
@@ -683,7 +716,7 @@ defmodule Ecspanse.Command do
       raise(
         Error,
         {operation,
-         "Expected  type `Ecspanse.Resource.resource_spec()` , got: `#{inspect(value)}`"}
+         "Expected  type `Ecspanse.Resource.resource_spec()` , got: `#{Kernel.inspect(value)}`"}
       )
 
   defp validate_payload(%Operation{name: :update_resource}, {resource, state_changes})
@@ -695,7 +728,7 @@ defmodule Ecspanse.Command do
       raise(
         Error,
         {operation,
-         "Expected a resource state `struct()` and `keyword()` type args, got: `#{inspect(value)}`"}
+         "Expected a resource state `struct()` and `keyword()` type args, got: `#{Kernel.inspect(value)}`"}
       )
 
   defp validate_payload(%Operation{name: :delete_resource}, resource)
@@ -1661,7 +1694,8 @@ defmodule Ecspanse.Command do
         :ok
 
       missing_entity_ids ->
-        raise Error, {operation, "Entity ids `#{inspect(missing_entity_ids)}` do not exist."}
+        raise Error,
+              {operation, "Entity ids `#{Kernel.inspect(missing_entity_ids)}` do not exist."}
     end
   end
 
@@ -1670,17 +1704,12 @@ defmodule Ecspanse.Command do
       component_module,
       :component,
       Error,
-      {operation, "#{inspect(component_module)} is not a Component"}
+      {operation, "#{Kernel.inspect(component_module)} is not a Component"}
     )
   end
 
   defp validate_no_relation(operation, component_specs) do
-    component_modules =
-      Enum.map(component_specs, fn
-        {component_module, _, _} when is_atom(component_module) -> component_module
-        {component_module, _} when is_atom(component_module) -> component_module
-        component_module when is_atom(component_module) -> component_module
-      end)
+    component_modules = Enum.map(component_specs, &get_component_module/1)
 
     if component_modules -- [Component.Children, Component.Parent] == component_modules do
       :ok
@@ -1700,7 +1729,7 @@ defmodule Ecspanse.Command do
         {:error, error} ->
           raise Error,
                 {operation,
-                 "#{inspect(component_state_struct)} state is invalid. Error: #{inspect(error)}"}
+                 "#{Kernel.inspect(component_state_struct)} state is invalid. Error: #{Kernel.inspect(error)}"}
       end
     else
       :ok
@@ -1711,7 +1740,7 @@ defmodule Ecspanse.Command do
   defp validate_locked_component(operation, :sync, component_module) do
     unless Enum.empty?(operation.locked_components) do
       Logger.warning(
-        "#{inspect(operation)}. Component: #{inspect(component_module)}. There is no need to lock components in Systems that execute synchronously. The values are ignored"
+        "#{Kernel.inspect(operation)}. Component: #{Kernel.inspect(component_module)}. There is no need to lock components in Systems that execute synchronously. The values are ignored"
       )
     end
 
@@ -1726,7 +1755,7 @@ defmodule Ecspanse.Command do
     else
       raise Error,
             {operation,
-             "#{inspect(component_module)} is not locked. It can not be created or updated in an async System"}
+             "#{Kernel.inspect(component_module)} is not locked. It can not be created or updated in an async System"}
     end
   end
 
@@ -1741,12 +1770,7 @@ defmodule Ecspanse.Command do
         :ok
 
       existing_components when is_list(existing_components) ->
-        component_modules =
-          Enum.map(component_specs, fn
-            {component_module, _, _} when is_atom(component_module) -> component_module
-            {component_module, _} when is_atom(component_module) -> component_module
-            component_module when is_atom(component_module) -> component_module
-          end)
+        component_modules = Enum.map(component_specs, &get_component_module/1)
 
         if component_modules -- existing_components == component_modules do
           :ok
@@ -1755,7 +1779,7 @@ defmodule Ecspanse.Command do
 
           raise Error,
                 {operation,
-                 "Components #{inspect(duplicates)} already exist for the entity #{inspect(entity_id)}"}
+                 "Components #{Kernel.inspect(duplicates)} already exist for the entity #{Kernel.inspect(entity_id)}"}
         end
     end
   end
@@ -1768,7 +1792,7 @@ defmodule Ecspanse.Command do
            {component.__meta__.entity.id, component.__meta__.module}
          ) do
       [{_key, _tags, _val}] -> :ok
-      _ -> raise Error, {operation, "#{inspect(component)} does not exist"}
+      _ -> raise Error, {operation, "#{Kernel.inspect(component)} does not exist"}
     end
   end
 
@@ -1783,7 +1807,7 @@ defmodule Ecspanse.Command do
       resource_module,
       :resource,
       Error,
-      {operation, "#{inspect(resource_module)} is not a Resource"}
+      {operation, "#{Kernel.inspect(resource_module)} is not a Resource"}
     )
   end
 
@@ -1796,7 +1820,7 @@ defmodule Ecspanse.Command do
         {:error, error} ->
           raise Error,
                 {operation,
-                 "#{inspect(resource_state_struct)} state is invalid. Error: #{inspect(error)}"}
+                 "#{Kernel.inspect(resource_state_struct)} state is invalid. Error: #{Kernel.inspect(error)}"}
       end
     else
       :ok
@@ -1811,7 +1835,7 @@ defmodule Ecspanse.Command do
   defp validate_locked_resource(operation, :async, resource_module) do
     raise Error,
           {operation,
-           "Resource commands are supported only in sync Systems (startup_systems, frame_start_system, frame_end_system). Resource: #{inspect(resource_module)} "}
+           "Resource commands are supported only in sync Systems (startup_systems, frame_start_system, frame_end_system). Resource: #{Kernel.inspect(resource_module)} "}
   end
 
   defp validate_resource_does_not_exist(operation, resource_spec) do
@@ -1829,7 +1853,7 @@ defmodule Ecspanse.Command do
 
       _ ->
         raise Error,
-              {operation, "Resource #{inspect(resource_module)} already exists"}
+              {operation, "Resource #{Kernel.inspect(resource_module)} already exists"}
     end
   end
 
@@ -1838,7 +1862,7 @@ defmodule Ecspanse.Command do
 
     case :ets.lookup(table, resource.__meta__.module) do
       [{_key, _val}] -> :ok
-      _ -> raise Error, {operation, "#{inspect(resource)} does not exist"}
+      _ -> raise Error, {operation, "#{Kernel.inspect(resource)} does not exist"}
     end
   end
 
@@ -1851,12 +1875,12 @@ defmodule Ecspanse.Command do
 
       _ ->
         raise Error,
-              {operation, "Expected tags to be a list of atoms, got: #{inspect(non_tags)}"}
+              {operation, "Expected tags to be a list of atoms, got: #{Kernel.inspect(non_tags)}"}
     end
   end
 
   defp validate_tags(operation, tags) do
-    raise Error, {operation, "Expected tags to be a list of atoms, got: #{inspect(tags)}"}
+    raise Error, {operation, "Expected tags to be a list of atoms, got: #{Kernel.inspect(tags)}"}
   end
 
   # Commits
@@ -1887,7 +1911,7 @@ defmodule Ecspanse.Command do
         :ok
 
       _ ->
-        raise "Error inserting components. Duplicate components insert is not allowed in the same Command: #{inspect(duplicates)}"
+        raise "Error inserting components. Duplicate components insert is not allowed in the same Command: #{Kernel.inspect(duplicates)}"
     end
   end
 
@@ -1914,7 +1938,7 @@ defmodule Ecspanse.Command do
         :ok
 
       _ ->
-        raise "Error updating components. Duplicate components update is not allowed in the same Command: #{inspect(duplicates)}"
+        raise "Error updating components. Duplicate components update is not allowed in the same Command: #{Kernel.inspect(duplicates)}"
     end
   end
 
@@ -1982,6 +2006,16 @@ defmodule Ecspanse.Command do
 
     if components_with_timer_tag do
       Util.invalidate_timer_tag_cache()
+    end
+  end
+
+  # helper
+
+  defp get_component_module(component_spec) do
+    case component_spec do
+      {component_module, _, _} when is_atom(component_module) -> component_module
+      {component_module, _} when is_atom(component_module) -> component_module
+      component_module when is_atom(component_module) -> component_module
     end
   end
 

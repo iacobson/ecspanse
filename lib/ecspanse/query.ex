@@ -68,7 +68,7 @@ defmodule Ecspanse.Query do
       system_module = Process.get(:system_module)
 
       system_msg = """
-      Calling System Module: #{inspect(system_module)}
+      Calling System Module: #{Kernel.inspect(system_module)}
       """
 
       if system_module do
@@ -149,7 +149,8 @@ defmodule Ecspanse.Query do
           {select_comp ++ [comp], select_opt_comp}
 
         error, _acc ->
-          raise Error, "Expected to be a Component or [opt: Component], got: `#{inspect(error)}`"
+          raise Error,
+                "Expected to be a Component or [opt: Component], got: `#{Kernel.inspect(error)}`"
       end)
 
     {return_entity, select_comp} =
@@ -237,7 +238,7 @@ defmodule Ecspanse.Query do
     case stream(query) |> Enum.to_list() do
       [result_tuple] -> result_tuple
       [] -> nil
-      results -> raise Error, "Expected to return one result, got: `#{inspect(results)}`"
+      results -> raise Error, "Expected to return one result, got: `#{Kernel.inspect(results)}`"
     end
   end
 
@@ -278,6 +279,22 @@ defmodule Ecspanse.Query do
       _ ->
         {:error, :not_found}
     end
+  end
+
+  @doc """
+  Checks if an entity exists by its ID, or by the entity struct.
+  """
+  @doc group: :entities
+  @spec entity_exists?(Ecspanse.Entity.id() | Ecspanse.Entity.t()) :: boolean()
+  def entity_exists?(entity_id) when is_binary(entity_id) do
+    case fetch_entity(entity_id) do
+      {:ok, %Ecspanse.Entity{}} -> true
+      _ -> false
+    end
+  end
+
+  def entity_exists?(%Ecspanse.Entity{id: entity_id}) do
+    entity_exists?(entity_id)
   end
 
   @doc """
@@ -431,7 +448,7 @@ defmodule Ecspanse.Query do
     case components do
       [component] -> {:ok, component}
       [] -> {:error, :not_found}
-      results -> raise Error, "Expected to return one result, got: `#{inspect(results)}`"
+      results -> raise Error, "Expected to return one result, got: `#{Kernel.inspect(results)}`"
     end
   end
 

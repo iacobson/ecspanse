@@ -2,7 +2,7 @@ defmodule Ecspanse do
   @moduledoc """
   Ecspanse is an Entity Component System (ECS) framework for Elixir.
 
-  > #### note {: .info}
+  > #### Note {: .info}
   > Ecspanse is not a game engine, but a flexible foundation
   > for managing state and building logic, offering features like:
   > - flexible queries with multiple filters
@@ -112,6 +112,8 @@ defmodule Ecspanse do
     quote bind_quoted: [opts: opts], location: :keep do
       import Ecspanse,
         only: [
+          insert_resource: 2,
+          init_state: 2,
           add_startup_system: 2,
           add_frame_start_system: 2,
           add_frame_start_system: 3,
@@ -130,7 +132,7 @@ defmodule Ecspanse do
 
       if fps_limit && not (is_integer(fps_limit) || fps_limit == :unlimited) do
         raise ArgumentError,
-              "If set, the option :fps_limit must be a non negative integer in the Server module #{inspect(__MODULE__)}"
+              "If set, the option :fps_limit must be a non negative integer in the Server module #{Kernel.inspect(__MODULE__)}"
       end
 
       Module.register_attribute(__MODULE__, :fps_limit, accumulate: false)
@@ -176,6 +178,25 @@ defmodule Ecspanse do
         end
       end
     end
+  end
+
+  @doc """
+  Initializes a state at startup.
+  > #### Note {: .info}
+  > States can be initialized once, only at startup.
+  """
+  @spec init_state(Ecspanse.Data.t(), Ecspanse.State.state_spec()) :: Ecspanse.Data.t()
+  def init_state(%Ecspanse.Data{operations: operations} = data, state_spec) do
+    %Ecspanse.Data{data | operations: [{:init_state, state_spec} | operations]}
+  end
+
+  @doc """
+  Inserts a new global resource at startup.
+  See `Ecspanse.Resource` and `Ecspanse.Command.insert_resource!/1` for more info.
+  """
+  @spec insert_resource(Ecspanse.Data.t(), Ecspanse.Resource.resource_spec()) :: Ecspanse.Data.t()
+  def insert_resource(%Ecspanse.Data{operations: operations} = data, resource_spec) do
+    %Ecspanse.Data{data | operations: [{:insert_resource, resource_spec} | operations]}
   end
 
   @doc """
@@ -245,8 +266,8 @@ defmodule Ecspanse do
 
   ## Options
 
-  - `:run_in_state` - a list of states in which the system should run.
-  - `:run_not_in_state` - a list of states in which the system should not run.
+  - `:run_in_state` - a tuple of the state module using `Ecspanse.State` and the atom state in which the system should run.
+  - `:run_not_in_state` - same as `run_in_state`, but the system will run when the state is not the one provided.
   - `:run_if` - a list of tuples containing the module and function that define a condition for running the system. Eg. `[{MyModule, :my_function}]`. The function must return a boolean.
   - `:run_after` - only for async systems - a system or list of systems that must run before this system.
 
@@ -276,13 +297,41 @@ defmodule Ecspanse do
   > when the async systems are grouped together into batches.
   > Then the scheduler tries to execute every system in every batch.
 
+  ## Conditionally running systems
+
+  The systems can be programmed to run only if some specific conditions are met.
+  The conditions can be:
+  - state related: `run_in_state` and `run_not_in_state`
+  - custom conditions: `run_if` a function returns `true`
+
+  `run_in_state` supports a single state. If a combination of states is needed to run a system, the `run_if` option can be used.
+
+    ```elixir
+    Ecspanse.add_system(
+      ecspanse_data,
+      Demo.Systems.MoveHero,
+      run_if: [{Demo.States.Game, :in_market_place}]
+    )
+
+    def in_market_place do
+      Demo.States.Game.get_state!() == :paused and
+      Demo.States.Location.get_state!() == :market
+    end
+    ```
+
+  It is important to nothe that the run conditions are evaluated only once per frame, at the beginning of the frame.
+  So any change in the running conditions will be picked up in the next frame.
+
+  If the system is part of a system set, and both the system and the system set have run conditions, the conditions are cumulative.
+  All the conditions must be met for the system to run.
+
   ## Examples
 
     ```elixir
     Ecspanse.add_system(
       ecspanse_data,
       Demo.Systems.MoveHero,
-      run_in_state: [:play],
+      run_in_state: {Demo.States.Game, [:play]},
       run_after: [Demo.Systems.RestoreEnergy]
     )
     ```
@@ -396,7 +445,7 @@ defmodule Ecspanse do
     @impl Ecspanse
     def setup(data) do
       data
-      |> Ecspanse.add_system_set({Demo.HeroSystemSet, :setup}, [run_in_state: :play])
+      |> Ecspanse.add_system_set({Demo.HeroSystemSet, :setup}, [run_in_state: {Demo.States.Game, :play}])
     end
 
     defmodule HeroSystemSet do
@@ -521,11 +570,12 @@ defmodule Ecspanse do
       event_module,
       :event,
       ArgumentError,
-      "The module #{inspect(event_module)} must be a Event"
+      "The module #{Kernel.inspect(event_module)} must be a Event"
     )
   end
 
   # merge the system options with the system set options
+  # this is the reason the conditional run states are a list
   defp merge_system_options(system_opts, system_set_opts)
        when is_list(system_opts) and is_map(system_set_opts) do
     system_set_opts = Map.values(system_set_opts) |> List.flatten() |> Enum.uniq()
@@ -536,26 +586,18 @@ defmodule Ecspanse do
   end
 
   defp add_run_conditions(system, opts) do
-    run_in_state =
-      case Keyword.get(opts, :run_in_state, []) do
-        state when is_atom(state) -> [state]
-        states when is_list(states) -> states
-      end
+    run_in_state = conditional_run_state(opts, :run_in_state)
 
     run_in_state_functions =
-      Enum.map(run_in_state, fn state ->
-        {Ecspanse.Util, :run_system_in_state, [state]}
+      Enum.map(run_in_state, fn {state_module, state} ->
+        {Ecspanse.Util, :run_system_in_state, [state_module, state]}
       end)
 
-    run_not_in_state =
-      case Keyword.get(opts, :run_not_in_state, []) do
-        state when is_atom(state) -> [state]
-        states when is_list(states) -> states
-      end
+    run_not_in_state = conditional_run_state(opts, :run_not_in_state)
 
     run_not_in_state_functions =
-      Enum.map(run_not_in_state, fn state ->
-        {Ecspanse.Util, :run_system_not_in_state, [state]}
+      Enum.map(run_not_in_state, fn {state_module, state} ->
+        {Ecspanse.Util, :run_system_not_in_state, [state_module, state]}
       end)
 
     run_if =
@@ -573,5 +615,26 @@ defmodule Ecspanse do
       system
       | run_conditions: run_in_state_functions ++ run_not_in_state_functions ++ run_if_functions
     }
+  end
+
+  defp conditional_run_state(opts, option) do
+    # This is a list. See the `merge_system_options/2` function for more info.
+    # The run state conditions from systems and system sets are cumulative.
+    Keyword.get(opts, option, [])
+    |> Enum.map(fn
+      {state_module, state} when is_atom(state_module) and is_atom(state) ->
+        unless is_atom(state) and state in state_module.__states__() do
+          raise ArgumentError,
+                "Invalid system run condition for State: #{Kernel.inspect(state_module)}. The the run condition state must be an atom from: #{Kernel.inspect(state_module.__states__())}."
+        end
+
+        [{state_module, state}]
+
+      state_run_condition ->
+        raise ArgumentError,
+              "Invalid system run condition: #{Kernel.inspect(state_run_condition)}. The run condition state must be tuple in the form `{StateModule, :state}`."
+    end)
+    |> List.flatten()
+    |> Enum.uniq()
   end
 end

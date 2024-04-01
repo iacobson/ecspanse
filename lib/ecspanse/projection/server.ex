@@ -117,14 +117,14 @@ defmodule Ecspanse.Projection.Server do
 
       _else ->
         raise ArgumentError,
-              "The #{inspect(projection_module)} `projection/1` callback must return one of `:loading`, `{:loading, any()}`, `:ok`, `{:ok, struct()}`, `:error`, `{:error, any()}` or `:wait`."
+              "The #{Kernel.inspect(projection_module)} `projection/1` callback must return one of `:loading`, `{:loading, any()}`, `:ok`, `{:ok, struct()}`, `:error`, `{:error, any()}` or `:wait`."
     end
   end
 
   defp validate_projection(projection, projection_module) do
     unless is_struct(projection) and projection.__struct__ == projection_module do
       raise ArgumentError,
-            "Invalid projection result for Projection: #{inspect(projection_module)}. The success result must be a #{inspect(projection_module)} struct."
+            "Invalid projection result for Projection: #{Kernel.inspect(projection_module)}. The success result must be a #{Kernel.inspect(projection_module)} struct."
     end
   end
 end

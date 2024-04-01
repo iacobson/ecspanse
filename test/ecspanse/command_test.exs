@@ -222,6 +222,19 @@ defmodule Ecspanse.CommandTest do
     end
   end
 
+  describe "add_and_fetch_component!/2" do
+    test "adds a component to an existing entity and fetches it" do
+      assert %Ecspanse.Entity{} =
+               entity =
+               Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
+
+      assert {:ok, %TestComponent2{}} =
+               Ecspanse.Command.add_and_fetch_component!(entity, TestComponent2)
+
+      assert {:ok, %TestComponent2{}} = TestComponent2.fetch(entity)
+    end
+  end
+
   describe "update_components!/1" do
     test "updates components state" do
       assert %Ecspanse.Entity{} =
@@ -237,6 +250,23 @@ defmodule Ecspanse.CommandTest do
 
       assert {:ok, %TestComponent1{value: :bar}} =
                Ecspanse.Query.fetch_component(entity, TestComponent1)
+    end
+  end
+
+  describe "update_and_fetch_component!/2" do
+    test "updates a component state and fetches it" do
+      assert %Ecspanse.Entity{} =
+               entity =
+               Ecspanse.Command.spawn_entity!(
+                 {Ecspanse.Entity, components: [{TestComponent1, [], [:tag1]}]}
+               )
+
+      assert {:ok, %TestComponent1{value: :foo} = comp} = TestComponent1.fetch(entity)
+
+      assert {:ok, %TestComponent1{value: :bar}} =
+               Ecspanse.Command.update_and_fetch_component!(comp, value: :bar)
+
+      assert {:ok, %TestComponent1{value: :bar}} = TestComponent1.fetch(entity)
     end
   end
 
