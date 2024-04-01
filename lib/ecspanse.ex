@@ -307,7 +307,7 @@ defmodule Ecspanse do
   `run_in_state` supports a single state. If a combination of states is needed to run a system, the `run_if` option can be used.
 
     ```elixir
-    > Ecspanse.add_system(
+    Ecspanse.add_system(
       ecspanse_data,
       Demo.Systems.MoveHero,
       run_if: [{Demo.States.Game, :in_market_place}]

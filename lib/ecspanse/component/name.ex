@@ -2,7 +2,7 @@ defmodule Ecspanse.Component.Name do
   @moduledoc """
   A basic name component implemented by the library.
   While this component can be used by the game logic, it serves also for debugging purposes
-  and as a way for third-party libraries to identify entities.
+  and as a way for third-party libraries to consistently identify entities.
   """
   use Ecspanse.Component,
     state: [:name]

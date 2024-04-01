@@ -7,15 +7,28 @@ defmodule Ecspanse.State do
   > #### Attention  {: .warning}
   > Under the hood, the States are just `Ecspanse.Resource` modules with a few additional constraints.
   > As a result, state transitions may happen only in synchronous systems.
-  > `set_state!/1` should not be called in async systems, as it will raise an error.
+  > `c:set_state!/1` should not be called in async systems, as it will raise an error.
 
-  State can be initialized only at startup in the `Ecspanse.setup/1` function.
-  So, the state can be used for conditionally running systems (such as `:run_in_state`, or `run_if`).
+  States can be initialized only at startup in the `c:Ecspanse.setup/1` callback.
+  The states can be used for conditionally running systems (such as `:run_in_state`, or `:run_if`).
   See `Ecspanse.add_system/3` for more information.
 
-  In the context of conditionally running systems, it is important to keep in mind that aldough the state transition
+  In the context of conditionally running systems, it is important to keep in mind that, aldough the state transition
   is synchronous and immediate, the run conditions will pick the change only for the next frame. For sensitive systems,
-  a good mitigation is to make state transition systems as `frame_end`, and run them as late in the frame as possible.
+  a good mitigation is to schedule state transition systems as `frame_end`, and run them as late in the frame as possible.
+
+  ## Options
+
+  - `:states` - required - a list of atoms with all the possible states for the state module.
+  - `:default` - required - an atom with the default state for the state module. Must be one of the states from the `:states` option.
+
+  ## Examples
+
+    ```elixir
+    defmodule Demo.States.Game do
+      use Ecspanse.State, states: [:play, :paused], default: :play
+    end
+    ```
   """
 
   @typedoc """

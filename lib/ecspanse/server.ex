@@ -66,7 +66,7 @@ defmodule Ecspanse.Server do
             frame_timer: :running | :finished,
             ecspanse_module: module(),
             system_run_conditions_map: map(),
-            startup_resources: list(Ecspanse.Resource.spec()),
+            startup_resources: list(Ecspanse.Resource.resource_spec()),
             startup_states: list(Ecspanse.State.state_spec()),
             startup_systems: list(Ecspanse.System.t()),
             frame_start_systems: list(Ecspanse.System.t()),
