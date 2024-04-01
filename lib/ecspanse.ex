@@ -298,13 +298,32 @@ defmodule Ecspanse do
   > Then the scheduler tries to execute every system in every batch.
 
   ## Conditionally running systems
-  # TODO: explain how it works
-  # explain: run conditions are evaluated at the beginning of each frame, for all systems.
-  # So any change in the running conditions will be picked up in the next frame.
 
-  # explain that run_if can be used when complex conditions are needed. For example combining mulitple states.
-  # explain that in the case of system sets, the state conditions are cumulative. Both the system set and the system conditions must be met.
-  # attention for incompatible run_in_state and run_not_in_state conditions
+  The systems can be programmed to run only if some specific conditions are met.
+  The conditions can be:
+  - state related: `run_in_state` and `run_not_in_state`
+  - custom conditions: `run_if` a function returns `true`
+
+  `run_in_state` supports a single state. If a combination of states is needed to run a system, the `run_if` option can be used.
+
+    ```elixir
+    > Ecspanse.add_system(
+      ecspanse_data,
+      Demo.Systems.MoveHero,
+      run_if: [{Demo.States.Game, :in_market_place}]
+    )
+
+    def in_market_place do
+      Demo.States.Game.get_state!() == :paused and
+      Demo.States.Location.get_state!() == :market
+    end
+    ```
+
+  It is important to nothe that the run conditions are evaluated only once per frame, at the beginning of the frame.
+  So any change in the running conditions will be picked up in the next frame.
+
+  If the system is part of a system set, and both the system and the system set have run conditions, the conditions are cumulative.
+  All the conditions must be met for the system to run.
 
   ## Examples
 
