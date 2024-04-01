@@ -1,5 +1,4 @@
 defmodule Ecspanse.CommandTest do
-  alias Credo.Test
   use ExUnit.Case
 
   defmodule TestServer1 do
@@ -229,7 +228,7 @@ defmodule Ecspanse.CommandTest do
                entity =
                Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
 
-      assert {:ok, %TestComponent2{} = comp} =
+      assert {:ok, %TestComponent2{}} =
                Ecspanse.Command.add_and_fetch_component!(entity, TestComponent2)
 
       assert {:ok, %TestComponent2{}} = TestComponent2.fetch(entity)
@@ -267,7 +266,7 @@ defmodule Ecspanse.CommandTest do
       assert {:ok, %TestComponent1{value: :bar}} =
                Ecspanse.Command.update_and_fetch_component!(comp, value: :bar)
 
-      assert {:ok, %TestComponent1{value: :bar} = comp} = TestComponent1.fetch(entity)
+      assert {:ok, %TestComponent1{value: :bar}} = TestComponent1.fetch(entity)
     end
   end
 
