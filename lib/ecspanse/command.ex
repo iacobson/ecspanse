@@ -627,7 +627,7 @@ defmodule Ecspanse.Command do
   ## Examples
 
     ```elixir
-    :ok = Ecspanse.Command.insert_resource!({Demo.Resources.Lobby, player_count: 0})
+    %Demo.Resources.Lobby{} = Ecspanse.Command.insert_resource!({Demo.Resources.Lobby, player_count: 0})
     ```
   """
   @doc group: :resources
@@ -648,7 +648,7 @@ defmodule Ecspanse.Command do
   ## Examples
 
     ```elixir
-    :ok = Ecspanse.Command.update_resource!(lobby_resource, player_count: 1)
+    %Demo.Resources.Lobby{} = Ecspanse.Command.update_resource!(lobby_resource, player_count: 1)
     ```
   """
   @doc group: :resources
@@ -670,7 +670,7 @@ defmodule Ecspanse.Command do
   ## Examples
 
     ```elixir
-    :ok = Ecspanse.Command.delete_resource!(lobby_resource)
+    %Demo.Resources.Lobby{} = Ecspanse.Command.delete_resource!(lobby_resource)
     ```
   """
   @doc group: :resources
