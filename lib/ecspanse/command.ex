@@ -737,7 +737,7 @@ defmodule Ecspanse.Command do
 
   # Create, Update, Delete components
 
-  # recieves [{Entity, opts}]
+  # receives [{Entity, opts}]
   defp apply_operation(
          %Operation{name: :spawn_entities} = operation,
          command,
@@ -1324,7 +1324,7 @@ defmodule Ecspanse.Command do
     :ok = validate_is_component(operation, component_module)
     :ok = validate_tags(operation, component_spec_tags)
 
-    # VALIDATE THE COMPOENENT IS LOCKED FOR CREATION
+    # VALIDATE THE COMPONENT IS LOCKED FOR CREATION
     :ok =
       validate_locked_component(
         operation,
@@ -1597,16 +1597,16 @@ defmodule Ecspanse.Command do
   defp validate_required_opts(_operation, _, _, _), do: :ok
 
   defp validate_entities(operation, entities) do
-    non_enitites = Enum.reject(entities, &match?(%Entity{}, &1))
+    non_entities = Enum.reject(entities, &match?(%Entity{}, &1))
 
-    case non_enitites do
+    case non_entities do
       [] ->
         :ok
 
       _ ->
         raise Error,
               {operation,
-               "Expected a list of `Ecspanse.Entity.t()` types, got: `#{Kernel.inspect(non_enitites)}`"}
+               "Expected a list of `Ecspanse.Entity.t()` types, got: `#{Kernel.inspect(non_entities)}`"}
     end
   end
 

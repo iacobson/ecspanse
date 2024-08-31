@@ -252,7 +252,7 @@ defmodule Ecspanse.Server do
     }
 
     :ets.delete_all_objects(state.events_ets_table)
-    Util.swithch_events_ets_table()
+    Util.switch_events_ets_table()
 
     send(self(), :run_next_system)
     {:noreply, state}
@@ -414,7 +414,7 @@ defmodule Ecspanse.Server do
   end
 
   # finishing the frame systems execution
-  # scheduing projections
+  # scheduling projections
   def handle_info(:finished_running_all_systems, state) do
     Task.async(fn ->
       projection_pids =
@@ -460,7 +460,7 @@ defmodule Ecspanse.Server do
 
     if state.frame_timer == :finished do
       events_ets_table = Util.events_ets_table()
-      Util.swithch_events_ets_table()
+      Util.switch_events_ets_table()
       state = %State{state | events_ets_table: events_ets_table}
 
       send(self(), :start_frame)
@@ -477,7 +477,7 @@ defmodule Ecspanse.Server do
 
     if state.status == :frame_ended do
       events_ets_table = Util.events_ets_table()
-      Util.swithch_events_ets_table()
+      Util.switch_events_ets_table()
       state = %State{state | events_ets_table: events_ets_table}
 
       send(self(), :start_frame)
@@ -522,6 +522,7 @@ defmodule Ecspanse.Server do
     Process.put(:system_execution, system.execution)
     Process.put(:system_module, system.module)
     Process.put(:locked_components, system.module.__locked_components__())
+    # TODO: put the ECS Version here
   end
 
   defp apply_operations([], state), do: state
@@ -571,10 +572,10 @@ defmodule Ecspanse.Server do
 
     system_modules = batch_systems |> List.flatten() |> Enum.map(& &1.module)
 
-    non_exising_systems = after_systems -- system_modules
+    non_existing_systems = after_systems -- system_modules
 
-    if length(non_exising_systems) > 0 do
-      raise "Systems #{Kernel.inspect(non_exising_systems)} does not exist. A system can run only after existing systems"
+    if length(non_existing_systems) > 0 do
+      raise "Systems #{Kernel.inspect(non_existing_systems)} does not exist. A system can run only after existing systems"
     end
 
     # should return a list of lists

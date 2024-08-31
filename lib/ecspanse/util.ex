@@ -38,7 +38,7 @@ defmodule Ecspanse.Util do
   end
 
   @doc false
-  def swithch_events_ets_table do
+  def switch_events_ets_table do
     [{:current, current_table}] = :ets.lookup(dual_events_ets_table(), :current)
     [new_table] = events_ets_tables() -- [current_table]
 
@@ -127,7 +127,7 @@ defmodule Ecspanse.Util do
   @doc false
   # Returns a list of tuples with entity_id, component_tags_set and component_state
   # Example: [{"entity_id", [:tag1,:tag2], %MyComponent{foo: :bar}}]
-  # Cannot be memoized as it returns the componet state, so it will be invalidated every frame multiple times.
+  # Cannot be memoized as it returns the component state, so it will be invalidated every frame multiple times.
   def list_entities_tags_state(%Ecspanse.Entity{id: entity_id}) do
     empty_set = MapSet.new()
 
