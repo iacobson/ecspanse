@@ -35,7 +35,7 @@ defmodule Ecspanse.Entity do
 
   > #### Entity ID  {: .warning}
   > The entity IDs must be unique. Attention when providing the `:id` option as part of the `entity_spec`.
-  > If the provided ID is not unique, spwaning entities will raise an error.
+  > If the provided ID is not unique, spawning entities will raise an error.
   """
   @type entity_spec :: {Entity, opts :: keyword()}
 

@@ -10,12 +10,14 @@ defmodule Ecspanse.Server do
   > Trying to create another setup module that `use Ecspanse` and
   > adding it to the supervision tree will result in an error.
   """
-  require Ex2ms
-  require Logger
+  use GenServer
 
   alias Ecspanse.Frame
   alias Ecspanse.System
   alias Ecspanse.Util
+
+  require Ex2ms
+  require Logger
 
   @typedoc "Debug server state"
   @type debug_next_frame :: {:next_frame, Ecspanse.Server.State.t()}
@@ -78,6 +80,7 @@ defmodule Ecspanse.Server do
             system_modules: MapSet.t(module()),
             last_frame_monotonic_time: integer(),
             fps_limit: non_neg_integer(),
+            ecs_version: non_neg_integer(),
             delta: non_neg_integer(),
             frame_data: Frame.t(),
             events_ets_table: atom(),
@@ -89,6 +92,7 @@ defmodule Ecspanse.Server do
       :ecspanse_module,
       :last_frame_monotonic_time,
       :fps_limit,
+      :ecs_version,
       :delta
     ]
 
@@ -108,6 +112,7 @@ defmodule Ecspanse.Server do
               system_modules: MapSet.new(),
               last_frame_monotonic_time: nil,
               fps_limit: :unlimited,
+              ecs_version: 0,
               delta: 0,
               frame_data: %Frame{},
               events_ets_table: nil,
@@ -116,8 +121,6 @@ defmodule Ecspanse.Server do
   end
 
   ### SERVER ###
-
-  use GenServer
 
   @doc false
   def start_link(payload) do
@@ -128,7 +131,7 @@ defmodule Ecspanse.Server do
   def init(payload) do
     # The main reason for using ETS tables are:
     # - keep under control the GenServer memory usage
-    # - elimitate GenServer bottlenecks. Various Systems or Queries can read directly from the ETS tables.
+    # - eliminate GenServer bottlenecks. Various Systems or Queries can read directly from the ETS tables.
 
     # This is the main ETS table that holds the components state
     # as a list of `{{Ecspanse.Entity.id(), component_module :: module()}, tags :: list(atom()),component_state :: struct()}`
@@ -156,7 +159,7 @@ defmodule Ecspanse.Server do
       write_concurrency: false
     ])
 
-    # These ETS tables stores Events as a list of event structs wraped
+    # These ETS tables stores Events as a list of event structs wrapped
     # in a tuple {{MyEventModule, key :: any()}, %MyEvent{}}.
     # There are 2 event tables that alternate every frame.
     # While the events in one are being processed, the other is being filled.
@@ -164,7 +167,7 @@ defmodule Ecspanse.Server do
     # Any process can read and write to this table.
     # But the logic responsible to write to this table should check the stored values are actually event structs.
     # Before being sent to the Systems, the events are sorted by their inserted_at timestamp, and group in batches.
-    # The batches are determined by the unicity of the event {EventModule, key} per batch.
+    # The batches are determined by the uniqueness of the event {EventModule, key} per batch.
 
     Enum.each(Util.events_ets_tables(), fn table ->
       :ets.new(table, [
@@ -187,7 +190,7 @@ defmodule Ecspanse.Server do
       write_concurrency: false
     ])
 
-    events_ets_table = Util.events_ets_tables() |> List.first()
+    events_ets_table = List.first(Util.events_ets_tables())
 
     :ets.insert(
       Util.dual_events_ets_table(),
@@ -201,6 +204,7 @@ defmodule Ecspanse.Server do
       last_frame_monotonic_time: Elixir.System.monotonic_time(:millisecond),
       delta: 0,
       fps_limit: payload.fps_limit,
+      ecs_version: payload.ecs_version,
       events_ets_table: events_ets_table
     }
 
@@ -252,7 +256,7 @@ defmodule Ecspanse.Server do
     }
 
     :ets.delete_all_objects(state.events_ets_table)
-    Util.swithch_events_ets_table()
+    Util.switch_events_ets_table()
 
     send(self(), :run_next_system)
     {:noreply, state}
@@ -312,20 +316,14 @@ defmodule Ecspanse.Server do
     {:noreply, state}
   end
 
-  # finished running strartup systems (sync) and starting the loop
-  def handle_info(
-        :run_next_system,
-        %State{scheduled_systems: [], status: :startup_systems} = state
-      ) do
+  # finished running startup systems (sync) and starting the loop
+  def handle_info(:run_next_system, %State{scheduled_systems: [], status: :startup_systems} = state) do
     send(self(), :start_frame)
     {:noreply, state}
   end
 
   # finished running systems at the beginning of the frame (sync) and scheduling the batch systems
-  def handle_info(
-        :run_next_system,
-        %State{scheduled_systems: [], status: :frame_start_systems} = state
-      ) do
+  def handle_info(:run_next_system, %State{scheduled_systems: [], status: :frame_start_systems} = state) do
     state = %{state | status: :batch_systems, scheduled_systems: state.batch_systems}
 
     send(self(), :run_next_system)
@@ -341,19 +339,13 @@ defmodule Ecspanse.Server do
   end
 
   # finished running systems at the end of the frame (sync) and scheduling the end of frame
-  def handle_info(
-        :run_next_system,
-        %State{scheduled_systems: [], status: :frame_end_systems} = state
-      ) do
+  def handle_info(:run_next_system, %State{scheduled_systems: [], status: :frame_end_systems} = state) do
     send(self(), :finished_running_all_systems)
     {:noreply, state}
   end
 
   # running batch (async) systems. This runs only for `batch_systems` status
-  def handle_info(
-        :run_next_system,
-        %State{scheduled_systems: [systems_batch | batches], status: :batch_systems} = state
-      ) do
+  def handle_info(:run_next_system, %State{scheduled_systems: [systems_batch | batches], status: :batch_systems} = state) do
     systems_batch = Enum.filter(systems_batch, &run_system?(&1, state.system_run_conditions_map))
 
     case systems_batch do
@@ -389,8 +381,7 @@ defmodule Ecspanse.Server do
   end
 
   # systems finished running and triggering next. The message is sent by the Task
-  def handle_info({ref, :finished_system_execution}, %State{await_systems: [ref]} = state)
-      when is_reference(ref) do
+  def handle_info({ref, :finished_system_execution}, %State{await_systems: [ref]} = state) when is_reference(ref) do
     Process.demonitor(ref, [:flush])
 
     state = %State{state | await_systems: []}
@@ -399,11 +390,7 @@ defmodule Ecspanse.Server do
     {:noreply, state}
   end
 
-  def handle_info(
-        {ref, :finished_system_execution},
-        %State{await_systems: system_refs} = state
-      )
-      when is_reference(ref) do
+  def handle_info({ref, :finished_system_execution}, %State{await_systems: system_refs} = state) when is_reference(ref) do
     unless ref in system_refs do
       raise "Received System message from unexpected System: #{Kernel.inspect(ref)}"
     end
@@ -414,15 +401,16 @@ defmodule Ecspanse.Server do
   end
 
   # finishing the frame systems execution
-  # scheduing projections
+  # scheduling projections
   def handle_info(:finished_running_all_systems, state) do
     Task.async(fn ->
       projection_pids =
-        DynamicSupervisor.which_children(Ecspanse.Projection.Supervisor)
+        Ecspanse.Projection.Supervisor
+        |> DynamicSupervisor.which_children()
         |> Enum.map(fn {_, pid, _, _} -> pid end)
 
-      Task.async_stream(
-        projection_pids,
+      projection_pids
+      |> Task.async_stream(
         fn pid ->
           # Ensure against race conditions when the projection was terminated
           try do
@@ -449,18 +437,14 @@ defmodule Ecspanse.Server do
   end
 
   # finished the frame projection updates
-  def handle_info(
-        {ref, :finished_projection_updates},
-        state
-      )
-      when is_reference(ref) do
+  def handle_info({ref, :finished_projection_updates}, state) when is_reference(ref) do
     Process.demonitor(ref, [:flush])
 
     state = %State{state | status: :frame_ended}
 
     if state.frame_timer == :finished do
       events_ets_table = Util.events_ets_table()
-      Util.swithch_events_ets_table()
+      Util.switch_events_ets_table()
       state = %State{state | events_ets_table: events_ets_table}
 
       send(self(), :start_frame)
@@ -477,7 +461,7 @@ defmodule Ecspanse.Server do
 
     if state.status == :frame_ended do
       events_ets_table = Util.events_ets_table()
-      Util.swithch_events_ets_table()
+      Util.switch_events_ets_table()
       state = %State{state | events_ets_table: events_ets_table}
 
       send(self(), :start_frame)
@@ -495,7 +479,7 @@ defmodule Ecspanse.Server do
     Enum.each(state.shutdown_systems, fn system ->
       task =
         Task.async(fn ->
-          prepare_system_process(system)
+          prepare_system_process(system, state)
           system.module.run(state.frame_data)
         end)
 
@@ -508,7 +492,7 @@ defmodule Ecspanse.Server do
   defp run_system(system, state) do
     %Task{ref: ref} =
       Task.async(fn ->
-        prepare_system_process(system)
+        prepare_system_process(system, state)
         system.module.schedule_run(state.frame_data)
         :finished_system_execution
       end)
@@ -517,11 +501,12 @@ defmodule Ecspanse.Server do
   end
 
   # This happens in the System process
-  defp prepare_system_process(system) do
+  defp prepare_system_process(system, state) do
     Process.put(:ecs_process_type, :system)
     Process.put(:system_execution, system.execution)
     Process.put(:system_module, system.module)
     Process.put(:locked_components, system.module.__locked_components__())
+    Process.put(:ecs_version, state.ecs_version)
   end
 
   defp apply_operations([], state), do: state
@@ -543,8 +528,7 @@ defmodule Ecspanse.Server do
 
   # batch async systems
   defp apply_operation(
-         {:add_system,
-          %System{queue: :batch_systems, module: system_module, run_after: []} = system},
+         {:add_system, %System{queue: :batch_systems, module: system_module, run_after: []} = system},
          state
        ) do
     state = validate_unique_system(system_module, state)
@@ -554,7 +538,8 @@ defmodule Ecspanse.Server do
     # should return a list of lists
     new_batch_systems = batch_system(system, batch_systems, [])
 
-    Map.put(state, :batch_systems, new_batch_systems)
+    state
+    |> Map.put(:batch_systems, new_batch_systems)
     |> Map.put(
       :system_run_conditions_map,
       add_to_system_run_conditions_map(state.system_run_conditions_map, system)
@@ -562,8 +547,7 @@ defmodule Ecspanse.Server do
   end
 
   defp apply_operation(
-         {:add_system,
-          %System{queue: :batch_systems, module: system_module, run_after: after_systems} = system},
+         {:add_system, %System{queue: :batch_systems, module: system_module, run_after: after_systems} = system},
          state
        ) do
     state = validate_unique_system(system_module, state)
@@ -571,16 +555,17 @@ defmodule Ecspanse.Server do
 
     system_modules = batch_systems |> List.flatten() |> Enum.map(& &1.module)
 
-    non_exising_systems = after_systems -- system_modules
+    non_existing_systems = after_systems -- system_modules
 
-    if length(non_exising_systems) > 0 do
-      raise "Systems #{Kernel.inspect(non_exising_systems)} does not exist. A system can run only after existing systems"
+    if length(non_existing_systems) > 0 do
+      raise "Systems #{Kernel.inspect(non_existing_systems)} does not exist. A system can run only after existing systems"
     end
 
     # should return a list of lists
     new_batch_systems = batch_system_after(system, after_systems, batch_systems, [])
 
-    Map.put(state, :batch_systems, new_batch_systems)
+    state
+    |> Map.put(:batch_systems, new_batch_systems)
     |> Map.put(
       :system_run_conditions_map,
       add_to_system_run_conditions_map(state.system_run_conditions_map, system)
@@ -588,13 +573,11 @@ defmodule Ecspanse.Server do
   end
 
   # add sequential systems to their queues
-  defp apply_operation(
-         {:add_system, %System{queue: queue, module: system_module} = system},
-         state
-       ) do
+  defp apply_operation({:add_system, %System{queue: queue, module: system_module} = system}, state) do
     state = validate_unique_system(system_module, state)
 
-    Map.put(state, queue, Map.get(state, queue) ++ [system])
+    state
+    |> Map.put(queue, Map.get(state, queue) ++ [system])
     |> Map.put(
       :system_run_conditions_map,
       add_to_system_run_conditions_map(state.system_run_conditions_map, system)
@@ -628,7 +611,7 @@ defmodule Ecspanse.Server do
     system_locked_components = system.module.__locked_components__()
 
     batch_locked_components =
-      Enum.map(batch, & &1.module.__locked_components__()) |> List.flatten()
+      batch |> Enum.map(& &1.module.__locked_components__()) |> List.flatten()
 
     if batch_locked_components -- system_locked_components == batch_locked_components do
       updated_batch = batch ++ [system]
@@ -655,37 +638,24 @@ defmodule Ecspanse.Server do
 
   # builds a map with all running conditions from all systems
   # this allows to run the conditions only per frame
-  defp add_to_system_run_conditions_map(
-         existing_conditions,
-         %{run_conditions: run_conditions} = _system
-       ) do
-    run_conditions
-    |> Enum.reduce(existing_conditions, fn condition, acc ->
-      # Adding false as initial value for the condition
-      # because this cannot run on startup systems
-      # this will be updated in the refresh_system_run_conditions_map
-      Map.put(acc, condition, false)
-    end)
+  defp add_to_system_run_conditions_map(existing_conditions, %{run_conditions: run_conditions} = _system) do
+    Enum.reduce(run_conditions, existing_conditions, fn condition, acc -> Map.put(acc, condition, false) end)
+    # Adding false as initial value for the condition
+    # because this cannot run on startup systems
+    # this will be updated in the refresh_system_run_conditions_map
   end
 
   # takes state and returns state
   defp refresh_system_run_conditions_map(state) do
-    state.system_run_conditions_map
-    |> Enum.reduce(
-      state,
-      fn {{module, function, args} = condition, _value}, state ->
-        result = apply(module, function, args)
+    Enum.reduce(state.system_run_conditions_map, state, fn {{module, function, args} = condition, _value}, state ->
+      result = apply(module, function, args)
 
-        unless is_boolean(result) do
-          raise "System run condition functions must return a boolean. Got: #{Kernel.inspect(result)}. For #{Kernel.inspect({module, function, args})}."
-        end
-
-        %State{
-          state
-          | system_run_conditions_map: Map.put(state.system_run_conditions_map, condition, result)
-        }
+      unless is_boolean(result) do
+        raise "System run condition functions must return a boolean. Got: #{Kernel.inspect(result)}. For #{Kernel.inspect({module, function, args})}."
       end
-    )
+
+      %State{state | system_run_conditions_map: Map.put(state.system_run_conditions_map, condition, result)}
+    end)
   end
 
   defp run_system?(system, run_conditions_map) do

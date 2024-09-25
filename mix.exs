@@ -1,14 +1,14 @@
 defmodule Ecspanse.MixProject do
   use Mix.Project
 
-  @version "0.9.0"
+  @version "0.10.0"
   @source_url "https://github.com/iacobson/ecspanse"
 
   def project do
     [
       app: :ecspanse,
       version: @version,
-      elixir: "~> 1.16",
+      elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       consolidate_protocols: Mix.env() != :test,
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -40,6 +40,7 @@ defmodule Ecspanse.MixProject do
       {:ex2ms, "~> 1.6"},
       {:memoize, "~> 1.4"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:styler, "~> 0.7", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.31", only: :dev, runtime: false}
     ]
   end
@@ -54,11 +55,14 @@ defmodule Ecspanse.MixProject do
       extras: [
         "guides/getting_started.md",
         "guides/tutorial.md",
+        "guides/save_load.md",
         "CHANGELOG.md"
       ],
       groups_for_docs: [
         Generic: &(&1[:group] == :generic),
         Entities: &(&1[:group] == :entities),
+        Export: &(&1[:group] == :export),
+        Restore: &(&1[:group] == :restore),
         Relationships: &(&1[:group] == :relationships),
         Components: &(&1[:group] == :components),
         Resources: &(&1[:group] == :resources),
@@ -74,7 +78,8 @@ defmodule Ecspanse.MixProject do
         Ecspanse.Query,
         Ecspanse.Command,
         Ecspanse.Template,
-        Ecspanse.Projection
+        Ecspanse.Projection,
+        Ecspanse.Snapshot
       ],
       groups_for_modules: [
         API: [
@@ -111,12 +116,13 @@ defmodule Ecspanse.MixProject do
           Ecspanse.Template.Event,
           Ecspanse.Template.Event.Timer
         ],
-        Projections: [Ecspanse.Projection]
+        Projections: [Ecspanse.Projection],
+        Snapshots: [Ecspanse.Snapshot]
       ]
     ]
   end
 
-  defp package() do
+  defp package do
     [
       maintainers: ["Dorian Iacobescu"],
       licenses: ["Apache-2.0"],
