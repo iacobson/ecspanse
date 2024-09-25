@@ -9,12 +9,12 @@ defmodule Ecspanse.Query do
 
   use Memoize
 
-  require Ex2ms
-
   alias __MODULE__
   alias Ecspanse.Component
   alias Ecspanse.Entity
   alias Ecspanse.Util
+
+  require Ex2ms
 
   @typedoc "The query preparation struct."
   @type t :: %Query{
@@ -72,7 +72,7 @@ defmodule Ecspanse.Query do
       """
 
       if system_module do
-        msg <> system_msg
+        msg <> " " <> system_msg
       else
         msg
       end
@@ -95,7 +95,7 @@ defmodule Ecspanse.Query do
   Also, optional components can be queries, by adding the `:opt` key.
   The optional components should be placed at the end of the tuple.
 
-  The restults will be returned in the same order as the components in the tuple. This makes it easy to use pattern matching on the result.
+  The results will be returned in the same order as the components in the tuple. This makes it easy to use pattern matching on the result.
 
   ### 2. filters
 
@@ -137,7 +137,7 @@ defmodule Ecspanse.Query do
   @doc group: :generic
   @spec select(component_modules :: tuple(), keyword()) :: t()
   def select(component_modules_tuple, filters \\ []) do
-    comp = Tuple.to_list(component_modules_tuple) |> List.flatten()
+    comp = component_modules_tuple |> Tuple.to_list() |> List.flatten()
 
     # The order is essential here, because the result will be pattern_matched on the initial tuple
     {select_comp, select_opt_comp} =
@@ -176,12 +176,12 @@ defmodule Ecspanse.Query do
 
     :ok = validate_filters(filters)
 
-    for_entities = Keyword.get(filters, :for, []) |> Enum.uniq()
-    not_for_entities = Keyword.get(filters, :not_for, []) |> Enum.uniq()
-    for_children_of = Keyword.get(filters, :for_children_of, []) |> Enum.uniq()
-    for_descendants_of = Keyword.get(filters, :for_descendants_of, []) |> Enum.uniq()
-    for_parents_of = Keyword.get(filters, :for_parents_of, []) |> Enum.uniq()
-    for_ancestors_of = Keyword.get(filters, :for_ancestors_of, []) |> Enum.uniq()
+    for_entities = filters |> Keyword.get(:for, []) |> Enum.uniq()
+    not_for_entities = filters |> Keyword.get(:not_for, []) |> Enum.uniq()
+    for_children_of = filters |> Keyword.get(:for_children_of, []) |> Enum.uniq()
+    for_descendants_of = filters |> Keyword.get(:for_descendants_of, []) |> Enum.uniq()
+    for_parents_of = filters |> Keyword.get(:for_parents_of, []) |> Enum.uniq()
+    for_ancestors_of = filters |> Keyword.get(:for_ancestors_of, []) |> Enum.uniq()
 
     :ok = validate_entities(for_entities)
 
@@ -210,7 +210,7 @@ defmodule Ecspanse.Query do
     components_state_ets_table =
       Util.components_state_ets_table()
 
-    # filter by entity ids, if any. Retruns a stream
+    # filter by entity ids, if any. Returns a stream
     entities_with_components_stream =
       entities_with_components_stream(query)
 
@@ -228,14 +228,14 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  Returns a single tuple wiht components for a `t:t/0` query. Returns `nil` if no result was found. Raises if more than one entry.
+  Returns a single tuple with components for a `t:t/0` query. Returns `nil` if no result was found. Raises if more than one entry.
 
   See the `select/2` function for more info.
   """
   @doc group: :generic
   @spec one(t()) :: components_state :: tuple() | nil
   def one(query) do
-    case stream(query) |> Enum.to_list() do
+    case query |> stream() |> Enum.to_list() do
       [result_tuple] -> result_tuple
       [] -> nil
       results -> raise Error, "Expected to return one result, got: `#{Kernel.inspect(results)}`"
@@ -255,7 +255,7 @@ defmodule Ecspanse.Query do
   """
   @doc group: :entities
   @spec fetch_entity(Ecspanse.Entity.id()) :: {:ok, Ecspanse.Entity.t()} | {:error, :not_found}
-  def fetch_entity(entity_id) do
+  def fetch_entity(entity_id) when is_binary(entity_id) do
     f =
       Ex2ms.fun do
         {{^entity_id, _component_module}, _component_tags, _component_state} -> ^entity_id
@@ -544,7 +544,8 @@ defmodule Ecspanse.Query do
 
     tags_set = MapSet.new(tags)
 
-    Ecspanse.Util.list_entities_tags_state(entity)
+    entity
+    |> Ecspanse.Util.list_entities_tags_state()
     |> Stream.filter(fn {_component_entity_id, component_tags_set, _state} ->
       MapSet.subset?(tags_set, component_tags_set)
     end)
@@ -573,7 +574,8 @@ defmodule Ecspanse.Query do
     entity_ids = Enum.map(entities, & &1.id)
     table = Util.components_state_ets_table()
 
-    Ecspanse.Util.filter_entities_components_tags(tags)
+    tags
+    |> Ecspanse.Util.filter_entities_components_tags()
     |> Stream.filter(fn {entity_id, _comp_module, _tags_set} ->
       entity_id in entity_ids
     end)
@@ -811,15 +813,14 @@ defmodule Ecspanse.Query do
   """
   @doc group: :components
   @spec has_components?(Ecspanse.Entity.t(), list(module())) :: boolean()
-  def has_components?(entity, component_module_list)
-      when is_list(component_module_list) do
+  def has_components?(entity, component_module_list) when is_list(component_module_list) do
     entities_components = Ecspanse.Util.list_entities_components()
 
     component_module_list -- Map.get(entities_components, entity.id, []) == []
   end
 
   @doc """
-  Reurns `true` if a given entity is a child of another entity.
+  Returns `true` if a given entity is a child of another entity.
   ## Examples
 
     ```elixir
@@ -834,7 +835,7 @@ defmodule Ecspanse.Query do
   end
 
   @doc """
-  Reurns `true` if a given entity is a parent of another entity.
+  Returns `true` if a given entity is a parent of another entity.
 
   ## Examples
 
@@ -875,8 +876,7 @@ defmodule Ecspanse.Query do
   """
   @doc group: :relationships
   @spec has_children_with_components?(Ecspanse.Entity.t(), list(module())) :: boolean()
-  def has_children_with_components?(entity, component_module_list)
-      when is_list(component_module_list) do
+  def has_children_with_components?(entity, component_module_list) when is_list(component_module_list) do
     memo_has_children_with_components?(entity, component_module_list)
   end
 
@@ -885,7 +885,9 @@ defmodule Ecspanse.Query do
     max_waiter: 1000,
     waiter_sleep_ms: 0 do
     components =
-      select(List.to_tuple(component_module_list), for_children_of: [entity])
+      component_module_list
+      |> List.to_tuple()
+      |> select(for_children_of: [entity])
       |> stream()
       |> Enum.to_list()
 
@@ -919,8 +921,7 @@ defmodule Ecspanse.Query do
   """
   @doc group: :relationships
   @spec has_parents_with_components?(Ecspanse.Entity.t(), list(module())) :: boolean()
-  def has_parents_with_components?(entity, component_module_list)
-      when is_list(component_module_list) do
+  def has_parents_with_components?(entity, component_module_list) when is_list(component_module_list) do
     memo_has_parents_with_components?(entity, component_module_list)
   end
 
@@ -929,7 +930,9 @@ defmodule Ecspanse.Query do
     max_waiter: 1000,
     waiter_sleep_ms: 0 do
     components =
-      select(List.to_tuple(component_module_list), for_parents_of: [entity])
+      component_module_list
+      |> List.to_tuple()
+      |> select(for_parents_of: [entity])
       |> stream()
       |> Enum.to_list()
 
@@ -1049,7 +1052,8 @@ defmodule Ecspanse.Query do
   end
 
   defp list_children_entities(entities) do
-    select({Component.Children}, for: entities)
+    {Component.Children}
+    |> select(for: entities)
     |> stream()
     |> Stream.map(fn {children} -> children.entities end)
     |> Stream.concat()
@@ -1061,7 +1065,8 @@ defmodule Ecspanse.Query do
 
   defp list_descendants_entities(entities, acc) do
     children =
-      select({Component.Children}, for: entities)
+      {Component.Children}
+      |> select(for: entities)
       |> stream()
       |> Stream.map(fn {%Component.Children{entities: children}} -> children end)
       |> Enum.concat()
@@ -1074,7 +1079,8 @@ defmodule Ecspanse.Query do
   end
 
   defp list_parents_entities(entities) do
-    select({Component.Parents}, for: entities)
+    {Component.Parents}
+    |> select(for: entities)
     |> stream()
     |> Stream.map(fn {parents} -> parents.entities end)
     |> Stream.concat()
@@ -1086,7 +1092,8 @@ defmodule Ecspanse.Query do
 
   defp list_ancestors_entities(entities, acc) do
     parents =
-      select({Component.Parents}, for: entities)
+      {Component.Parents}
+      |> select(for: entities)
       |> stream()
       |> Stream.map(fn {%Component.Parents{entities: parents}} -> parents end)
       |> Enum.concat()
@@ -1099,27 +1106,27 @@ defmodule Ecspanse.Query do
   end
 
   defp filter_for_entities([]) do
-    Ecspanse.Util.list_entities_components()
-    |> Stream.map(fn {k, v} -> {k, v} end)
+    Stream.map(Ecspanse.Util.list_entities_components(), fn {k, v} -> {k, v} end)
   end
 
   defp filter_for_entities(entities) do
     entity_ids = Enum.map(entities, & &1.id)
 
-    Ecspanse.Util.list_entities_components()
-    |> Stream.filter(fn {entity_id, _component_modules} -> entity_id in entity_ids end)
+    Stream.filter(Ecspanse.Util.list_entities_components(), fn {entity_id, _component_modules} ->
+      entity_id in entity_ids
+    end)
   end
 
   defp filter_not_for_entities([]) do
-    Ecspanse.Util.list_entities_components()
-    |> Stream.map(fn {k, v} -> {k, v} end)
+    Stream.map(Ecspanse.Util.list_entities_components(), fn {k, v} -> {k, v} end)
   end
 
   defp filter_not_for_entities(entities) do
     entity_ids = Enum.map(entities, & &1.id)
 
-    Ecspanse.Util.list_entities_components()
-    |> Stream.reject(fn {entity_id, _component_modules} -> entity_id in entity_ids end)
+    Stream.reject(Ecspanse.Util.list_entities_components(), fn {entity_id, _component_modules} ->
+      entity_id in entity_ids
+    end)
   end
 
   defp filter_by_components([], _entities_with_components_stream, entity_ids) do
@@ -1207,12 +1214,7 @@ defmodule Ecspanse.Query do
   end
 
   # add optional components
-  defp add_select_optional_components(
-         select_tuple,
-         comp_modules,
-         entity_id,
-         components_state_ets_table
-       ) do
+  defp add_select_optional_components(select_tuple, comp_modules, entity_id, components_state_ets_table) do
     Enum.reduce(comp_modules, select_tuple, fn comp_module, acc ->
       result =
         try do
@@ -1236,14 +1238,16 @@ defmodule Ecspanse.Query do
 
   defp validate_filters(filters) do
     res =
-      [
-        Keyword.get(filters, :for),
-        Keyword.get(filters, :not_for),
-        Keyword.get(filters, :for_children_of),
-        Keyword.get(filters, :for_descendants_of),
-        Keyword.get(filters, :for_parents_of)
-      ]
-      |> Enum.reject(&is_nil/1)
+      Enum.reject(
+        [
+          Keyword.get(filters, :for),
+          Keyword.get(filters, :not_for),
+          Keyword.get(filters, :for_children_of),
+          Keyword.get(filters, :for_descendants_of),
+          Keyword.get(filters, :for_parents_of)
+        ],
+        &is_nil/1
+      )
 
     if length(res) > 1 do
       raise Error,
@@ -1258,15 +1262,15 @@ defmodule Ecspanse.Query do
       raise Error, "Expected `for:` entities to be a list, got: `#{Kernel.inspect(entities)}`"
     end
 
-    non_enitites = Enum.reject(entities, &match?(%Entity{}, &1))
+    non_entities = Enum.reject(entities, &match?(%Entity{}, &1))
 
-    case non_enitites do
+    case non_entities do
       [] ->
         :ok
 
       _ ->
         raise Error,
-              "Expected to be `Ecspanse.Entity.t()` types, got: `#{Kernel.inspect(non_enitites)}`"
+              "Expected to be `Ecspanse.Entity.t()` types, got: `#{Kernel.inspect(non_entities)}`"
     end
   end
 

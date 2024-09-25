@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.10.0 (2024-09-25)
+
+### Features
+
+- introduces `Ecspanse.Snapshot` to enable custom save and load functionalities.
+  - `use Ecspanse` accepts now the `:version` option to ensure backwards compatibility when restoring entities and resources.
+  - `use Ecspanse.Component` and `use Ecspanse.Resource` accept now the `:export_filter` option.
+- new [guides section](https://hexdocs.pm/ecspanse/save_load.html) for save and load.
+
 ## v0.9.0 (2024-03-30)
 
 ### Breaking

@@ -4,11 +4,12 @@ defmodule Ecspanse.Util do
   # should not be exposed in the docs
 
   use Memoize
+
   require Ex2ms
 
   @doc false
   def build_entity(id) do
-    Ecspanse.Entity |> struct(id: id)
+    struct(Ecspanse.Entity, id: id)
   end
 
   @doc false
@@ -61,7 +62,8 @@ defmodule Ecspanse.Util do
       end
 
     try do
-      :ets.select(components_state_ets_table(), f)
+      components_state_ets_table()
+      |> :ets.select(f)
       |> Enum.group_by(fn {k, _v} -> k end, fn {_k, v} -> v end)
     rescue
       e ->
@@ -176,18 +178,16 @@ defmodule Ecspanse.Util do
   end
 
   @doc false
+  # try, because an invalid module would not implement this function
   def validate_ecs_type(module, type, exception, attributes) do
-    # try, because an invalid module would not implement this function
-    try do
-      if is_atom(module) && Code.ensure_compiled!(module) && module.__ecs_type__() == type do
-        :ok
-      else
-        raise "validation error"
-      end
-    rescue
-      _exception ->
-        reraise exception, attributes, __STACKTRACE__
+    if is_atom(module) && Code.ensure_compiled!(module) && module.__ecs_type__() == type do
+      :ok
+    else
+      raise "validation error"
     end
+  rescue
+    _exception ->
+      reraise exception, attributes, __STACKTRACE__
   end
 
   @doc false
