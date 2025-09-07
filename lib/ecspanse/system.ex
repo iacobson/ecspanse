@@ -19,7 +19,7 @@ defmodule Ecspanse.System do
   Resources can be created, updated, and deleted only by systems that are executed synchronously.
 
   There are some special systems that are created automatically by the framework:
-  - `Ecspanse.System.CreateDefaultResources` - startup system that creates the default framework resources.
+  - `Ecspanse.System.CreateStartupResources` - startup system that creates the default framework resources, states, and custom resources inserted at startup.
   - `Ecspanse.System.Debug` - used by the `debug/0` function.
   - `Ecspanse.System.Timer` - tracks and updates all components using the `Ecspanse.Template.Component.Timer` template.
   - `Ecspanse.System.TrackFPS` - tracks and updates the `Ecspanse.Resource.FPS` resource.
@@ -121,12 +121,17 @@ defmodule Ecspanse.System do
 
   > #### This function is intended for use only in testing and development environments.  {: .warning}
   """
-  @spec debug() :: :ok
-  def debug do
+  @spec debug(opts :: keyword()) :: :ok
+  def debug(opts \\ []) do
+    system_execution = Keyword.get(opts, :system_execution, :sync)
+    system_module = Keyword.get(opts, :system_module, Ecspanse.System.Debug)
+    ecs_version = Keyword.get(opts, :ecs_version, 0)
+
     Process.put(:ecs_process_type, :system)
-    Process.put(:system_execution, :sync)
-    Process.put(:system_module, Ecspanse.System.Debug)
-    Process.put(:locked_components, Ecspanse.System.Debug.__locked_components__())
+    Process.put(:system_execution, system_execution)
+    Process.put(:system_module, system_module)
+    Process.put(:locked_components, system_module.__locked_components__())
+    Process.put(:ecs_version, ecs_version)
 
     :ok
   end
@@ -173,8 +178,7 @@ defmodule Ecspanse.System do
   @spec execute_async(Enumerable.t(), (term() -> term()), keyword()) :: :ok
   def execute_async(enumerable, fun, opts \\ [])
 
-  def execute_async(enumerable, fun, opts)
-      when is_function(fun, 1) and is_list(opts) do
+  def execute_async(enumerable, fun, opts) when is_function(fun, 1) and is_list(opts) do
     concurrent = Keyword.get(opts, :concurrent, System.schedulers_online())
 
     system_process_dict = Process.get()
@@ -222,9 +226,10 @@ defmodule Ecspanse.System do
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], location: :keep do
-      import Ecspanse.System, only: [execute_async: 3, execute_async: 2]
-      import Ecspanse.Query
       import Ecspanse.Command
+      import Ecspanse.Query
+      import Ecspanse.System, only: [execute_async: 3, execute_async: 2]
+
       locked_components = Keyword.get(opts, :lock_components, [])
       event_modules = Keyword.get(opts, :event_subscriptions, [])
 
@@ -238,7 +243,7 @@ defmodule Ecspanse.System do
 
         event_modules ->
           raise ArgumentError,
-                "#{inspect(__MODULE__)} :event_subscriptions option must be a list of event modules. Got: #{inspect(event_modules)}"
+                "#{Kernel.inspect(__MODULE__)} :event_subscriptions option must be a list of event modules. Got: #{Kernel.inspect(event_modules)}"
       end
 
       Enum.each(locked_components, fn
@@ -247,7 +252,7 @@ defmodule Ecspanse.System do
             component,
             :component,
             ArgumentError,
-            "All modules provided to the #{inspect(__MODULE__)} System :lock_components option must be Components. #{inspect(component)} is not a Component"
+            "All modules provided to the #{Kernel.inspect(__MODULE__)} System :lock_components option must be Components. #{Kernel.inspect(component)} is not a Component"
           )
       end)
 

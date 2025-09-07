@@ -1,5 +1,107 @@
 # Changelog
 
+## v0.10.0 (2024-09-25)
+
+### Features
+
+- introduces `Ecspanse.Snapshot` to enable custom save and load functionalities.
+  - `use Ecspanse` accepts now the `:version` option to ensure backwards compatibility when restoring entities and resources.
+  - `use Ecspanse.Component` and `use Ecspanse.Resource` accept now the `:export_filter` option.
+- new [guides section](https://hexdocs.pm/ecspanse/save_load.html) for save and load.
+
+## v0.9.0 (2024-03-30)
+
+### Breaking
+
+- removes `Ecspanse.Resource.State` in favor of `Ecspanse.State` functionality.
+
+#### Replacing the old `Ecspanse.Resource.State` with `Ecspanse.State`
+
+##### Creating a new state
+
+```elixir
+defmodule Demo.States.Game do
+  use Ecspanse.State, states: [:play, :paused], default: :play
+end
+```
+
+Multiple states can be defined in the same way:
+
+```elixir
+defmodule Demo.States.Area do
+  use Ecspanse.State, states: [:dungeon, :market, :forrest], default: :forrest
+end
+```
+
+##### Conditionally running systems
+
+Old code:
+
+```elixir
+Ecspanse.add_system(
+  ecspanse_data,
+  Demo.Systems.MoveHero,
+  run_in_state: [:play]
+)
+```
+
+New code:
+
+```elixir
+Ecspanse.add_system(
+  ecspanse_data,
+  Demo.Systems.MoveHero,
+  run_in_state: {Demo.States.Game, :play}
+)
+```
+
+##### Getting and setting states
+
+Old code:
+
+```elixir
+{:ok, %Ecspanse.Resource.State{value: state}} = Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
+Ecspanse.Command.update_resource!(Ecspanse.Resource.State, value: :paused)
+```
+
+New code:
+
+```elixir
+:play == Demo.States.Game.get_state!()
+
+# Attention! The system running this command must be synchronous.
+:ok = Demo.States.Game.set_state!(:paused)
+```
+
+##### Listening to state changes
+
+```elixir
+defmodule Demo.Systems.OnGamePaused do
+  use Ecspanse.System, event_subscriptions: [Ecspanse.Event.StateTransition]
+
+  def run(%Ecspanse.Event.StateTransition{module: Demo.States.Game, previous_state: _, current_state: :paused}) do
+    # logic
+  end
+
+  def run(_event), do: :ok
+end
+
+```
+
+### Features
+
+- allows inserting resources at startup with `Ecspanse.insert_resource/2`
+- allows state init at startup with `Ecspanse.init_state/2`
+- introduces `Ecspanse.State` state functionalities. See the breaking changes for more details.
+- new library built-in `Ecspanse.Event.StateTransition` event
+- new library built-in `Ecspanse.Component.Name` component
+
+### Improvements
+
+- `Ecspanse.Query.entity_exists?/1` to check if an entity still exists
+- `Ecspanse.Command.add_and_fetch_component!/2` wrapper to return a component after creation
+- `Ecspanse.Command.update_and_fetch_component!/2` wrapper to return a component after update
+
 ## v0.8.1 (2023-12-22)
 
 ### Improvements
@@ -69,7 +171,7 @@
 
 ### Breaking
 
-- removed the automatically generated events: `Ecspanse.Event.{ComponentCreated, ComponentUpdated, ComponentDeleted, ResourceCreated, ResourceUpdated, ResourceDeleted}`. Use custom emitted events or short-lived components instead.
+- removes the automatically generated events: `Ecspanse.Event.{ComponentCreated, ComponentUpdated, ComponentDeleted, ResourceCreated, ResourceUpdated, ResourceDeleted}`. Use custom emitted events or short-lived components instead.
 
 ### Improvements
 
@@ -111,7 +213,7 @@
 
 ### Features
 
-- introducing `Ecspanse.Template.Component` and `Ecspanse.Template.Event` to simplify the creation of related components and events.
+- introduces `Ecspanse.Template.Component` and `Ecspanse.Template.Event` to simplify the creation of related components and events.
 - adds a new query `Ecspanse.Query.fetch_component/2` to fetch a system's component by a list of tags.
 
 ## v0.1.2 (2023-08-14)

@@ -4,11 +4,12 @@ defmodule Ecspanse.Util do
   # should not be exposed in the docs
 
   use Memoize
+
   require Ex2ms
 
   @doc false
   def build_entity(id) do
-    Ecspanse.Entity |> struct(id: id)
+    struct(Ecspanse.Entity, id: id)
   end
 
   @doc false
@@ -38,7 +39,7 @@ defmodule Ecspanse.Util do
   end
 
   @doc false
-  def swithch_events_ets_table do
+  def switch_events_ets_table do
     [{:current, current_table}] = :ets.lookup(dual_events_ets_table(), :current)
     [new_table] = events_ets_tables() -- [current_table]
 
@@ -61,7 +62,8 @@ defmodule Ecspanse.Util do
       end
 
     try do
-      :ets.select(components_state_ets_table(), f)
+      components_state_ets_table()
+      |> :ets.select(f)
       |> Enum.group_by(fn {k, _v} -> k end, fn {_k, v} -> v end)
     rescue
       e ->
@@ -127,7 +129,7 @@ defmodule Ecspanse.Util do
   @doc false
   # Returns a list of tuples with entity_id, component_tags_set and component_state
   # Example: [{"entity_id", [:tag1,:tag2], %MyComponent{foo: :bar}}]
-  # Cannot be memoized as it returns the componet state, so it will be invalidated every frame multiple times.
+  # Cannot be memoized as it returns the component state, so it will be invalidated every frame multiple times.
   def list_entities_tags_state(%Ecspanse.Entity{id: entity_id}) do
     empty_set = MapSet.new()
 
@@ -150,16 +152,15 @@ defmodule Ecspanse.Util do
   end
 
   @doc false
-  def run_system_in_state(run_in_state) do
-    {:ok, %Ecspanse.Resource.State{value: state}} =
-      Ecspanse.Query.fetch_resource(Ecspanse.Resource.State)
+  def run_system_in_state(state_module, run_in_state) do
+    current_state = state_module.get_state!()
 
-    run_in_state == state
+    run_in_state == current_state
   end
 
   @doc false
-  def run_system_not_in_state(run_not_in_state) do
-    not run_system_in_state(run_not_in_state)
+  def run_system_not_in_state(state_module, run_not_in_state) do
+    not run_system_in_state(state_module, run_not_in_state)
   end
 
   @doc false
@@ -169,7 +170,7 @@ defmodule Ecspanse.Util do
         event_module,
         :event,
         ArgumentError,
-        "The module #{inspect(event_module)} must be an event."
+        "The module #{Kernel.inspect(event_module)} must be an event."
       )
     end)
 
@@ -177,18 +178,16 @@ defmodule Ecspanse.Util do
   end
 
   @doc false
+  # try, because an invalid module would not implement this function
   def validate_ecs_type(module, type, exception, attributes) do
-    # try, because an invalid module would not implement this function
-    try do
-      if is_atom(module) && Code.ensure_compiled!(module) && module.__ecs_type__() == type do
-        :ok
-      else
-        raise "validation error"
-      end
-    rescue
-      _exception ->
-        reraise exception, attributes, __STACKTRACE__
+    if is_atom(module) && Code.ensure_compiled!(module) && module.__ecs_type__() == type do
+      :ok
+    else
+      raise "validation error"
     end
+  rescue
+    _exception ->
+      reraise exception, attributes, __STACKTRACE__
   end
 
   @doc false

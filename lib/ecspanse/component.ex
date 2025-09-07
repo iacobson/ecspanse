@@ -4,7 +4,7 @@ defmodule Ecspanse.Component do
   The components are defined by invoking `use Ecspanse.Component` in their module definition.
 
   An entity cannot exist without at least a component.
-  And the other way around, a component cannot exitst without being allocated to an entity.
+  And the other way around, a component cannot exist without being allocated to an entity.
   The components hold their own state, and can also be tagged for easy grouping.
 
   There are two ways of providing the components with their initial state and tags:
@@ -30,9 +30,6 @@ defmodule Ecspanse.Component do
     Ecspanse.Command.add_component!(hero_entity, {Demo.Components.Position, [x: 7, y: 2], [:map]})
     ```
 
-  After their creation, the components become structs with the fields defined in the `state` option of the spec, plus some metadata added by the framework. Components can also be used
-  as an Entity lable, without state.
-
   After being created, components become structs with the provided fields, along with some metadata added by the framework.
   Components can also be used as an entity label, without state.
 
@@ -45,10 +42,15 @@ defmodule Ecspanse.Component do
   - `:state` - a list with all the component state struct keys and their initial values (if any).
   For example: `[:amount, max_amount: 100]`
   - `:tags` - list of atoms that act as tags for the current component. Defaults to [].
+  - `:export_filter` - :none | :component | :entity - indicates if the component should be exported.
+  Defaults to `:none`. See `Ecspanse.Snapshot` for details.
+    - `:none` - no filter. The component will be exported.
+    - `:component` - the component will not be exported.
+    - `:entity` - the whole entity containing the component will not be exported.
 
   > #### Tags  {: .info}
   > Tags can be added at compile time, and at runtime **only** when creating a new component.
-  > They cannot be eddited or removed later on for the existing component.
+  > They cannot be edited or removed later on for the existing component.
   >
   > The List of tags added at compile time is merged with the one provided at run time.
   """
@@ -110,11 +112,11 @@ defmodule Ecspanse.Component do
   ## Examples:
 
     ``` elixir
-      {:ok, %Demo.Components.Position{} = position_comopnent} = Demo.Components.Position.fetch(hero_entity)
+      {:ok, %Demo.Components.Position{} = position_component} = Demo.Components.Position.fetch(hero_entity)
 
       # it's the same as:
 
-      {:ok, %Demo.Components.Position{} = position_comopnent} = Ecspanse.Query.fetch_component(hero_entity, Demo.Components.Position)
+      {:ok, %Demo.Components.Position{} = position_component} = Ecspanse.Query.fetch_component(hero_entity, Demo.Components.Position)
     ```
   """
   @doc group: :implemented
@@ -124,7 +126,7 @@ defmodule Ecspanse.Component do
   @doc """
   Lists all components of the current type for all entities.
 
-  > #### Implemented Callback  {: .info}
+  > #### Implemented Callback  {: .tip}
   > This callback is implemented by the library and can be used as such.
 
   ## Examples:
@@ -160,11 +162,12 @@ defmodule Ecspanse.Component do
     @opaque t :: %__MODULE__{
               entity: Ecspanse.Entity.t(),
               module: module(),
-              tags: MapSet.t(atom())
+              tags: MapSet.t(atom()),
+              export_filter: :none | :component | :entity
             }
 
-    @enforce_keys [:entity, :module]
-    defstruct entity: nil, module: nil, tags: []
+    @enforce_keys [:entity, :module, :export_filter]
+    defstruct entity: nil, module: nil, tags: [], export_filter: :none
   end
 
   defmacro __using__(opts) do
@@ -172,25 +175,33 @@ defmodule Ecspanse.Component do
       @behaviour Ecspanse.Component
 
       tags = Keyword.get(opts, :tags, [])
+      export_filter = Keyword.get(opts, :export_filter, :none)
 
       unless is_list(tags) && Enum.all?(tags, &is_atom/1) do
         raise ArgumentError,
-              "Invalid tags for Component: #{inspect(__MODULE__)}. The `:tags` option must be a list of atoms."
+              "Invalid tags for Component: #{Kernel.inspect(__MODULE__)}. The `:tags` option must be a list of atoms."
+      end
+
+      unless export_filter in [:none, :component, :entity] do
+        raise ArgumentError,
+              "Invalid export_filter option for Component: #{Kernel.inspect(__MODULE__)}. The `:export_filter` option must be :none | :component | :entity."
       end
 
       Module.register_attribute(__MODULE__, :ecs_type, accumulate: false)
       Module.register_attribute(__MODULE__, :tags, accumulate: false)
+      Module.register_attribute(__MODULE__, :export_filter, accumulate: false)
       Module.put_attribute(__MODULE__, :ecs_type, :component)
       Module.put_attribute(__MODULE__, :tags, tags)
+      Module.put_attribute(__MODULE__, :export_filter, export_filter)
 
       state = Keyword.get(opts, :state, [])
 
       unless is_list(state) do
         raise ArgumentError,
-              "Invalid state for Component: #{inspect(__MODULE__)}. The `:state` option must be a list with all the Component state struct keys and their initial values (if any). Eg: [:foo, :bar, baz: 1]"
+              "Invalid state for Component: #{Kernel.inspect(__MODULE__)}. The `:state` option must be a list with all the Component state struct keys and their initial values (if any). Eg: [:foo, :bar, baz: 1]"
       end
 
-      state = state |> Keyword.put(:__meta__, nil)
+      state = Keyword.put(state, :__meta__, nil)
 
       @enforce_keys [:__meta__]
       defstruct state
@@ -208,6 +219,11 @@ defmodule Ecspanse.Component do
         @tags
       end
 
+      @doc false
+      def __export_filter__ do
+        @export_filter
+      end
+
       @impl Ecspanse.Component
       def fetch(entity) do
         Ecspanse.Query.fetch_component(entity, __MODULE__)
@@ -215,7 +231,8 @@ defmodule Ecspanse.Component do
 
       @impl Ecspanse.Component
       def list do
-        Ecspanse.Query.select({__MODULE__})
+        {__MODULE__}
+        |> Ecspanse.Query.select()
         |> Ecspanse.Query.stream()
         |> Stream.map(fn {component} -> component end)
         |> Enum.to_list()

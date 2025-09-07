@@ -20,9 +20,6 @@ defmodule Ecspanse.Command do
 
   """
 
-  require Logger
-  require Ex2ms
-
   alias __MODULE__
   alias Ecspanse.Component
   alias Ecspanse.Entity
@@ -30,14 +27,16 @@ defmodule Ecspanse.Command do
   alias Ecspanse.Resource
   alias Ecspanse.Util
 
+  require Ex2ms
+  require Logger
+
   defmodule Operation do
     @moduledoc false
 
     @type t :: %__MODULE__{
             name: name(),
             system: module(),
-            entities_components:
-              list(%{(entity_id :: binary()) => list(component_module :: module())}),
+            entities_components: list(%{(entity_id :: binary()) => list(component_module :: module())}),
             system_execution: atom(),
             locked_components: list()
           }
@@ -57,6 +56,11 @@ defmodule Ecspanse.Command do
             | :insert_resource
             | :update_resource
             | :delete_resource
+            | :export_entities
+            | :restore_entities
+            | :export_resources
+            | :restore_resources
+            | :invalid_relationships
 
     defstruct name: nil,
               system: nil,
@@ -72,8 +76,8 @@ defmodule Ecspanse.Command do
     @impl true
     def exception({%Ecspanse.Command.Operation{} = operation, message}) do
       msg = """
-      System: #{inspect(operation.system)}
-      Operation: #{inspect(operation.name)}
+      System: #{Kernel.inspect(operation.system)}
+      Operation: #{Kernel.inspect(operation.name)}
       Message: #{message}
       """
 
@@ -226,7 +230,7 @@ defmodule Ecspanse.Command do
 
   > #### Entity ID  {: .warning}
   > The entity IDs must be unique. Attention when providing the `:id` option.
-  > If the provided ID is not unique, clonning the entity will raise an error.
+  > If the provided ID is not unique, cloning the entity will raise an error.
 
   ## Examples
 
@@ -247,9 +251,7 @@ defmodule Ecspanse.Command do
 
     case Keyword.fetch(opts, :id) do
       {:ok, entity_id} when is_binary(entity_id) ->
-        spawn_entity!(
-          {Ecspanse.Entity, id: entity_id, components: component_specs, children: [], parents: []}
-        )
+        spawn_entity!({Ecspanse.Entity, id: entity_id, components: component_specs, children: [], parents: []})
 
       _ ->
         spawn_entity!({Ecspanse.Entity, components: component_specs, children: [], parents: []})
@@ -269,17 +271,17 @@ defmodule Ecspanse.Command do
 
   > #### Entity ID  {: .warning}
   > The entity IDs must be unique. Attention when providing the `:id` option.
-  > If the provided ID is not unique, clonning the entity will raise an error.
+  > If the provided ID is not unique, cloning the entity will raise an error.
 
   The cloned descendants entities will receive a random UUID as ID by default.
 
   ## Cloning descendants
 
-  The deep clonning operates only for the descendants of the entity.
+  The deep cloning operates only for the descendants of the entity.
   If any of the descendants has a parent that is not a descendant of the entity,
   the parent will not be cloned or referenced.
 
-  If this is a desired behaviour, the parents should be added manually after the deep clonning.
+  If this is a desired behaviour, the parents should be added manually after the deep cloning.
 
   ## Examples
 
@@ -324,6 +326,18 @@ defmodule Ecspanse.Command do
   end
 
   @doc """
+  The same as `add_component!/2` but fetches the component after adding it.
+  """
+  @doc group: :components
+  @spec add_and_fetch_component!(Entity.t(), Component.component_spec()) ::
+          {:ok, component_state :: struct()}
+  def add_and_fetch_component!(entity, component_spec) do
+    add_component!(entity, component_spec)
+    component_module = get_component_module(component_spec)
+    Ecspanse.Query.fetch_component(entity, component_module)
+  end
+
+  @doc """
   The same as `add_component!/2` but adds multiple components to multiple entities at once.
 
   It takes a list of two element tuples as argument, where the first element of the tuple is the entity
@@ -363,6 +377,18 @@ defmodule Ecspanse.Command do
   @spec update_component!(current_component :: struct(), state_changes :: keyword()) :: :ok
   def update_component!(component, changes_keyword) do
     update_components!([{component, changes_keyword}])
+  end
+
+  @doc """
+  The same as `update_component!/2` but fetches the component after updating it.
+  """
+  @doc group: :components
+  @spec update_and_fetch_component!(current_component :: struct(), state_changes :: keyword()) ::
+          {:ok, component_state :: struct()}
+  def update_and_fetch_component!(component, changes_keyword) do
+    update_component!(component, changes_keyword)
+    component_meta = component.__meta__
+    Ecspanse.Query.fetch_component(component_meta.entity, component_meta.module)
   end
 
   @doc """
@@ -470,7 +496,7 @@ defmodule Ecspanse.Command do
   ## Examples
 
     ```elixir
-    :ok = Ecspanse.Command.add_parent!(sowrd_entity, hero_entity)
+    :ok = Ecspanse.Command.add_parent!(sword_entity, hero_entity)
     ```
   """
   @doc group: :relationships
@@ -597,10 +623,13 @@ defmodule Ecspanse.Command do
   > An Ecspanse instance can only hold one resource of each type at a time.
   > If an attempt is made to insert a resource that already exists, an error will be raised.
 
+  > #### Note  {: .warning}
+  > Resources can be created, updated or deleted only from synchronous systems.
+
   ## Examples
 
     ```elixir
-    :ok = Ecspanse.Command.insert_resource!({Demo.Resources.Lobby, player_count: 0})
+    %Demo.Resources.Lobby{} = Ecspanse.Command.insert_resource!({Demo.Resources.Lobby, player_count: 0})
     ```
   """
   @doc group: :resources
@@ -615,10 +644,13 @@ defmodule Ecspanse.Command do
   @doc """
   Updates an existing global resource.
 
+  > #### Note  {: .warning}
+  > Resources can be created, updated or deleted only from synchronous systems.
+
   ## Examples
 
     ```elixir
-    :ok = Ecspanse.Command.update_resource!(lobby_resource, player_count: 1)
+    %Demo.Resources.Lobby{} = Ecspanse.Command.update_resource!(lobby_resource, player_count: 1)
     ```
   """
   @doc group: :resources
@@ -634,10 +666,13 @@ defmodule Ecspanse.Command do
   @doc """
   Deletes an existing global resource.
 
+  > #### Note  {: .warning}
+  > Resources can be created, updated or deleted only from synchronous systems.
+
   ## Examples
 
     ```elixir
-    :ok = Ecspanse.Command.delete_resource!(lobby_resource)
+    %Demo.Resources.Lobby{} = Ecspanse.Command.delete_resource!(lobby_resource)
     ```
   """
   @doc group: :resources
@@ -670,21 +705,14 @@ defmodule Ecspanse.Command do
 
   # resource payload validation
 
-  defp validate_payload(%Operation{name: :insert_resource}, resource_module)
-       when is_atom(resource_module),
-       do: :ok
+  defp validate_payload(%Operation{name: :insert_resource}, resource_module) when is_atom(resource_module), do: :ok
 
   defp validate_payload(%Operation{name: :insert_resource}, {resource_module, state})
        when is_atom(resource_module) and is_list(state),
        do: :ok
 
   defp validate_payload(%Operation{name: :insert_resource} = operation, value),
-    do:
-      raise(
-        Error,
-        {operation,
-         "Expected  type `Ecspanse.Resource.resource_spec()` , got: `#{inspect(value)}`"}
-      )
+    do: raise(Error, {operation, "Expected  type `Ecspanse.Resource.resource_spec()` , got: `#{Kernel.inspect(value)}`"})
 
   defp validate_payload(%Operation{name: :update_resource}, {resource, state_changes})
        when is_struct(resource) and is_list(state_changes),
@@ -694,22 +722,15 @@ defmodule Ecspanse.Command do
     do:
       raise(
         Error,
-        {operation,
-         "Expected a resource state `struct()` and `keyword()` type args, got: `#{inspect(value)}`"}
+        {operation, "Expected a resource state `struct()` and `keyword()` type args, got: `#{Kernel.inspect(value)}`"}
       )
 
-  defp validate_payload(%Operation{name: :delete_resource}, resource)
-       when is_struct(resource),
-       do: :ok
+  defp validate_payload(%Operation{name: :delete_resource}, resource) when is_struct(resource), do: :ok
 
   # Create, Update, Delete components
 
-  # recieves [{Entity, opts}]
-  defp apply_operation(
-         %Operation{name: :spawn_entities} = operation,
-         command,
-         entity_spec_list
-       ) do
+  # receives [{Entity, opts}]
+  defp apply_operation(%Operation{name: :spawn_entities} = operation, command, entity_spec_list) do
     entity_spec_list =
       Enum.map(entity_spec_list, fn {_, opts} ->
         entity_id = Keyword.get(opts, :id, UUID.uuid4())
@@ -751,7 +772,8 @@ defmodule Ecspanse.Command do
     v2 =
       Task.async(fn ->
         component_specs =
-          Enum.map(entity_spec_list, fn %{component_specs: component_specs} -> component_specs end)
+          entity_spec_list
+          |> Enum.map(fn %{component_specs: component_specs} -> component_specs end)
           |> List.flatten()
 
         :ok = validate_no_relation(operation, component_specs)
@@ -760,7 +782,8 @@ defmodule Ecspanse.Command do
     v3 =
       Task.async(fn ->
         relation_entities =
-          Enum.map(entity_spec_list, fn %{children_entities: children, parents_entities: parents} ->
+          entity_spec_list
+          |> Enum.map(fn %{children_entities: children, parents_entities: parents} ->
             children ++ parents
           end)
           |> List.flatten()
@@ -833,11 +856,7 @@ defmodule Ecspanse.Command do
     }
   end
 
-  defp apply_operation(
-         %Operation{name: :despawn_entities} = operation,
-         command,
-         entities
-       ) do
+  defp apply_operation(%Operation{name: :despawn_entities} = operation, command, entities) do
     # Entity relations (children, parents) need to be handled before removing the entity's components
 
     :ok = validate_entities(operation, entities)
@@ -887,9 +906,7 @@ defmodule Ecspanse.Command do
     # It is possible that more relations for the same entity are updated in the same command.
     # If there are more, they need to be grouped, leaving only the relations that are not deleted
     ungrouped_relations =
-      List.flatten(
-        Task.await(children_and_parents_components) ++ Task.await(parents_and_children_components)
-      )
+      List.flatten(Task.await(children_and_parents_components) ++ Task.await(parents_and_children_components))
 
     relations = group_removed_relations(operation, ungrouped_relations)
 
@@ -902,11 +919,7 @@ defmodule Ecspanse.Command do
   end
 
   # receives a list of {%Entity{} = entity, component_specs}
-  defp apply_operation(
-         %Operation{name: :add_components} = operation,
-         command,
-         list
-       ) do
+  defp apply_operation(%Operation{name: :add_components} = operation, command, list) do
     entities = Enum.map(list, fn {entity, _component_specs} -> entity end)
 
     v1 =
@@ -925,7 +938,8 @@ defmodule Ecspanse.Command do
     v3 =
       Task.async(fn ->
         component_specs =
-          Enum.map(list, fn {_entity, component_specs} -> component_specs end)
+          list
+          |> Enum.map(fn {_entity, component_specs} -> component_specs end)
           |> List.flatten()
 
         :ok = validate_no_relation(operation, component_specs)
@@ -946,11 +960,7 @@ defmodule Ecspanse.Command do
   end
 
   # Receives a list of updates: [ {%Component{}, state_changes :: keyword()}]
-  defp apply_operation(
-         %Operation{name: :update_components} = operation,
-         command,
-         updates
-       ) do
+  defp apply_operation(%Operation{name: :update_components} = operation, command, updates) do
     v1 =
       Task.async(fn ->
         component_modules =
@@ -1001,11 +1011,7 @@ defmodule Ecspanse.Command do
     }
   end
 
-  defp apply_operation(
-         %Operation{name: :remove_components} = operation,
-         command,
-         components_state
-       ) do
+  defp apply_operation(%Operation{name: :remove_components} = operation, command, components_state) do
     :ok = validate_no_relation(operation, Enum.map(components_state, & &1.__meta__.module))
 
     deleted_components = delete_components(operation, components_state)
@@ -1018,15 +1024,12 @@ defmodule Ecspanse.Command do
   end
 
   # receives a list of [{%Entity{}, [%ChildrenEntity{}]}]
-  defp apply_operation(
-         %Operation{name: :add_children} = operation,
-         command,
-         list
-       ) do
+  defp apply_operation(%Operation{name: :add_children} = operation, command, list) do
     v1 =
       Task.async(fn ->
         entities =
-          Enum.map(list, fn {entity, children_entities} -> [entity | children_entities] end)
+          list
+          |> Enum.map(fn {entity, children_entities} -> [entity | children_entities] end)
           |> List.flatten()
 
         :ok = validate_entities(operation, entities)
@@ -1054,15 +1057,12 @@ defmodule Ecspanse.Command do
   end
 
   # receives a list of [{%Entity{}, [%ParentEntity{}]}]
-  defp apply_operation(
-         %Operation{name: :add_parents} = operation,
-         command,
-         list
-       ) do
+  defp apply_operation(%Operation{name: :add_parents} = operation, command, list) do
     v1 =
       Task.async(fn ->
         entities =
-          Enum.map(list, fn {entity, parents_entities} -> [entity | parents_entities] end)
+          list
+          |> Enum.map(fn {entity, parents_entities} -> [entity | parents_entities] end)
           |> List.flatten()
 
         :ok = validate_entities(operation, entities)
@@ -1090,15 +1090,12 @@ defmodule Ecspanse.Command do
   end
 
   # receives a list of [{%Entity{}, [%ChildrenEntity{}]}]
-  defp apply_operation(
-         %Operation{name: :remove_children} = operation,
-         command,
-         list
-       ) do
+  defp apply_operation(%Operation{name: :remove_children} = operation, command, list) do
     v1 =
       Task.async(fn ->
         entities =
-          Enum.map(list, fn {entity, children_entities} -> [entity | children_entities] end)
+          list
+          |> Enum.map(fn {entity, children_entities} -> [entity | children_entities] end)
           |> List.flatten()
 
         :ok = validate_entities(operation, entities)
@@ -1107,7 +1104,8 @@ defmodule Ecspanse.Command do
     v2 =
       Task.async(fn ->
         entities =
-          Enum.map(list, fn {entity, _children_entities} -> entity end)
+          list
+          |> Enum.map(fn {entity, _children_entities} -> entity end)
           |> List.flatten()
 
         # not checking if the children entities exist because they might have been deleted
@@ -1134,15 +1132,12 @@ defmodule Ecspanse.Command do
   end
 
   # receives a list of [{%Entity{}, [%ParentEntity{}]}]
-  defp apply_operation(
-         %Operation{name: :remove_parents} = operation,
-         command,
-         list
-       ) do
+  defp apply_operation(%Operation{name: :remove_parents} = operation, command, list) do
     v1 =
       Task.async(fn ->
         entities =
-          Enum.map(list, fn {entity, parents_entities} -> [entity | parents_entities] end)
+          list
+          |> Enum.map(fn {entity, parents_entities} -> [entity | parents_entities] end)
           |> List.flatten()
 
         :ok = validate_entities(operation, entities)
@@ -1151,7 +1146,8 @@ defmodule Ecspanse.Command do
     v2 =
       Task.async(fn ->
         entities =
-          Enum.map(list, fn {entity, _parents_entities} -> entity end)
+          list
+          |> Enum.map(fn {entity, _parents_entities} -> entity end)
           |> List.flatten()
 
         # not checking if the parents entities exist because they might have been deleted
@@ -1187,11 +1183,7 @@ defmodule Ecspanse.Command do
     }
   end
 
-  defp apply_operation(
-         %Operation{name: :update_resource} = operation,
-         command,
-         {resource_state, state_changes}
-       ) do
+  defp apply_operation(%Operation{name: :update_resource} = operation, command, {resource_state, state_changes}) do
     resource_module = resource_state.__meta__.module
     :ok = validate_resource_exists(operation, resource_state)
 
@@ -1230,14 +1222,14 @@ defmodule Ecspanse.Command do
     }
   end
 
-  defp upsert_resource(operation, resource_module) when is_atom(resource_module) do
+  @doc false
+  def upsert_resource(operation, resource_module) when is_atom(resource_module) do
     upsert_resource(operation, {resource_module, []})
   end
 
   # composes the resource and inserts it into the ets table
   # the flow is different than the components, as the resources are managed one at a time
-  defp upsert_resource(operation, {resource_module, state})
-       when is_atom(resource_module) and is_list(state) do
+  def upsert_resource(operation, {resource_module, state}) when is_atom(resource_module) and is_list(state) do
     :ok = validate_is_resource(operation, resource_module)
 
     :ok =
@@ -1249,7 +1241,8 @@ defmodule Ecspanse.Command do
 
     resource_meta =
       struct!(Resource.Meta, %{
-        module: resource_module
+        module: resource_module,
+        export_filter: resource_module.__export_filter__()
       })
 
     resource_state = struct!(resource_module, Keyword.put(state, :__meta__, resource_meta))
@@ -1264,21 +1257,16 @@ defmodule Ecspanse.Command do
     resource_state
   end
 
-  defp upsert_components(_operation, _entity, [], components), do: components
+  @doc false
+  def upsert_components(_operation, _entity, [], components), do: components
 
-  defp upsert_components(
-         operation,
-         entity,
-         [component_spec | component_specs],
-         components
-       ) do
+  def upsert_components(operation, entity, [component_spec | component_specs], components) do
     component = upsert_component(operation, entity, component_spec)
     upsert_components(operation, entity, component_specs, [component | components])
   end
 
   # Used also for children and parents. Validating children and parents should be done before this
-  defp upsert_component(operation, entity, component_module)
-       when is_atom(component_module) do
+  defp upsert_component(operation, entity, component_module) when is_atom(component_module) do
     upsert_component(operation, entity, {component_module, [], []})
   end
 
@@ -1291,7 +1279,7 @@ defmodule Ecspanse.Command do
     :ok = validate_is_component(operation, component_module)
     :ok = validate_tags(operation, component_spec_tags)
 
-    # VALIDATE THE COMPOENENT IS LOCKED FOR CREATION
+    # VALIDATE THE COMPONENT IS LOCKED FOR CREATION
     :ok =
       validate_locked_component(
         operation,
@@ -1305,7 +1293,8 @@ defmodule Ecspanse.Command do
       struct!(Component.Meta, %{
         entity: entity,
         module: component_module,
-        tags: component_tags_set
+        tags: component_tags_set,
+        export_filter: component_module.__export_filter__()
       })
 
     component_state = struct!(component_module, Keyword.put(state, :__meta__, component_meta))
@@ -1352,8 +1341,7 @@ defmodule Ecspanse.Command do
     [empty_entity_children]
   end
 
-  defp create_children_and_parents(operation, entity, children)
-       when is_list(children) do
+  defp create_children_and_parents(operation, entity, children) when is_list(children) do
     entity_children = upsert_children_for(operation, entity, children)
 
     entities_parents =
@@ -1371,8 +1359,7 @@ defmodule Ecspanse.Command do
     [empty_entity_parents]
   end
 
-  defp create_parents_and_children(operation, entity, parents)
-       when is_list(parents) do
+  defp create_parents_and_children(operation, entity, parents) when is_list(parents) do
     entity_parents = upsert_parents_for(operation, entity, parents)
 
     entities_children =
@@ -1393,7 +1380,7 @@ defmodule Ecspanse.Command do
 
     case :ets.lookup(table, {entity.id, Component.Children}) do
       [{_key, _tags, %Component.Children{entities: existing_children}}] ->
-        children = Enum.concat(existing_children, children) |> Enum.uniq()
+        children = existing_children |> Enum.concat(children) |> Enum.uniq()
 
         upsert_component(
           operation,
@@ -1418,7 +1405,7 @@ defmodule Ecspanse.Command do
 
     case :ets.lookup(table, {entity.id, Component.Parents}) do
       [{_key, _tags, %Component.Parents{entities: existing_parents}}] ->
-        parents = Enum.concat(existing_parents, parents) |> Enum.uniq()
+        parents = existing_parents |> Enum.concat(parents) |> Enum.uniq()
         upsert_component(operation, entity, {Component.Parents, [entities: parents]})
 
       [] ->
@@ -1461,7 +1448,7 @@ defmodule Ecspanse.Command do
         end
       end)
 
-    [entity_children | entities_parents] |> Enum.reject(&is_nil/1)
+    Enum.reject([entity_children | entities_parents], &is_nil/1)
   end
 
   # Mark for update: Remove parent entities from  target Entity
@@ -1499,7 +1486,7 @@ defmodule Ecspanse.Command do
         end
       end)
 
-    [entity_parents | entities_children] |> Enum.reject(&is_nil/1)
+    Enum.reject([entity_parents | entities_children], &is_nil/1)
   end
 
   # Grouping relations
@@ -1514,7 +1501,7 @@ defmodule Ecspanse.Command do
         {k, MapSet.new(), v}
 
       {{entity_id, module}, values} ->
-        list = Enum.map(values, fn value -> value.entities end) |> List.flatten() |> Enum.uniq()
+        list = values |> Enum.map(fn value -> value.entities end) |> List.flatten() |> Enum.uniq()
         entity = Util.build_entity(entity_id)
 
         upsert_component(operation, entity, {module, entities: list})
@@ -1530,7 +1517,8 @@ defmodule Ecspanse.Command do
 
       {{entity_id, module}, values} ->
         list =
-          Enum.map(values, fn value -> value.entities end)
+          values
+          |> Enum.map(fn value -> value.entities end)
           |> List.flatten()
           |> Enum.uniq()
           |> select_entities_present_in_all_relations(values)
@@ -1564,29 +1552,25 @@ defmodule Ecspanse.Command do
   defp validate_required_opts(_operation, _, _, _), do: :ok
 
   defp validate_entities(operation, entities) do
-    non_enitites = Enum.reject(entities, &match?(%Entity{}, &1))
+    non_entities = Enum.reject(entities, &match?(%Entity{}, &1))
 
-    case non_enitites do
+    case non_entities do
       [] ->
         :ok
 
       _ ->
         raise Error,
-              {operation,
-               "Expected a list of `Ecspanse.Entity.t()` types, got: `#{Kernel.inspect(non_enitites)}`"}
+              {operation, "Expected a list of `Ecspanse.Entity.t()` types, got: `#{Kernel.inspect(non_entities)}`"}
     end
   end
 
   defp validate_binary_entity_names(operation, entity_ids) do
     Enum.each(entity_ids, fn entity_id ->
-      case is_binary(entity_id) do
-        true ->
-          :ok
-
-        false ->
-          raise Error,
-                {operation,
-                 "Entity id `#{entity_id}` must be a binary. Entity ids must be unique."}
+      if is_binary(entity_id) do
+        :ok
+      else
+        raise Error,
+              {operation, "Entity id `#{entity_id}` must be a binary. Entity ids must be unique."}
       end
     end)
 
@@ -1661,7 +1645,8 @@ defmodule Ecspanse.Command do
         :ok
 
       missing_entity_ids ->
-        raise Error, {operation, "Entity ids `#{inspect(missing_entity_ids)}` do not exist."}
+        raise Error,
+              {operation, "Entity ids `#{Kernel.inspect(missing_entity_ids)}` do not exist."}
     end
   end
 
@@ -1670,17 +1655,12 @@ defmodule Ecspanse.Command do
       component_module,
       :component,
       Error,
-      {operation, "#{inspect(component_module)} is not a Component"}
+      {operation, "#{Kernel.inspect(component_module)} is not a Component"}
     )
   end
 
   defp validate_no_relation(operation, component_specs) do
-    component_modules =
-      Enum.map(component_specs, fn
-        {component_module, _, _} when is_atom(component_module) -> component_module
-        {component_module, _} when is_atom(component_module) -> component_module
-        component_module when is_atom(component_module) -> component_module
-      end)
+    component_modules = Enum.map(component_specs, &get_component_module/1)
 
     if component_modules -- [Component.Children, Component.Parent] == component_modules do
       :ok
@@ -1699,8 +1679,7 @@ defmodule Ecspanse.Command do
 
         {:error, error} ->
           raise Error,
-                {operation,
-                 "#{inspect(component_state_struct)} state is invalid. Error: #{inspect(error)}"}
+                {operation, "#{Kernel.inspect(component_state_struct)} state is invalid. Error: #{Kernel.inspect(error)}"}
       end
     else
       :ok
@@ -1711,7 +1690,7 @@ defmodule Ecspanse.Command do
   defp validate_locked_component(operation, :sync, component_module) do
     unless Enum.empty?(operation.locked_components) do
       Logger.warning(
-        "#{inspect(operation)}. Component: #{inspect(component_module)}. There is no need to lock components in Systems that execute synchronously. The values are ignored"
+        "#{Kernel.inspect(operation)}. Component: #{Kernel.inspect(component_module)}. There is no need to lock components in Systems that execute synchronously. The values are ignored"
       )
     end
 
@@ -1726,7 +1705,7 @@ defmodule Ecspanse.Command do
     else
       raise Error,
             {operation,
-             "#{inspect(component_module)} is not locked. It can not be created or updated in an async System"}
+             "#{Kernel.inspect(component_module)} is not locked. It can not be created or updated in an async System"}
     end
   end
 
@@ -1741,12 +1720,7 @@ defmodule Ecspanse.Command do
         :ok
 
       existing_components when is_list(existing_components) ->
-        component_modules =
-          Enum.map(component_specs, fn
-            {component_module, _, _} when is_atom(component_module) -> component_module
-            {component_module, _} when is_atom(component_module) -> component_module
-            component_module when is_atom(component_module) -> component_module
-          end)
+        component_modules = Enum.map(component_specs, &get_component_module/1)
 
         if component_modules -- existing_components == component_modules do
           :ok
@@ -1755,7 +1729,7 @@ defmodule Ecspanse.Command do
 
           raise Error,
                 {operation,
-                 "Components #{inspect(duplicates)} already exist for the entity #{inspect(entity_id)}"}
+                 "Components #{Kernel.inspect(duplicates)} already exist for the entity #{Kernel.inspect(entity_id)}"}
         end
     end
   end
@@ -1768,22 +1742,18 @@ defmodule Ecspanse.Command do
            {component.__meta__.entity.id, component.__meta__.module}
          ) do
       [{_key, _tags, _val}] -> :ok
-      _ -> raise Error, {operation, "#{inspect(component)} does not exist"}
+      _ -> raise Error, {operation, "#{Kernel.inspect(component)} does not exist"}
     end
   end
 
   # Resources CRUD validations
-
-  defp validate_is_resource(operation, {resource_module, _state}) do
-    validate_is_resource(operation, resource_module)
-  end
 
   defp validate_is_resource(operation, resource_module) do
     Util.validate_ecs_type(
       resource_module,
       :resource,
       Error,
-      {operation, "#{inspect(resource_module)} is not a Resource"}
+      {operation, "#{Kernel.inspect(resource_module)} is not a Resource"}
     )
   end
 
@@ -1795,8 +1765,7 @@ defmodule Ecspanse.Command do
 
         {:error, error} ->
           raise Error,
-                {operation,
-                 "#{inspect(resource_state_struct)} state is invalid. Error: #{inspect(error)}"}
+                {operation, "#{Kernel.inspect(resource_state_struct)} state is invalid. Error: #{Kernel.inspect(error)}"}
       end
     else
       :ok
@@ -1811,7 +1780,7 @@ defmodule Ecspanse.Command do
   defp validate_locked_resource(operation, :async, resource_module) do
     raise Error,
           {operation,
-           "Resource commands are supported only in sync Systems (startup_systems, frame_start_system, frame_end_system). Resource: #{inspect(resource_module)} "}
+           "Resource commands are supported only in sync Systems (startup_systems, frame_start_system, frame_end_system). Resource: #{Kernel.inspect(resource_module)} "}
   end
 
   defp validate_resource_does_not_exist(operation, resource_spec) do
@@ -1829,7 +1798,7 @@ defmodule Ecspanse.Command do
 
       _ ->
         raise Error,
-              {operation, "Resource #{inspect(resource_module)} already exists"}
+              {operation, "Resource #{Kernel.inspect(resource_module)} already exists"}
     end
   end
 
@@ -1838,7 +1807,7 @@ defmodule Ecspanse.Command do
 
     case :ets.lookup(table, resource.__meta__.module) do
       [{_key, _val}] -> :ok
-      _ -> raise Error, {operation, "#{inspect(resource)} does not exist"}
+      _ -> raise Error, {operation, "#{Kernel.inspect(resource)} does not exist"}
     end
   end
 
@@ -1851,12 +1820,12 @@ defmodule Ecspanse.Command do
 
       _ ->
         raise Error,
-              {operation, "Expected tags to be a list of atoms, got: #{inspect(non_tags)}"}
+              {operation, "Expected tags to be a list of atoms, got: #{Kernel.inspect(non_tags)}"}
     end
   end
 
   defp validate_tags(operation, tags) do
-    raise Error, {operation, "Expected tags to be a list of atoms, got: #{inspect(tags)}"}
+    raise Error, {operation, "Expected tags to be a list of atoms, got: #{Kernel.inspect(tags)}"}
   end
 
   # Commits
@@ -1868,9 +1837,10 @@ defmodule Ecspanse.Command do
     :ok = commit_deletes(command.delete_components)
   end
 
-  defp commit_inserts([]), do: :ok
+  @doc false
+  def commit_inserts([]), do: :ok
 
-  defp commit_inserts(components) do
+  def commit_inserts(components) do
     table = Util.components_state_ets_table()
 
     # do not allow multiple operations for the same component
@@ -1887,7 +1857,7 @@ defmodule Ecspanse.Command do
         :ok
 
       _ ->
-        raise "Error inserting components. Duplicate components insert is not allowed in the same Command: #{inspect(duplicates)}"
+        raise "Error inserting components. Duplicate components insert is not allowed in the same Command: #{Kernel.inspect(duplicates)}"
     end
   end
 
@@ -1914,7 +1884,7 @@ defmodule Ecspanse.Command do
         :ok
 
       _ ->
-        raise "Error updating components. Duplicate components update is not allowed in the same Command: #{inspect(duplicates)}"
+        raise "Error updating components. Duplicate components update is not allowed in the same Command: #{Kernel.inspect(duplicates)}"
     end
   end
 
@@ -1985,10 +1955,21 @@ defmodule Ecspanse.Command do
     end
   end
 
+  # helper
+
+  defp get_component_module(component_spec) do
+    case component_spec do
+      {component_module, _, _} when is_atom(component_module) -> component_module
+      {component_module, _} when is_atom(component_module) -> component_module
+      component_module when is_atom(component_module) -> component_module
+    end
+  end
+
   # helper query functions
 
   defp entities_descendants(entities) do
-    Query.select({Ecspanse.Entity}, for_descendants_of: entities)
+    {Ecspanse.Entity}
+    |> Query.select(for_descendants_of: entities)
     |> Query.stream()
     |> Stream.map(fn {entity} -> entity end)
     |> Enum.to_list()

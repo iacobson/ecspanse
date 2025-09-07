@@ -30,6 +30,7 @@ defmodule Ecspanse.Resource.FPS do
           millisecond: non_neg_integer()
         }
 
+  @impl Ecspanse.Resource
   def validate(%FPS{value: value, current: current, millisecond: millisecond}) do
     if is_integer(value) and value >= 0 and
          (is_integer(current) and current >= 0) and

@@ -56,13 +56,11 @@ defmodule Ecspanse.Template.Component.Timer do
   end
   ```
 
-  See [a working example](./tutorial.md#energy-regeneration) in the tutorial
+  [A working example](./tutorial.md#energy-regeneration) is available in the tutorial
 
   """
-  @timer_component_tag :ecs_timer
-
   use Ecspanse.Template.Component,
-    tags: [@timer_component_tag],
+    tags: [:ecs_timer],
     state: [:duration, :time, :event, mode: :repeat, paused: false]
 
   @mode [:repeat, :once, :temporary]
@@ -72,11 +70,8 @@ defmodule Ecspanse.Template.Component.Timer do
     with :ok <- validate_duration(state[:duration]),
          :ok <- validate_time(state[:time]),
          :ok <- validate_event(state[:event]),
-         :ok <- validate_mode(state[:mode]),
-         :ok <- validate_paused(state[:paused]) do
-      :ok
-    else
-      {:error, reason} -> {:error, reason}
+         :ok <- validate_mode(state[:mode]) do
+      validate_paused(state[:paused])
     end
   end
 
@@ -85,7 +80,7 @@ defmodule Ecspanse.Template.Component.Timer do
       :ok
     else
       raise ArgumentError,
-            "Invalid duration for Timer Component: #{inspect(__MODULE__)}. The `:duration` field is mandatory in the timer state and must be a positive integer."
+            "Invalid duration for Timer Component: #{Kernel.inspect(__MODULE__)}. The `:duration` field is mandatory in the timer state and must be a positive integer."
     end
   end
 
@@ -94,7 +89,7 @@ defmodule Ecspanse.Template.Component.Timer do
       :ok
     else
       raise ArgumentError,
-            "Invalid time for Timer Component: #{inspect(__MODULE__)}. The `:time` field is mandatory in the timer state and must be a non-negative integer."
+            "Invalid time for Timer Component: #{Kernel.inspect(__MODULE__)}. The `:time` field is mandatory in the timer state and must be a non-negative integer."
     end
   end
 
@@ -103,7 +98,7 @@ defmodule Ecspanse.Template.Component.Timer do
       :ok
     else
       raise ArgumentError,
-            "Invalid event for Timer Component: #{inspect(__MODULE__)}. The `:event` field is mandatory in the timer state and must be an atom."
+            "Invalid event for Timer Component: #{Kernel.inspect(__MODULE__)}. The `:event` field is mandatory in the timer state and must be an atom."
     end
   end
 
@@ -112,7 +107,7 @@ defmodule Ecspanse.Template.Component.Timer do
       :ok
     else
       raise ArgumentError,
-            "Invalid mode for Timer Component: #{inspect(__MODULE__)}. The `:mode` field is mandatory in the timer state and must be one of the following: #{inspect(@mode)}"
+            "Invalid mode for Timer Component: #{Kernel.inspect(__MODULE__)}. The `:mode` field is mandatory in the timer state and must be one of the following: #{Kernel.inspect(@mode)}"
     end
   end
 
@@ -121,10 +116,10 @@ defmodule Ecspanse.Template.Component.Timer do
       :ok
     else
       raise ArgumentError,
-            "Invalid paused for Timer Component: #{inspect(__MODULE__)}. The `:paused` field is mandatory in the timer state and must be a boolean."
+            "Invalid paused for Timer Component: #{Kernel.inspect(__MODULE__)}. The `:paused` field is mandatory in the timer state and must be a boolean."
     end
   end
 
   @doc false
-  def timer_component_tag, do: @timer_component_tag
+  def timer_component_tag, do: :ecs_timer
 end

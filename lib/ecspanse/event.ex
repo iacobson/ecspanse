@@ -64,7 +64,7 @@ defmodule Ecspanse.Event do
 
       unless is_list(fields) do
         raise ArgumentError,
-              "Invalid fields for Event: #{inspect(__MODULE__)}. The `:fields` option must be a list with all the Event struct keys and their default values (if any). Eg: [:foo, :bar, baz: 1]"
+              "Invalid fields for Event: #{Kernel.inspect(__MODULE__)}. The `:fields` option must be a list with all the Event struct keys and their default values (if any). Eg: [:foo, :bar, baz: 1]"
       end
 
       fields = Keyword.put_new(fields, :inserted_at, nil)

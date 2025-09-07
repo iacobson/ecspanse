@@ -544,7 +544,7 @@ end
 
 defmodule Demo.Components.Gold do
   use Demo.Components.Resource,
-    state: [id: :gems, name: "Gold", amount: 0], tags: [:resource]
+    state: [id: :gold, name: "Gold", amount: 0], tags: [:resource]
 end
 ```
 

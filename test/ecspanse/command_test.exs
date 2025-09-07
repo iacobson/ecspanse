@@ -132,8 +132,8 @@ defmodule Ecspanse.CommandTest do
       # relationships are not cloned
       assert [] = Ecspanse.Query.list_parents(clone)
 
-      entity_component_modules = entity_components |> Enum.map(& &1.__struct__)
-      cloned_entity_component_modules = clone_components |> Enum.map(& &1.__struct__)
+      entity_component_modules = Enum.map(entity_components, & &1.__struct__)
+      cloned_entity_component_modules = Enum.map(clone_components, & &1.__struct__)
 
       assert [] == entity_component_modules -- cloned_entity_component_modules
 
@@ -148,9 +148,7 @@ defmodule Ecspanse.CommandTest do
 
     test "create a named clone of an entity" do
       entity =
-        Ecspanse.Command.spawn_entity!(
-          {Ecspanse.Entity, id: "alpha", components: [TestComponent1]}
-        )
+        Ecspanse.Command.spawn_entity!({Ecspanse.Entity, id: "alpha", components: [TestComponent1]})
 
       assert entity.id == "alpha"
 
@@ -187,9 +185,7 @@ defmodule Ecspanse.CommandTest do
     test "create a named deep clone of an entity" do
       assert %Ecspanse.Entity{} =
                root_entity =
-               Ecspanse.Command.spawn_entity!(
-                 {Ecspanse.Entity, id: "alpha", components: [TestComponent1]}
-               )
+               Ecspanse.Command.spawn_entity!({Ecspanse.Entity, id: "alpha", components: [TestComponent1]})
 
       entity_1 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [root_entity]})
       entity_2 = Ecspanse.Command.spawn_entity!({Ecspanse.Entity, parents: [entity_1]})
@@ -222,13 +218,24 @@ defmodule Ecspanse.CommandTest do
     end
   end
 
+  describe "add_and_fetch_component!/2" do
+    test "adds a component to an existing entity and fetches it" do
+      assert %Ecspanse.Entity{} =
+               entity =
+               Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [TestComponent1]})
+
+      assert {:ok, %TestComponent2{}} =
+               Ecspanse.Command.add_and_fetch_component!(entity, TestComponent2)
+
+      assert {:ok, %TestComponent2{}} = TestComponent2.fetch(entity)
+    end
+  end
+
   describe "update_components!/1" do
     test "updates components state" do
       assert %Ecspanse.Entity{} =
                entity =
-               Ecspanse.Command.spawn_entity!(
-                 {Ecspanse.Entity, components: [{TestComponent1, [], [:tag1]}]}
-               )
+               Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [{TestComponent1, [], [:tag1]}]})
 
       assert {:ok, %TestComponent1{value: :foo} = comp} =
                Ecspanse.Query.fetch_component(entity, TestComponent1)
@@ -237,6 +244,21 @@ defmodule Ecspanse.CommandTest do
 
       assert {:ok, %TestComponent1{value: :bar}} =
                Ecspanse.Query.fetch_component(entity, TestComponent1)
+    end
+  end
+
+  describe "update_and_fetch_component!/2" do
+    test "updates a component state and fetches it" do
+      assert %Ecspanse.Entity{} =
+               entity =
+               Ecspanse.Command.spawn_entity!({Ecspanse.Entity, components: [{TestComponent1, [], [:tag1]}]})
+
+      assert {:ok, %TestComponent1{value: :foo} = comp} = TestComponent1.fetch(entity)
+
+      assert {:ok, %TestComponent1{value: :bar}} =
+               Ecspanse.Command.update_and_fetch_component!(comp, value: :bar)
+
+      assert {:ok, %TestComponent1{value: :bar}} = TestComponent1.fetch(entity)
     end
   end
 
