@@ -1592,9 +1592,6 @@ defmodule Ecspanse.Command do
         {[], _} ->
           :ok
 
-        {nil, _} ->
-          :ok
-
         :"$end_of_table" ->
           :ok
 
@@ -1636,12 +1633,6 @@ defmodule Ecspanse.Command do
 
     case entity_ids -- result do
       [] ->
-        :ok
-
-      {nil, _} ->
-        :ok
-
-      :"$end_of_table" ->
         :ok
 
       missing_entity_ids ->

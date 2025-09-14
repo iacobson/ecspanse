@@ -1024,10 +1024,8 @@ defmodule Ecspanse.Query do
   end
 
   defp entities_with_components_stream_for_children(query) do
-    case list_children_entities(query.for_children_of) do
-      [] -> []
-      entities -> filter_for_entities(entities)
-    end
+    entities = list_children_entities(query.for_children_of)
+    filter_for_entities(entities)
   end
 
   defp entities_with_components_stream_for_descendants(query) do
@@ -1038,10 +1036,8 @@ defmodule Ecspanse.Query do
   end
 
   defp entities_with_components_stream_for_parents(query) do
-    case list_parents_entities(query.for_parents_of) do
-      [] -> []
-      entities -> filter_for_entities(entities)
-    end
+    entities = list_parents_entities(query.for_parents_of)
+    filter_for_entities(entities)
   end
 
   defp entities_with_components_stream_for_ancestors(query) do
@@ -1184,7 +1180,7 @@ defmodule Ecspanse.Query do
   # if the entity is part of the query, return the entity
   defp map_entity(select_tuple, return_entity, entity_id) do
     if return_entity do
-      Tuple.append(select_tuple, Util.build_entity(entity_id))
+      Tuple.insert_at(select_tuple, tuple_size(select_tuple), Util.build_entity(entity_id))
     else
       select_tuple
     end
@@ -1205,10 +1201,10 @@ defmodule Ecspanse.Query do
         end
 
       case result do
-        [{_key, _tags, comp_state}] -> Tuple.append(acc, comp_state)
+        [{_key, _tags, comp_state}] -> Tuple.insert_at(acc, tuple_size(acc), comp_state)
         # checking for race conditions when a required component is removed during the query
         # the whole entity should be filtered out
-        [] -> Tuple.append(acc, :reject)
+        [] -> Tuple.insert_at(acc, tuple_size(acc), :reject)
       end
     end)
   end
@@ -1228,8 +1224,8 @@ defmodule Ecspanse.Query do
         end
 
       case result do
-        [{_key, _tags, comp_state}] -> Tuple.append(acc, comp_state)
-        [] -> Tuple.append(acc, nil)
+        [{_key, _tags, comp_state}] -> Tuple.insert_at(acc, tuple_size(acc), comp_state)
+        [] -> Tuple.insert_at(acc, tuple_size(acc), nil)
       end
     end)
   end
