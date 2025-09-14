@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.10.1 (2025-09-14)
+
+### Fixes
+
+- fixes tutorial example. Thanks to [@Bastes](https://github.com/Bastes) for identifying and fixing the issue.
+- removes `styler` as it introduces some conflicts with the macros.
+- fixed warnings and type issues for the latest Elixir version.
+
 ## v0.10.0 (2024-09-25)
 
 ### Features
